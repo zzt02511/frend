@@ -14,8 +14,13 @@ data/assets/*
 data/projects/*
 data/output/*
 data/cache/*
+data/temp/*
+data/frend.db
 !data/assets/fonts/.gitkeep
 data/assets/fonts/*.ttf
+
+# Temp
+backend/out_*.txt
 
 # Env
 .env
