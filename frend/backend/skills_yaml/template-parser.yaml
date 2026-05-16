@@ -1,0 +1,9 @@
+id: template-parser
+name: 模板解析器
+description: 加载并解析 YAML 视频模板，验证参数
+version: 1.0.0
+tools:
+  - id: load_template
+    description: 加载模板 YAML 文件
+  - id: validate_params
+    description: 验证用户参数

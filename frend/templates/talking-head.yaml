@@ -1,0 +1,154 @@
+# 口播短视频模板
+# 三场景结构: Hook → 主要内容 → 引导互动
+
+template:
+  id: "talking-head"
+  name: "口播短视频"
+  version: "1.0.0"
+  description: "适合个人IP口播类短视频，包含开场吸引、核心观点输出和互动引导"
+  category: "talking-head"
+  thumbnail: ""
+
+  video:
+    width: 1080
+    height: 1920
+    fps: 30
+    default_duration: 15
+    max_duration: 60
+
+  parameters:
+    - name: topic
+      label: "话题主题"
+      type: text
+      required: true
+      placeholder: "例：年轻人该不该存钱"
+      max_length: 100
+      hint: "输入本期要聊的核心话题"
+
+    - name: personality
+      label: "人设风格"
+      type: select
+      required: false
+      default: "亲切"
+      options: ["亲切", "犀利", "幽默", "理性"]
+      hint: "选择出镜人设风格"
+
+    - name: hook_text
+      label: "开场钩子"
+      type: text
+      required: false
+      default: "说一个你可能不知道的真相"
+      placeholder: "例：99%的人都不知道的真相"
+      max_length: 60
+      hint: "开场前3秒吸引注意力的文案"
+
+    - name: target_audience
+      label: "目标观众"
+      type: text
+      required: false
+      placeholder: "例：职场新人"
+      max_length: 50
+      hint: "明确你的目标观众类型"
+
+    - name: bgm_style
+      label: "背景音乐风格"
+      type: select
+      required: false
+      default: "轻快"
+      options: ["轻快", "温暖", "深沉", "无"]
+      hint: "选择背景音乐风格"
+
+  scenes:
+    - id: hook
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#2d3436"
+          gradient:
+            type: linear
+            colors: ["#2d3436", "#636e72"]
+            angle: 180
+        - type: text
+          content: "{{hook_text}}"
+          font_size: 60
+          color: "#fdcb6e"
+          align: center
+          x: center
+          y: "center - 40"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "{{topic}}"
+          font_size: 36
+          color: "#dfe6e9"
+          align: center
+          x: center
+          y: "center + 40"
+          animation: slide_up
+
+    - id: main_content
+      duration: 8
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#1e272e"
+        - type: text
+          content: "{{key_point}}"
+          font_size: 48
+          color: "#ffffff"
+          align: left
+          x: 80
+          y: 200
+          width: 700
+          animation: slide_up
+        - type: text
+          content: "{{supporting_detail}}"
+          font_size: 32
+          color: "#b2bec3"
+          align: left
+          x: 80
+          y: "200 + text_height + 40"
+          width: 700
+          animation: slide_up
+
+    - id: engagement
+      duration: 4
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#0a3d62"
+          gradient:
+            type: linear
+            colors: ["#0a3d62", "#1e272e"]
+            angle: 135
+        - type: text
+          content: "你怎么看？评论区告诉我"
+          font_size: 52
+          color: "#fdcb6e"
+          align: center
+          x: center
+          y: "center - 30"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "点赞关注，下期更精彩"
+          font_size: 32
+          color: "#dfe6e9"
+          align: center
+          x: center
+          y: "center + 50"
+          animation: slide_up
+
+  audio:
+    bgm_default: ""
+    bgm_volume: 0.2
+    narration_voice: "zh-CN-XiaoxiaoNeural"
+    narration_speed: 1.0
+
+  subtitles:
+    enabled: true
+    font_size: 30
+    color: "#fdcb6e"
+    position: bottom
+    language: zh-CN

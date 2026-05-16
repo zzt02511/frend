@@ -1,0 +1,9 @@
+id: ffmpeg-renderer
+name: FFmpeg 视频渲染器
+description: 使用 FFmpeg 合成最终视频（场景拼接、音频混合、字幕烧录）
+version: 1.0.0
+encoding:
+  codec: libx264
+  preset: medium
+  crf: 23
+  pix_fmt: yuv420p

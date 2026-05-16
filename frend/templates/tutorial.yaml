@@ -1,0 +1,204 @@
+# 教程短视频模板
+# 四场景结构: 标题 → 概述 → 步骤演示 → 总结
+
+template:
+  id: "tutorial"
+  name: "教程短视频"
+  version: "1.0.0"
+  description: "适合技能教学类短视频，包含标题展示、内容概述、分步教学和总结收尾"
+  category: "tutorial"
+  thumbnail: ""
+
+  video:
+    width: 1080
+    height: 1920
+    fps: 30
+    default_duration: 20
+    max_duration: 90
+
+  parameters:
+    - name: title
+      label: "教程标题"
+      type: text
+      required: true
+      placeholder: "例：5分钟学会Python爬虫"
+      max_length: 80
+      hint: "输入教程的核心标题"
+
+    - name: difficulty
+      label: "难度等级"
+      type: select
+      required: false
+      default: "入门"
+      options: ["入门", "进阶", "高手"]
+      hint: "选择教程难度级别"
+
+    - name: step_count
+      label: "步骤数"
+      type: number
+      required: false
+      default: "3"
+      max_length: 10
+      hint: "教程包含几个核心步骤"
+
+    - name: tools_needed
+      label: "所需工具"
+      type: text
+      required: false
+      placeholder: "例：Python, VS Code"
+      max_length: 100
+      hint: "列出所需的工具或软件"
+
+    - name: bgm_style
+      label: "背景音乐风格"
+      type: select
+      required: false
+      default: "轻快"
+      options: ["轻快", "专注", "科技", "无"]
+      hint: "选择背景音乐风格"
+
+  scenes:
+    - id: title_card
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#0f3443"
+          gradient:
+            type: linear
+            colors: ["#0f3443", "#34e89e"]
+            angle: 135
+        - type: text
+          content: "{{title}}"
+          font_size: 64
+          color: "#ffffff"
+          align: center
+          x: center
+          y: "center - 40"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "难度: {{difficulty}}"
+          font_size: 28
+          color: "#34e89e"
+          align: center
+          x: center
+          y: "center + 40"
+          animation: slide_up
+
+    - id: overview
+      duration: 4
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#1a1a2e"
+        - type: text
+          content: "你将学到"
+          font_size: 44
+          color: "#34e89e"
+          align: left
+          x: 80
+          y: 160
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "{{overview_points}}"
+          font_size: 36
+          color: "#ffffff"
+          align: left
+          x: 80
+          y: 260
+          width: 700
+          animation: slide_up
+        - type: text
+          content: "所需工具: {{tools_needed}}"
+          font_size: 28
+          color: "#a0a0a0"
+          align: left
+          x: 80
+          y: "260 + text_height + 40"
+          width: 700
+          animation: slide_up
+
+    - id: step_demo
+      duration: 10
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#16213e"
+        - type: text
+          content: "步骤 {{step_number}}/{{step_count}}"
+          font_size: 32
+          color: "#34e89e"
+          align: left
+          x: 80
+          y: 120
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "{{step_title}}"
+          font_size: 48
+          color: "#ffffff"
+          align: left
+          x: 80
+          y: 180
+          width: 700
+          animation: slide_up
+        - type: text
+          content: "{{step_detail}}"
+          font_size: 32
+          color: "#cccccc"
+          align: left
+          x: 80
+          y: "180 + text_height + 30"
+          width: 700
+          animation: slide_up
+
+    - id: summary
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#0f3443"
+          gradient:
+            type: linear
+            colors: ["#34e89e", "#0f3443"]
+            angle: 135
+        - type: text
+          content: "总结"
+          font_size: 48
+          color: "#ffffff"
+          align: center
+          x: center
+          y: "center - 60"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "{{recap}}"
+          font_size: 36
+          color: "#dfe6e9"
+          align: center
+          x: center
+          y: center
+          animation: slide_up
+        - type: text
+          content: "关注我，获取更多教程"
+          font_size: 28
+          color: "#34e89e"
+          align: center
+          x: center
+          y: "center + 80"
+          animation: slide_up
+
+  audio:
+    bgm_default: ""
+    bgm_volume: 0.2
+    narration_voice: "zh-CN-YunxiNeural"
+    narration_speed: 1.0
+
+  subtitles:
+    enabled: true
+    font_size: 30
+    color: "#34e89e"
+    position: bottom
+    language: zh-CN

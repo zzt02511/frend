@@ -1,0 +1,10 @@
+id: image-gen
+name: 图像生成器
+description: 根据场景视觉描述生成或搜索配图
+version: 1.0.0
+fallback:
+  type: solid_color
+  colors:
+    - "#1a1a2e"
+    - "#16213e"
+    - "#0f3460"

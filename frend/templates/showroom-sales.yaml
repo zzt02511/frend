@@ -1,0 +1,287 @@
+# 展厅销售问答短视频模板
+# 四场景结构: 展厅开场 → 顾客问答① → 顾客问答② → 行动号召
+# 特色：模拟顾客咨询→销售员解答的有问有答对话场景
+
+template:
+  id: "showroom-sales"
+  name: "展厅销售问答"
+  version: "1.0.0"
+  description: "适合展厅/门店销售场景，模拟销售员与顾客有问有答的对话式短视频，展现专业讲解和产品卖点"
+  category: "showroom"
+  thumbnail: ""
+
+  video:
+    width: 1080
+    height: 1920
+    fps: 30
+    default_duration: 18
+    max_duration: 45
+
+  parameters:
+    - name: product_name
+      label: "产品名称"
+      type: text
+      required: true
+      placeholder: "例：XX 新能源 SUV"
+      max_length: 50
+      hint: "输入展厅销售的产品名称"
+
+    - name: industry
+      label: "行业类别"
+      type: select
+      required: false
+      default: "汽车"
+      options: ["汽车", "家居", "数码", "珠宝", "房产", "其他"]
+      hint: "选择所属行业"
+
+    - name: question_1
+      label: "顾客提问①"
+      type: text
+      required: true
+      placeholder: "例：这车续航真的能达到 1000 公里吗？"
+      max_length: 80
+      hint: "第一个顾客咨询问题"
+
+    - name: answer_1
+      label: "销售回答①"
+      type: text
+      required: true
+      placeholder: "例：没错，我们采用了最新的固态电池技术..."
+      max_length: 120
+      hint: "销售员针对第一个问题的回答"
+
+    - name: feature_1
+      label: "核心卖点①"
+      type: text
+      required: false
+      default: "突破性技术"
+      placeholder: "例：固态电池 · 续航突破"
+      max_length: 50
+      hint: "第一个问答要展示的核心卖点"
+
+    - name: question_2
+      label: "顾客提问②"
+      type: text
+      required: true
+      placeholder: "例：充电一次需要多久？"
+      max_length: 80
+      hint: "第二个顾客咨询问题"
+
+    - name: answer_2
+      label: "销售回答②"
+      type: text
+      required: true
+      placeholder: "例：快充模式下 15 分钟就能充到 80%..."
+      max_length: 120
+      hint: "销售员针对第二个问题的回答"
+
+    - name: feature_2
+      label: "核心卖点②"
+      type: text
+      required: false
+      default: "极致体验"
+      placeholder: "例：超级快充 · 便捷无忧"
+      max_length: 50
+      hint: "第二个问答要展示的核心卖点"
+
+    - name: cta_text
+      label: "行动号召文案"
+      type: text
+      required: false
+      default: "欢迎到店体验"
+      placeholder: "例：点击预约试驾"
+      max_length: 50
+      hint: "结尾引导文案"
+
+    - name: sales_style
+      label: "销售风格"
+      type: select
+      required: false
+      default: "专业"
+      options: ["专业", "亲切", "热情"]
+      hint: "选择销售员的讲解风格"
+
+    - name: bgm_style
+      label: "背景音乐风格"
+      type: select
+      required: false
+      default: "大气"
+      options: ["大气", "轻快", "温馨"]
+      hint: "选择展厅背景音乐风格"
+
+  scenes:
+    - id: showroom_opening
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#1a0a2e"
+          gradient:
+            type: linear
+            colors: ["#1a0a2e", "#e94560", "#0f3460"]
+            angle: 135
+        - type: text
+          content: "欢迎来到 {{product_name}} 展厅"
+          font_size: 56
+          color: "#ffffff"
+          align: center
+          x: center
+          y: "center - 40"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "您想问的，我来答"
+          font_size: 32
+          color: "#e94560"
+          align: center
+          x: center
+          y: "center + 50"
+          animation: slide_up
+
+    - id: qa_round_1
+      duration: 6
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#16213e"
+        - type: text
+          content: "🙋 顾客问"
+          font_size: 24
+          color: "#fdcb6e"
+          align: left
+          x: 60
+          y: 100
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "“{{question_1}}”"
+          font_size: 38
+          color: "#fdcb6e"
+          align: left
+          x: 60
+          y: 140
+          width: 750
+          animation: slide_up
+        - type: text
+          content: "💬 销售答"
+          font_size: 24
+          color: "#00d4ff"
+          align: left
+          x: 60
+          y: "140 + text_height + 30"
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "{{answer_1}}"
+          font_size: 34
+          color: "#ffffff"
+          align: left
+          x: 60
+          y: "140 + text_height + 70"
+          width: 750
+          animation: slide_up
+        - type: text
+          content: "⚡ {{feature_1}}"
+          font_size: 22
+          color: "#e94560"
+          align: left
+          x: 60
+          y: "140 + text_height + 70 + text_height_2 + 10"
+          width: 750
+          animation: slide_up
+
+    - id: qa_round_2
+      duration: 6
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#0f3460"
+        - type: text
+          content: "🙋 顾客追问"
+          font_size: 24
+          color: "#fdcb6e"
+          align: left
+          x: 60
+          y: 100
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "“{{question_2}}”"
+          font_size: 38
+          color: "#fdcb6e"
+          align: left
+          x: 60
+          y: 140
+          width: 750
+          animation: slide_up
+        - type: text
+          content: "💬 销售答"
+          font_size: 24
+          color: "#00d4ff"
+          align: left
+          x: 60
+          y: "140 + text_height + 30"
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "{{answer_2}}"
+          font_size: 34
+          color: "#ffffff"
+          align: left
+          x: 60
+          y: "140 + text_height + 70"
+          width: 750
+          animation: slide_up
+        - type: text
+          content: "⚡ {{feature_2}}"
+          font_size: 22
+          color: "#e94560"
+          align: left
+          x: 60
+          y: "140 + text_height + 70 + text_height_2 + 10"
+          width: 750
+          animation: slide_up
+
+    - id: cta
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#1a0a2e"
+          gradient:
+            type: linear
+            colors: ["#0f3460", "#e94560", "#1a0a2e"]
+            angle: 135
+        - type: text
+          content: "{{cta_text}}"
+          font_size: 60
+          color: "#ffffff"
+          align: center
+          x: center
+          y: "center - 30"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "{{product_name}} · 期待您的光临"
+          font_size: 28
+          color: "#fdcb6e"
+          align: center
+          x: center
+          y: "center + 50"
+          animation: slide_up
+
+  audio:
+    bgm_default: ""
+    bgm_volume: 0.2
+    narration_voice: "zh-CN-YunxiNeural"
+    narration_speed: 1.0
+    narration_volume: 1.0
+    customer_voice: "zh-CN-XiaoxiaoNeural"
+    customer_volume: 0.7
+
+  subtitles:
+    enabled: true
+    font_size: 28
+    color: "#ffffff"
+    position: bottom
+    language: zh-CN

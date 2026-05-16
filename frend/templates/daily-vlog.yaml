@@ -1,0 +1,162 @@
+# 日常Vlog短视频模板
+# 三场景结构: 场景引入 → 日常记录 → 感悟收尾
+
+template:
+  id: "daily-vlog"
+  name: "日常Vlog"
+  version: "1.0.0"
+  description: "适合日常生活记录类短视频，包含场景引入、过程记录和感悟分享"
+  category: "vlog"
+  thumbnail: ""
+
+  video:
+    width: 1080
+    height: 1920
+    fps: 30
+    default_duration: 15
+    max_duration: 60
+
+  parameters:
+    - name: theme
+      label: "主题"
+      type: text
+      required: true
+      placeholder: "例：周末城市漫步"
+      max_length: 80
+      hint: "输入今天Vlog的主题"
+
+    - name: mood
+      label: "心情氛围"
+      type: select
+      required: false
+      default: "治愈"
+      options: ["治愈", "元气", "慵懒", "治愈", "燃"]
+      hint: "选择今天的心情氛围"
+
+    - name: location
+      label: "地点"
+      type: text
+      required: false
+      placeholder: "例：上海武康路"
+      max_length: 50
+      hint: "输入所在的地点"
+
+    - name: bgm_style
+      label: "背景音乐风格"
+      type: select
+      required: false
+      default: "治愈"
+      options: ["治愈", "轻快", "温暖", "城市", "自然"]
+      hint: "选择背景音乐风格"
+
+  scenes:
+    - id: intro
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#ffeaa7"
+          gradient:
+            type: linear
+            colors: ["#ffeaa7", "#fdcb6e"]
+            angle: 135
+        - type: text
+          content: "{{theme}}"
+          font_size: 64
+          color: "#2d3436"
+          align: center
+          x: center
+          y: "center - 40"
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "📍 {{location}}"
+          font_size: 28
+          color: "#636e72"
+          align: center
+          x: center
+          y: "center + 30"
+          animation: slide_up
+        - type: text
+          content: "☀️ {{mood}}的一天"
+          font_size: 26
+          color: "#b2bec3"
+          align: center
+          x: center
+          y: "center + 70"
+          animation: slide_up
+
+    - id: daily_scenes
+      duration: 8
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#2d3436"
+        - type: text
+          content: "{{moment_title}}"
+          font_size: 44
+          color: "#fdcb6e"
+          align: left
+          x: 80
+          y: 160
+          bold: true
+          animation: slide_up
+        - type: text
+          content: "{{moment_description}}"
+          font_size: 34
+          color: "#dfe6e9"
+          align: left
+          x: 80
+          y: 230
+          width: 700
+          animation: slide_up
+        - type: text
+          content: "{{moment_detail}}"
+          font_size: 28
+          color: "#b2bec3"
+          align: left
+          x: 80
+          y: "230 + text_height + 20"
+          width: 700
+          animation: slide_up
+
+    - id: reflection
+      duration: 4
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#ffeaa7"
+          gradient:
+            type: linear
+            colors: ["#ffeaa7", "#dfe6e9"]
+            angle: 135
+        - type: text
+          content: "{{reflection}}"
+          font_size: 44
+          color: "#2d3436"
+          align: center
+          x: center
+          y: "center - 30"
+          width: 750
+          animation: scale_in
+        - type: text
+          content: "明天继续探索 ✨"
+          font_size: 28
+          color: "#636e72"
+          align: center
+          x: center
+          y: "center + 70"
+          animation: slide_up
+
+  audio:
+    bgm_default: ""
+    bgm_volume: 0.3
+    narration_voice: "zh-CN-XiaoxuanNeural"
+    narration_speed: 0.9
+
+  subtitles:
+    enabled: true
+    font_size: 28
+    color: "#fdcb6e"
+    position: bottom
+    language: zh-CN

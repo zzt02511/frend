@@ -1,0 +1,115 @@
+# 知识科普短视频模板
+# 三场景结构: 开场 → 内容 → 结尾
+
+template:
+  id: "knowledge-short"
+  name: "知识科普短视频"
+  version: "1.0.0"
+  description: "适合科普类内容的短视频模板，包含开场标题、核心内容展示和结尾引导关注"
+  category: "knowledge"
+  thumbnail: ""
+
+  video:
+    width: 1080
+    height: 1920
+    fps: 30
+    default_duration: 15
+    max_duration: 60
+
+  parameters:
+    - name: topic
+      label: "科普主题"
+      type: text
+      required: true
+      placeholder: "例：量子计算入门"
+      max_length: 100
+      hint: "输入视频要科普的核心主题"
+
+    - name: tone
+      label: "讲解风格"
+      type: select
+      required: false
+      default: "轻松"
+      options: ["轻松", "专业", "趣味"]
+      hint: "选择文案的语调风格"
+
+    - name: bgm
+      label: "背景音乐风格"
+      type: select
+      required: false
+      default: "科技"
+      options: ["科技", "轻松", "大气"]
+      hint: "选择背景音乐风格"
+
+  scenes:
+    - id: opening
+      duration: 4
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#0f0c29"
+          gradient:
+            type: linear
+            colors: ["#0f0c29", "#302b63", "#24243e"]
+            angle: 135
+        - type: text
+          content: "{{topic}}"
+          font_size: 72
+          color: "#ffffff"
+          align: center
+          x: center
+          y: center
+          bold: true
+          animation: scale_in
+
+    - id: content_main
+      duration: 8
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#1a1a2e"
+        - type: text
+          content: "{{main_point}}"
+          font_size: 48
+          color: "#e94560"
+          align: left
+          x: 80
+          y: center
+          width: 600
+          animation: slide_up
+
+    - id: closing
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#16213e"
+        - type: text
+          content: "感谢观看！"
+          font_size: 64
+          color: "#ffffff"
+          align: center
+          x: center
+          y: center
+          animation: scale_in
+        - type: text
+          content: "关注我们获取更多知识"
+          font_size: 32
+          color: "#e94560"
+          align: center
+          x: center
+          y: "center + 80"
+          animation: slide_up
+
+  audio:
+    bgm_default: ""
+    bgm_volume: 0.3
+    narration_voice: "zh-CN-XiaoxiaoNeural"
+    narration_speed: 1.0
+
+  subtitles:
+    enabled: true
+    font_size: 28
+    color: "#ffffff"
+    position: bottom
+    language: zh-CN

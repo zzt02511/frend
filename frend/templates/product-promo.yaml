@@ -1,0 +1,157 @@
+# 产品推广短视频模板
+# 四场景结构: Hook → 痛点 → 解决方案 → CTA
+
+template:
+  id: "product-promo"
+  name: "产品推广短视频"
+  version: "1.0.0"
+  description: "适合产品推广类短视频，包含吸引注意、痛点挖掘、产品展示和行动号召"
+  category: "product"
+  thumbnail: ""
+
+  video:
+    width: 1080
+    height: 1920
+    fps: 30
+    default_duration: 20
+    max_duration: 60
+
+  parameters:
+    - name: product_name
+      label: "产品名称"
+      type: text
+      required: true
+      placeholder: "例：智能翻译笔 Pro"
+      max_length: 50
+
+    - name: tagline
+      label: "产品标语"
+      type: text
+      required: true
+      placeholder: "例：一秒翻译，世界无界"
+      max_length: 100
+
+    - name: target_audience
+      label: "目标用户"
+      type: text
+      required: false
+      placeholder: "例：外语学习者"
+      max_length: 50
+
+    - name: cta_text
+      label: "行动号召文案"
+      type: text
+      required: false
+      default: "立即购买"
+      placeholder: "例：点击下方链接购买"
+      max_length: 50
+
+    - name: tone
+      label: "广告风格"
+      type: select
+      required: false
+      default: "专业"
+      options: ["专业", "热情", "科技感"]
+      hint: "选择广告的语调风格"
+
+  scenes:
+    - id: hook
+      duration: 3
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#000000"
+        - type: text
+          content: "你还在为{{tagline}}而烦恼吗？"
+          font_size: 56
+          color: "#ffffff"
+          align: center
+          x: center
+          y: center
+          bold: true
+          animation: scale_in
+
+    - id: pain_point
+      duration: 5
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#1a1a2e"
+        - type: text
+          content: "{{pain_description}}"
+          font_size: 44
+          color: "#e94560"
+          align: left
+          x: 80
+          y: center
+          width: 700
+          animation: slide_up
+
+    - id: solution
+      duration: 7
+      transition: slide_left
+      elements:
+        - type: background
+          fill: "#16213e"
+        - type: text
+          content: "{{product_name}}"
+          font_size: 72
+          color: "#00d4ff"
+          align: center
+          x: center
+          y: 200
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "{{tagline}}"
+          font_size: 40
+          color: "#ffffff"
+          align: center
+          x: center
+          y: center
+          animation: slide_up
+        - type: text
+          content: "{{solution_features}}"
+          font_size: 32
+          color: "#aaaaaa"
+          align: center
+          x: center
+          y: "center + 120"
+          animation: slide_up
+
+    - id: cta
+      duration: 5
+      transition: fade_in
+      elements:
+        - type: background
+          fill: "#0f3460"
+        - type: text
+          content: "{{cta_text}}"
+          font_size: 64
+          color: "#e94560"
+          align: center
+          x: center
+          y: center
+          bold: true
+          animation: scale_in
+        - type: text
+          content: "限时优惠，立即行动"
+          font_size: 32
+          color: "#ffffff"
+          align: center
+          x: center
+          y: "center + 80"
+          animation: slide_up
+
+  audio:
+    bgm_default: ""
+    bgm_volume: 0.25
+    narration_voice: "zh-CN-XiaoxiaoNeural"
+    narration_speed: 1.1
+
+  subtitles:
+    enabled: true
+    font_size: 28
+    color: "#ffffff"
+    position: bottom
+    language: zh-CN

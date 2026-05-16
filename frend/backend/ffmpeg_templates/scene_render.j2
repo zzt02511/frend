@@ -1,0 +1,22 @@
+{# 单场景渲染模板 #}
+{# 变量: width, height, fps, duration, bg_color, elements #}
+ffmpeg \
+  -f lavfi \
+  -i "color=c={{ bg_color }}:s={{ width }}x{{ height }}:d={{ duration }}:r={{ fps }}" \
+{% for element in elements %}
+{% if element.type == "image" and element.path %}
+  -i "{{ element.path }}" \
+{% endif %}
+{% endfor %}
+  -filter_complex "{{ filter_complex }}" \
+{% if has_overlay %}
+  -map "[out]" \
+{% else %}
+  -map "0:v" \
+{% endif %}
+  -c:v libx264 \
+  -preset medium \
+  -crf 23 \
+  -pix_fmt yuv420p \
+  -y \
+  "{{ output_path }}"

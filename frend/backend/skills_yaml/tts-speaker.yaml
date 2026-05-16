@@ -1,0 +1,8 @@
+id: tts-speaker
+name: TTS 配音生成器
+description: 将配音文本转为语音音频文件
+version: 1.0.0
+audio:
+  voice: zh-CN-XiaoxiaoNeural
+  speed: 1.0
+  format: mp3

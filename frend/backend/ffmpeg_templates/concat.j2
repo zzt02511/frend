@@ -1,0 +1,17 @@
+{# 场景拼接模板 #}
+{# 使用 concat demuxer 拼接多个场景视频 #}
+{# 变量: scene_files[], list_path, output_path #}
+
+# 创建 concat list 文件: {{ list_path }}
+{% for file in scene_files %}
+file '{{ file }}'
+{% endfor %}
+
+# 拼接命令
+ffmpeg \
+  -f concat \
+  -safe 0 \
+  -i "{{ list_path }}" \
+  -c copy \
+  -y \
+  "{{ output_path }}"

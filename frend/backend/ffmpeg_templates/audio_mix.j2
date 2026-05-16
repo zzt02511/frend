@@ -1,0 +1,15 @@
+{# 音频混合模板 #}
+{# 变量: video_path, tts_paths[], bgm_path, bgm_volume, output_path #}
+ffmpeg \
+  -i "{{ video_path }}" \
+{% for tts in tts_paths %}
+  -i "{{ tts }}" \
+{% endfor %}
+{% if bgm_path %}
+  -i "{{ bgm_path }}" \
+{% endif %}
+  -filter_complex "{{ filter_complex }}" \
+  -map "[out]" \
+  -c:v copy \
+  -y \
+  "{{ output_path }}"

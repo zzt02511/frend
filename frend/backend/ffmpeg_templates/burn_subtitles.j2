@@ -1,0 +1,11 @@
+{# 字幕烧录模板 #}
+{# 变量: video_path, srt_path, output_path, font_size, font_color #}
+ffmpeg \
+  -i "{{ video_path }}" \
+  -vf "subtitles={{ srt_path }}:fontsdir=/Windows/Fonts:force_style='FontSize={{ font_size }},PrimaryColour=&H{{ font_color_bgr }}&'" \
+  -c:a copy \
+  -c:v libx264 \
+  -preset medium \
+  -crf 23 \
+  -y \
+  "{{ output_path }}"

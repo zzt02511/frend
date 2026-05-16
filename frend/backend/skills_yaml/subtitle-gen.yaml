@@ -1,0 +1,8 @@
+id: subtitle-gen
+name: 字幕生成器
+description: 根据脚本和时间轴生成 SRT 格式字幕
+version: 1.0.0
+output:
+  format: srt
+  position: bottom
+  max_chars_per_line: 20

@@ -1,0 +1,7 @@
+id: asset-manager
+name: 资产管理器
+description: 资产缓存、去重和生命周期管理
+version: 1.0.0
+storage:
+  max_age_hours: 24
+  dedup: sha256

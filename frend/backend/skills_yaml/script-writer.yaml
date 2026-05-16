@@ -1,0 +1,11 @@
+id: script-writer
+name: 视频脚本编写器
+description: 使用 LLM 从模板和用户参数生成场景级脚本
+version: 1.0.0
+prompt: |
+  你是一个短视频脚本编写助手。根据模板和用户输入生成场景级脚本。
+  每个场景包含 narration（配音文本）、visual_desc（视觉描述）和 duration（时长）。
+llm_config:
+  temperature: 0.7
+  max_tokens: 2048
+  response_format: json_object

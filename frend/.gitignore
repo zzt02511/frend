@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/venv/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Data
+data/assets/*
+data/projects/*
+data/output/*
+data/cache/*
+!data/assets/fonts/.gitkeep
+data/assets/fonts/*.ttf
+
+# Env
+.env
+backend/.env
+
+# OS
+*.egg-info/
+dist/
