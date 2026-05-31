@@ -190,6 +190,9 @@ Each generated item includes:
 - Comment/private-message prompt.
 - Private-message keyword.
 - Compliance notes.
+- Editing storyboard suggestions.
+- LLM rewrite prompt.
+- Content score.
 
 Risky phrases checked include:
 
@@ -327,6 +330,9 @@ Do not prioritize these in v1:
   - `comment_prompt` -> caption/comment guidance.
   - `dm_keyword` -> private-message keyword.
   - `compliance_notes` -> human review checklist.
+  - `storyboard` -> shot list for case-material editing.
+  - `llm_prompt` -> prompt for OpenAI/Tongyi/Doubao/DeepSeek rewrite.
+  - `score` -> review priority and content selection.
 - The original project is Windows-first. Avoid Linux/macOS assumptions.
 - Do not delete `.pyd` files unless the user explicitly requests source-only debugging.
 - Use `rg` for searching when available.

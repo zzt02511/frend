@@ -283,6 +283,43 @@
       background: rgba(63, 97, 115, .05);
     }
 
+    .storyboard {
+      margin-top: 12px;
+      padding: 10px;
+      border-left: 3px solid var(--moss);
+      background: rgba(79, 111, 82, .07);
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .score {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 54px;
+      height: 28px;
+      margin-top: 10px;
+      border-radius: 999px;
+      background: var(--moss);
+      color: #fffdf7;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .mini-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .mini-actions button {
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 12px;
+      background: var(--steel);
+    }
+
     .warn {
       color: var(--brick);
       font-weight: 800;
@@ -560,6 +597,48 @@
       return notes;
     }
 
+    function storyboard(key, c, pain) {
+      const opening = `0-3秒：数字人口播或门店实拍开场，屏幕大字“${c.city}${c.district}${c.cabinetType}”。`;
+      const middle = {
+        avoid_pitfalls: `3-15秒：切板材、五金、封边、安装收口特写，字幕标出“合同写清楚 / 型号看得见 / 样板可验证”。`,
+        case_story: `3-25秒：展示${c.community}户型图、完工图、柜体打开细节，突出“${pain}”的解决前后对比。`,
+        price_explainer: "3-18秒：用报价单局部、板材样块、抽屉五金和见光面细节解释价格差异。",
+        craft_showcase: "3-28秒：连续展示切面、封边、铰链、轨道、安装现场和售后回访画面。",
+        local_trust: `3-25秒：插入同城小区外景、门店门头、量尺现场、安装现场，强化本地可信度。`
+      }[key];
+      const ending = `最后3秒：显示门店名“${c.storeName}”、引导语“${c.contact}”，保留评论关键词。`;
+      return [opening, middle, ending];
+    }
+
+    function buildPrompt(c, pillar, script, itemTitles, itemCover) {
+      return [
+        "你是非标定制家居短视频编导。请在不虚构案例、不夸大环保和价格承诺的前提下，把下面内容改写成更像本地门店老板/设计师口吻的短视频脚本。",
+        "",
+        `行业：非标定制家居`,
+        `城市区域：${c.city}${c.district}`,
+        `门店：${c.storeName}`,
+        `案例：${c.community}，${c.roomType}，${c.area}平，${c.style}`,
+        `柜类：${c.cabinetType}`,
+        `板材/五金/工艺：${c.board}，${c.hardware}，${c.edgeBanding}`,
+        `内容栏目：${pillar}`,
+        `原脚本：${script}`,
+        `标题候选：${itemTitles.join(" / ")}`,
+        `封面文案：${itemCover}`,
+        "",
+        "输出 JSON，字段为 script、titles、cover、comment_prompt、dm_keyword、risk_notes。"
+      ].join("\n");
+    }
+
+    function score(script, itemTitles, cta, notes) {
+      let value = 60;
+      if (["本地", "同城", "小区", "量尺"].some(word => script.includes(word))) value += 10;
+      if (["避坑", "报价", "工艺", "收纳", "安装", "售后"].some(word => script.includes(word))) value += 10;
+      if (cta && ["评论区", "私信", "预约"].some(word => cta.includes(word))) value += 10;
+      if (itemTitles.length >= 3) value += 5;
+      value -= Math.min(25, notes.length * 8);
+      return Math.max(0, Math.min(100, value));
+    }
+
     function generate() {
       const c = getCase();
       const rows = [];
@@ -571,7 +650,10 @@
         const itemTitles = titles(p.key, c);
         const itemCover = cover(p.key, c);
         const notes = compliance([script, ...itemTitles, itemCover, p.cta(c)].join("\n"));
-        rows.push({ index: i + 1, pillar: p.name, duration: p.duration, script, titles: itemTitles, cover: itemCover, cta: p.cta(c), keyword: p.keyword, notes });
+        const shots = storyboard(p.key, c, pain);
+        const prompt = buildPrompt(c, p.name, script, itemTitles, itemCover);
+        const scoreValue = score(script, itemTitles, p.cta(c), notes);
+        rows.push({ index: i + 1, pillar: p.name, duration: p.duration, script, titles: itemTitles, cover: itemCover, cta: p.cta(c), keyword: p.keyword, notes, shots, prompt, score: scoreValue });
       }
       render(rows);
     }
@@ -594,9 +676,25 @@
               <div><strong>关键词：</strong>${escapeHtml(item.keyword)}</div>
               <div class="${item.notes.length ? "warn" : ""}"><strong>合规：</strong>${item.notes.length ? item.notes.map(escapeHtml).join("；") : "未发现高风险表达"}</div>
             </div>
+            <div class="storyboard">
+              <strong>剪辑分镜</strong>
+              <ul>${item.shots.map(shot => `<li>${escapeHtml(shot)}</li>`).join("")}</ul>
+            </div>
+            <div class="score">评分 ${item.score}</div>
+            <div class="mini-actions">
+              <button data-prompt="${item.index - 1}">复制LLM提示词</button>
+            </div>
           </div>
         </article>
       `).join("");
+      output.querySelectorAll("[data-prompt]").forEach(button => {
+        button.addEventListener("click", async () => {
+          const row = rows[Number(button.dataset.prompt)];
+          await navigator.clipboard.writeText(row.prompt);
+          button.textContent = "已复制";
+          setTimeout(() => button.textContent = "复制LLM提示词", 1200);
+        });
+      });
       document.getElementById("countMetric").textContent = rows.length;
       document.getElementById("titleMetric").textContent = rows.length * 3;
       document.getElementById("safeMetric").textContent = rows.reduce((sum, item) => sum + item.notes.length, 0);
@@ -618,7 +716,9 @@
         `封面：${item.cover}`,
         `引导：${item.cta}`,
         `关键词：${item.keyword}`,
-        `合规：${item.notes.length ? item.notes.join("；") : "未发现高风险表达"}`
+        `合规：${item.notes.length ? item.notes.join("；") : "未发现高风险表达"}`,
+        `评分：${item.score}/100`,
+        `剪辑分镜：${item.shots.join(" | ")}`
       ].join("\n")).join("\n\n");
       await navigator.clipboard.writeText(text);
       document.getElementById("copyAllBtn").textContent = "已复制";

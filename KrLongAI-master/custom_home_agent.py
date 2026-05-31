@@ -103,6 +103,9 @@ class ScriptOutput:
     comment_prompt: str
     dm_keyword: str
     compliance_notes: list[str]
+    storyboard: list[str]
+    llm_prompt: str
+    score: int
 
 
 def _clean(value: str, fallback: str) -> str:
@@ -173,6 +176,9 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
             "local_trust": "小区",
         }[key]
         notes = validate_copy("\n".join([script, *titles, cover, comment_prompt]))
+        storyboard = build_storyboard(key, case, pain)
+        llm_prompt = build_llm_prompt(case, pillar["name"], script, titles, cover)
+        score = score_output(script, titles, comment_prompt, notes)
         outputs.append(
             ScriptOutput(
                 index=offset + 1,
@@ -185,9 +191,60 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
                 comment_prompt=comment_prompt,
                 dm_keyword=dm_keyword,
                 compliance_notes=notes,
+                storyboard=storyboard,
+                llm_prompt=llm_prompt,
+                score=score,
             )
         )
     return outputs
+
+
+def build_storyboard(key: str, case: CaseInput, pain: str) -> list[str]:
+    opening = f"0-3秒：数字人口播或门店实拍开场，屏幕大字“{case.city}{case.district}{case.cabinet_type}”。"
+    if key == "avoid_pitfalls":
+        middle = f"3-15秒：切板材、五金、封边、安装收口特写，字幕标出“合同写清楚 / 型号看得见 / 样板可验证”。"
+    elif key == "case_story":
+        middle = f"3-25秒：展示{case.community}户型图、完工图、柜体打开细节，突出“{pain}”的解决前后对比。"
+    elif key == "price_explainer":
+        middle = "3-18秒：用报价单局部、板材样块、抽屉五金和见光面细节解释价格差异。"
+    elif key == "craft_showcase":
+        middle = "3-28秒：连续展示切面、封边、铰链、轨道、安装现场和售后回访画面。"
+    else:
+        middle = f"3-25秒：插入同城小区外景、门店门头、量尺现场、安装现场，强化本地可信度。"
+    ending = f"最后3秒：显示门店名“{case.store_name}”、引导语“{case.contact}”，保留评论关键词。"
+    return [opening, middle, ending]
+
+
+def build_llm_prompt(case: CaseInput, pillar: str, script: str, titles: list[str], cover: str) -> str:
+    return (
+        "你是非标定制家居短视频编导。请在不虚构案例、不夸大环保和价格承诺的前提下，"
+        "把下面内容改写成更像本地门店老板/设计师口吻的短视频脚本。\n\n"
+        f"行业：非标定制家居\n"
+        f"城市区域：{case.city}{case.district}\n"
+        f"门店：{case.store_name}\n"
+        f"案例：{case.community}，{case.room_type}，{case.area}平，{case.style}\n"
+        f"柜类：{case.cabinet_type}\n"
+        f"板材/五金/工艺：{case.board}，{case.hardware}，{case.edge_banding}\n"
+        f"内容栏目：{pillar}\n"
+        f"原脚本：{script}\n"
+        f"标题候选：{' / '.join(titles)}\n"
+        f"封面文案：{cover}\n\n"
+        "输出 JSON，字段为 script、titles、cover、comment_prompt、dm_keyword、risk_notes。"
+    )
+
+
+def score_output(script: str, titles: list[str], comment_prompt: str, notes: list[str]) -> int:
+    score = 60
+    if any(word in script for word in ("本地", "同城", "小区", "量尺")):
+        score += 10
+    if any(word in script for word in ("避坑", "报价", "工艺", "收纳", "安装", "售后")):
+        score += 10
+    if comment_prompt and any(word in comment_prompt for word in ("评论区", "私信", "预约")):
+        score += 10
+    if len(titles) >= 3:
+        score += 5
+    score -= min(25, len(notes) * 8)
+    return max(0, min(100, score))
 
 
 def _detail_line(key: str, case: CaseInput, pain: str, point: str) -> str:
@@ -292,6 +349,18 @@ def outputs_to_markdown(outputs: list[ScriptOutput], case: CaseInput) -> str:
                 f"**私信关键词**：{item.dm_keyword}",
                 "",
                 f"**合规提示**：{notes}",
+                "",
+                "**剪辑分镜**",
+                "",
+                *(f"- {shot}" for shot in item.storyboard),
+                "",
+                f"**内容评分**：{item.score}/100",
+                "",
+                "**LLM二次改写提示词**",
+                "",
+                "```text",
+                item.llm_prompt,
+                "```",
                 "",
             ]
         )

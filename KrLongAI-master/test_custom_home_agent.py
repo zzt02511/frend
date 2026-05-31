@@ -20,6 +20,9 @@ class CustomHomeAgentTests(unittest.TestCase):
             self.assertTrue(item.cover)
             self.assertTrue(item.comment_prompt)
             self.assertTrue(item.dm_keyword)
+            self.assertEqual(len(item.storyboard), 3)
+            self.assertTrue(item.llm_prompt)
+            self.assertGreaterEqual(item.score, 0)
 
     def test_rotates_all_five_content_pillars(self):
         outputs = generate_outputs(CaseInput(quantity=5))
@@ -50,6 +53,15 @@ class CustomHomeAgentTests(unittest.TestCase):
         data = json.loads(result.stdout)
         self.assertEqual(len(data), 2)
         self.assertIn("衣柜定制", data[0]["script"])
+        self.assertIn("storyboard", data[0])
+        self.assertIn("llm_prompt", data[0])
+        self.assertIn("score", data[0])
+
+    def test_output_contains_storyboard_and_prompt(self):
+        output = generate_outputs(CaseInput(quantity=1))[0]
+
+        self.assertIn("非标定制家居短视频编导", output.llm_prompt)
+        self.assertTrue(any("门店" in shot or "特写" in shot for shot in output.storyboard))
 
 
 if __name__ == "__main__":

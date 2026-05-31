@@ -13,6 +13,9 @@
   - 评论区/私信引导
   - 私信关键词
   - 合规风险提示
+  - 剪辑分镜建议
+  - LLM 二次改写提示词
+  - 内容评分
 - 风险表达检测：会提示 `0甲醛`、`绝对环保`、`全网最低`、`保证成交`、`省50%` 等高风险话术。
 
 ## 打开可视化工作台
@@ -39,6 +42,8 @@ python custom_home_agent.py --input custom_home_case.sample.json --output custom
 python custom_home_agent.py --input custom_home_case.sample.json --json
 ```
 
+JSON 会包含 `storyboard`、`llm_prompt`、`score` 字段，可直接交给大模型、剪辑工具或后续数字人链路。
+
 快速生成 3 条默认内容：
 
 ```bat
@@ -54,6 +59,9 @@ python custom_home_agent.py --quantity 3
 3. `cover` 作为封面大字。
 4. `comment_prompt` 和 `dm_keyword` 作为发布运营话术。
 5. `compliance_notes` 作为发布前人工复核提醒。
+6. `storyboard` 作为剪辑镜头清单。
+7. `llm_prompt` 作为接入 OpenAI/通义/豆包/DeepSeek 时的二次改写提示词。
+8. `score` 作为人工筛选优先级。
 
 第一阶段仍建议人工发布，不先接自动发布模块，降低平台风控和接口失效风险。
 
