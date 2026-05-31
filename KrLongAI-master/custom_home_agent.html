@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>非标定制家居同城获客智能体</title>
+  <style>
+    :root {
+      --ink: #20201d;
+      --muted: #68655d;
+      --paper: #f7f3ea;
+      --panel: #fffdf7;
+      --line: #d8d0c2;
+      --oak: #8b6f47;
+      --moss: #4f6f52;
+      --steel: #3f6173;
+      --brick: #a64f3c;
+      --shadow: 0 18px 48px rgba(42, 37, 28, .12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(32, 32, 29, .035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(32, 32, 29, .03) 1px, transparent 1px),
+        var(--paper);
+      background-size: 28px 28px;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Serif SC", serif;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+    }
+
+    aside {
+      min-height: 100vh;
+      padding: 24px;
+      background: #25241f;
+      color: #f7f3ea;
+      border-right: 1px solid rgba(255, 255, 255, .08);
+      position: sticky;
+      top: 0;
+    }
+
+    main {
+      padding: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .mark {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(247, 243, 234, .35);
+      background: linear-gradient(135deg, #8b6f47, #4f6f52);
+      font-weight: 800;
+      font-size: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 4px 0 0;
+      color: rgba(247, 243, 234, .68);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .section-title {
+      margin: 22px 0 10px;
+      color: rgba(247, 243, 234, .7);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: inherit;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid rgba(247, 243, 234, .18);
+      border-radius: 6px;
+      padding: 10px 11px;
+      background: rgba(255, 255, 255, .075);
+      color: #fffdf7;
+      outline: none;
+      font: inherit;
+      font-size: 13px;
+    }
+
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(202, 180, 127, .9);
+      box-shadow: 0 0 0 3px rgba(202, 180, 127, .14);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 44px;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      min-height: 42px;
+      border: 0;
+      border-radius: 6px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      color: #fffdf7;
+      background: var(--brick);
+      transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+      box-shadow: 0 12px 24px rgba(166, 79, 60, .24);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, .1);
+      border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 10px 22px rgba(42, 37, 28, .06);
+    }
+
+    .metric b {
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .pill {
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 247, .72);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .output-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(139, 111, 71, .13), rgba(79, 111, 82, .08));
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.3;
+    }
+
+    .duration {
+      white-space: nowrap;
+      color: var(--steel);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .card-body {
+      padding: 14px;
+    }
+
+    .script {
+      margin: 0 0 12px;
+      line-height: 1.7;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .label {
+      margin: 12px 0 6px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--oak);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .meta {
+      display: grid;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px dashed rgba(63, 97, 115, .32);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(63, 97, 115, .05);
+    }
+
+    .warn {
+      color: var(--brick);
+      font-weight: 800;
+    }
+
+    .empty {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--line);
+      background: rgba(255, 253, 247, .48);
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        min-height: auto;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 560px) {
+      aside,
+      main {
+        padding: 16px;
+      }
+
+      .grid-2,
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .output-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="mark">木</div>
+        <div>
+          <h1>非标定制家居<br>同城获客智能体</h1>
+          <p class="sub">为全屋定制、衣柜橱柜、木作门店批量生成短视频口播内容。</p>
+        </div>
+      </div>
+
+      <div class="section-title">门店与案例</div>
+      <div class="grid-2">
+        <div>
+          <label for="city">城市</label>
+          <input id="city" value="苏州">
+        </div>
+        <div>
+          <label for="district">区域</label>
+          <input id="district" value="吴中">
+        </div>
+      </div>
+      <label for="storeName">门店名称</label>
+      <input id="storeName" value="木作先生全屋定制">
+      <label for="community">小区/楼盘</label>
+      <input id="community" value="湖畔花园">
+      <div class="grid-2">
+        <div>
+          <label for="roomType">户型</label>
+          <input id="roomType" value="三室两厅">
+        </div>
+        <div>
+          <label for="area">面积</label>
+          <input id="area" value="118">
+        </div>
+      </div>
+
+      <div class="section-title">产品与卖点</div>
+      <div class="grid-2">
+        <div>
+          <label for="cabinetType">柜类</label>
+          <select id="cabinetType">
+            <option>全屋定制</option>
+            <option>衣柜定制</option>
+            <option>橱柜定制</option>
+            <option>门墙柜一体</option>
+            <option>木作定制</option>
+          </select>
+        </div>
+        <div>
+          <label for="style">风格</label>
+          <input id="style" value="奶油原木风">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <label for="board">板材</label>
+          <input id="board" value="ENF级板材">
+        </div>
+        <div>
+          <label for="hardware">五金</label>
+          <input id="hardware" value="品牌缓冲五金">
+        </div>
+      </div>
+      <label for="edgeBanding">封边/工艺</label>
+      <input id="edgeBanding" value="PUR封边、现场复尺">
+      <label for="painPoints">业主痛点</label>
+      <textarea id="painPoints">收纳不够、担心甲醛、报价看不懂、怕安装翻车</textarea>
+      <label for="sellingPoints">门店卖点</label>
+      <textarea id="sellingPoints">本地真实案例、透明报价、工厂直连、安装售后可追踪</textarea>
+
+      <div class="section-title">转化设置</div>
+      <label for="budget">预算/报价表达</label>
+      <input id="budget" value="按户型和柜体展开面积核算">
+      <label for="promotion">活动/引导</label>
+      <input id="promotion" value="到店领取户型收纳规划">
+      <label for="contact">联系方式</label>
+      <input id="contact" value="私信预约量尺">
+      <label for="quantity">生成数量</label>
+      <select id="quantity">
+        <option value="5">5条</option>
+        <option value="10" selected>10条</option>
+        <option value="15">15条</option>
+      </select>
+
+      <div class="actions">
+        <button id="generateBtn">生成内容包</button>
+        <button class="secondary" id="copyAllBtn" title="复制全部">复制</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="summary">
+        <div class="metric"><b id="countMetric">0</b><span>脚本数量</span></div>
+        <div class="metric"><b id="titleMetric">0</b><span>标题数量</span></div>
+        <div class="metric"><b id="safeMetric">0</b><span>合规提醒</span></div>
+        <div class="metric"><b id="keywordMetric">0</b><span>私信关键词</span></div>
+      </div>
+
+      <div class="toolbar">
+        <span class="pill">装修避坑</span>
+        <span class="pill">案例讲解</span>
+        <span class="pill">价格解释</span>
+        <span class="pill">工艺展示</span>
+        <span class="pill">本地信任</span>
+      </div>
+
+      <section id="output" class="output-grid">
+        <div class="empty">
+          <div>
+            <strong>先填左侧案例，再生成内容包</strong>
+            <p>每条内容包含口播脚本、3个标题、封面文案、评论引导、私信关键词和合规提示。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const pillars = [
+      {
+        key: "avoid_pitfalls",
+        name: "装修避坑",
+        duration: "15-25秒",
+        hook: c => `${c.city}${c.district}准备做${c.cabinetType}的业主，先别急着交定金。`,
+        cta: c => `评论区打“避坑”，发你一份${c.cabinetType}验收清单。`,
+        keyword: "避坑"
+      },
+      {
+        key: "case_story",
+        name: "案例讲解",
+        duration: "25-45秒",
+        hook: c => `这套${c.community}${c.area}平的${c.style}案例，最值钱的不是柜子多。`,
+        cta: () => "私信“小区名”，帮你看同户型能不能这样做。",
+        keyword: "小区名"
+      },
+      {
+        key: "price_explainer",
+        name: "价格解释",
+        duration: "15-25秒",
+        hook: c => `为什么同样是${c.cabinetType}，有的报价差出一大截？`,
+        cta: () => "评论区打“报价”，发你一份透明报价拆解表。",
+        keyword: "报价"
+      },
+      {
+        key: "craft_showcase",
+        name: "工艺展示",
+        duration: "25-45秒",
+        hook: c => `看${c.cabinetType}别只看效果图，真正决定耐不耐用的是这些细节。`,
+        cta: () => "私信“工艺”，预约到店看样板和安装细节。",
+        keyword: "工艺"
+      },
+      {
+        key: "local_trust",
+        name: "本地信任",
+        duration: "25-45秒",
+        hook: c => `如果你也在${c.city}${c.district}装修，建议先看完这个本地案例。`,
+        cta: () => "评论区留“小区”，我们帮你匹配附近案例。",
+        keyword: "小区"
+      }
+    ];
+
+    const riskyClaims = ["0甲醛", "零甲醛", "绝对环保", "100%环保", "最低价", "全网最低", "保证成交", "稳赚", "省一半", "省50%", "免费送", "虚假房源"];
+
+    function value(id, fallback = "") {
+      return (document.getElementById(id).value || fallback).trim();
+    }
+
+    function splitPoints(text) {
+      const points = text.replaceAll("，", ",").replaceAll("、", ",").replaceAll("；", ",").split(",").map(x => x.trim()).filter(Boolean);
+      return points.length ? points : ["收纳不够", "报价不透明", "售后没保障"];
+    }
+
+    function getCase() {
+      return {
+        city: value("city", "本地"),
+        district: value("district", ""),
+        storeName: value("storeName", "本地定制家居门店"),
+        community: value("community", "同城小区"),
+        roomType: value("roomType", "三室两厅"),
+        area: value("area", "100"),
+        cabinetType: value("cabinetType", "全屋定制"),
+        style: value("style", "现代简约"),
+        board: value("board", "ENF级板材"),
+        hardware: value("hardware", "品牌五金"),
+        edgeBanding: value("edgeBanding", "PUR封边"),
+        painPoints: splitPoints(value("painPoints")),
+        sellingPoints: splitPoints(value("sellingPoints")),
+        budget: value("budget", "按实际方案报价"),
+        promotion: value("promotion", "到店领取户型规划建议"),
+        contact: value("contact", "私信预约"),
+        quantity: Number(value("quantity", "10"))
+      };
+    }
+
+    function detailLine(key, c, pain, point) {
+      if (key === "avoid_pitfalls") return `重点看三件事：${c.board}是否写进合同，${c.hardware}是否有型号，${c.edgeBanding}和安装收口有没有样板可看。`;
+      if (key === "case_story") return `这套${c.area}平的核心处理，是围绕${pain}重新分配柜体比例，让${c.style}效果和日常收纳都能落地。`;
+      if (key === "price_explainer") return `报价差通常不只差在板材，还差在五金、封边、见光面、抽屉数量和售后标准。我们会把${point}拆开给你看。`;
+      if (key === "craft_showcase") return "你到店不要只看展厅成品，要看切面、封边、铰链、抽屉轨道和安装现场，这些才决定后面几年好不好用。";
+      return `${c.storeName}服务${c.city}${c.district}本地客户，量尺、复尺、安装、售后都能追踪，不是外地团队做完就走。`;
+    }
+
+    function titles(key, c) {
+      const city = `${c.city}${c.district}`;
+      if (key === "avoid_pitfalls") return [`${city}做${c.cabinetType}，这3个坑先避开`, `${c.cabinetType}别急着交定金，先看这些细节`, `业主最容易忽略的${c.cabinetType}验收点`];
+      if (key === "case_story") return [`${c.community}${c.area}平${c.style}定制案例`, `${c.roomType}收纳不够？这个案例可以参考`, `同城业主的${c.cabinetType}方案复盘`];
+      if (key === "price_explainer") return [`${c.cabinetType}报价为什么差这么多？`, "别只比总价，定制柜报价要看这些项", `${city}业主看报价前先懂这几个点`];
+      if (key === "craft_showcase") return [`${c.cabinetType}耐不耐用，看这几个工艺`, "别只看效果图，定制柜细节更重要", `${c.board}+${c.hardware}到底怎么选？`];
+      return [`${city}装修，先找同小区案例`, `本地${c.cabinetType}门店怎么选？`, "到店前先准备这份户型需求清单"];
+    }
+
+    function cover(key, c) {
+      if (key === "avoid_pitfalls") return `${c.cabinetType}避坑清单`;
+      if (key === "case_story") return `${c.community}真实案例`;
+      if (key === "price_explainer") return "报价差在哪里？";
+      if (key === "craft_showcase") return "细节决定耐用";
+      return `${c.city}本地案例参考`;
+    }
+
+    function compliance(text) {
+      const notes = riskyClaims.filter(claim => text.includes(claim)).map(claim => `包含高风险表达：${claim}`);
+      if (text.includes("最") && (text.includes("环保") || text.includes("便宜") || text.includes("好"))) {
+        notes.push("避免使用绝对化最高级表达，建议改成可验证事实。");
+      }
+      return notes;
+    }
+
+    function generate() {
+      const c = getCase();
+      const rows = [];
+      for (let i = 0; i < c.quantity; i++) {
+        const p = pillars[i % pillars.length];
+        const pain = c.painPoints[i % c.painPoints.length];
+        const point = c.sellingPoints[i % c.sellingPoints.length];
+        const script = `${p.hook(c)}\n很多客户来店里第一句话就是：${pain}。\n这个案例我们先看户型和生活习惯，再定${c.cabinetType}方案，不是一上来就堆柜子、压价格。\n${detailLine(p.key, c, pain, point)}\n如果你家也是${c.roomType}，预算是${c.budget}，建议先做一次方案拆解。${p.cta(c)}`;
+        const itemTitles = titles(p.key, c);
+        const itemCover = cover(p.key, c);
+        const notes = compliance([script, ...itemTitles, itemCover, p.cta(c)].join("\n"));
+        rows.push({ index: i + 1, pillar: p.name, duration: p.duration, script, titles: itemTitles, cover: itemCover, cta: p.cta(c), keyword: p.keyword, notes });
+      }
+      render(rows);
+    }
+
+    function render(rows) {
+      const output = document.getElementById("output");
+      output.innerHTML = rows.map(item => `
+        <article class="card">
+          <div class="card-head">
+            <h2>${item.index}. ${item.pillar}</h2>
+            <span class="duration">${item.duration}</span>
+          </div>
+          <div class="card-body">
+            <p class="script">${escapeHtml(item.script)}</p>
+            <div class="label">标题</div>
+            <ul>${item.titles.map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+            <div class="meta">
+              <div><strong>封面：</strong>${escapeHtml(item.cover)}</div>
+              <div><strong>评论/私信：</strong>${escapeHtml(item.cta)}</div>
+              <div><strong>关键词：</strong>${escapeHtml(item.keyword)}</div>
+              <div class="${item.notes.length ? "warn" : ""}"><strong>合规：</strong>${item.notes.length ? item.notes.map(escapeHtml).join("；") : "未发现高风险表达"}</div>
+            </div>
+          </div>
+        </article>
+      `).join("");
+      document.getElementById("countMetric").textContent = rows.length;
+      document.getElementById("titleMetric").textContent = rows.length * 3;
+      document.getElementById("safeMetric").textContent = rows.reduce((sum, item) => sum + item.notes.length, 0);
+      document.getElementById("keywordMetric").textContent = new Set(rows.map(item => item.keyword)).size;
+      window.generatedRows = rows;
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[ch]));
+    }
+
+    async function copyAll() {
+      const rows = window.generatedRows || [];
+      if (!rows.length) return;
+      const text = rows.map(item => [
+        `${item.index}. ${item.pillar}（${item.duration}）`,
+        item.script,
+        `标题：${item.titles.join(" / ")}`,
+        `封面：${item.cover}`,
+        `引导：${item.cta}`,
+        `关键词：${item.keyword}`,
+        `合规：${item.notes.length ? item.notes.join("；") : "未发现高风险表达"}`
+      ].join("\n")).join("\n\n");
+      await navigator.clipboard.writeText(text);
+      document.getElementById("copyAllBtn").textContent = "已复制";
+      setTimeout(() => document.getElementById("copyAllBtn").textContent = "复制", 1200);
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", generate);
+    document.getElementById("copyAllBtn").addEventListener("click", copyAll);
+    generate();
+  </script>
+</body>
+</html>
