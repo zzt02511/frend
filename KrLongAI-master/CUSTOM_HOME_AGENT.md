@@ -16,6 +16,7 @@
   - 剪辑分镜建议
   - LLM 二次改写提示词
   - 内容评分
+  - 一键改写稿
 - 风险表达检测：会提示 `0甲醛`、`绝对环保`、`全网最低`、`保证成交`、`省50%` 等高风险话术。
 
 ## 打开可视化工作台
@@ -44,6 +45,8 @@ python custom_home_agent.py --input custom_home_case.sample.json --json
 
 JSON 会包含 `storyboard`、`llm_prompt`、`score` 字段，可直接交给大模型、剪辑工具或后续数字人链路。
 
+可视化工作台支持每条内容的“一键改写”。改写稿会显示在卡片里的可编辑文本框中，编辑后点击“保存”会存到浏览器本地，再次生成同一案例时会自动加载；也可以一键复制改写稿。
+
 快速生成 3 条默认内容：
 
 ```bat
@@ -62,6 +65,7 @@ python custom_home_agent.py --quantity 3
 6. `storyboard` 作为剪辑镜头清单。
 7. `llm_prompt` 作为接入 OpenAI/通义/豆包/DeepSeek 时的二次改写提示词。
 8. `score` 作为人工筛选优先级。
+9. `rewritten_script` 作为一键改写后的门店顾问口吻文案。
 
 第一阶段仍建议人工发布，不先接自动发布模块，降低平台风控和接口失效风险。
 

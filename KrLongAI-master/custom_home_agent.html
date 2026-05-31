@@ -320,6 +320,30 @@
       background: var(--steel);
     }
 
+    .rewrite-panel {
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid rgba(166, 79, 60, .25);
+      border-radius: 6px;
+      background: rgba(166, 79, 60, .055);
+    }
+
+    .rewrite-panel textarea {
+      min-height: 150px;
+      margin-top: 8px;
+      color: var(--ink);
+      background: #fffdf7;
+      border-color: rgba(166, 79, 60, .22);
+    }
+
+    .rewrite-status {
+      min-height: 18px;
+      margin-top: 6px;
+      color: var(--moss);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .warn {
       color: var(--brick);
       font-weight: 800;
@@ -639,6 +663,40 @@
       return Math.max(0, Math.min(100, value));
     }
 
+    function rewriteScript(script, c, pillar) {
+      let text = script.trim();
+      const replacements = [
+        ["很多客户来店里第一句话就是：", "我们最近接待同城业主时，听到最多的问题是："],
+        ["这个案例我们先看户型和生活习惯", "这类非标定制不能先套模板，要先看户型、动线和一家人的生活习惯"],
+        ["不是一上来就堆柜子、压价格", "柜子不是越多越好，价格也不能只看一个总数"],
+        ["建议先做一次方案拆解", "建议先做一次免费的需求和报价拆解"]
+      ];
+      replacements.forEach(([from, to]) => {
+        text = text.replaceAll(from, to);
+      });
+      if (!text.startsWith("我是")) {
+        text = `我是${c.storeName}的定制顾问，今天用一个${c.city}${c.district}的真实场景讲清楚。\n${text}`;
+      }
+      if (pillar === "价格解释") {
+        text += "\n记住一句话：定制柜不要只比总价，要把板材、五金、封边、抽屉和售后逐项看明白。";
+      } else if (pillar === "工艺展示") {
+        text += "\n到店看样板时，别只看颜色和造型，一定要让门店把切面、封边和五金型号拿出来看。";
+      } else if (pillar === "本地信任") {
+        text += "\n同城门店最大的价值，是量尺、复尺、安装和售后都能找到人。";
+      }
+      return text;
+    }
+
+    function rewriteKey(c, item, script) {
+      const raw = `${c.storeName}|${c.community}|${item.pillar}|${item.index}|${script.slice(0, 64)}`;
+      let hash = 0;
+      for (let i = 0; i < raw.length; i++) {
+        hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+        hash |= 0;
+      }
+      return `custom-home-rewrite:${hash}`;
+    }
+
     function generate() {
       const c = getCase();
       const rows = [];
@@ -653,7 +711,10 @@
         const shots = storyboard(p.key, c, pain);
         const prompt = buildPrompt(c, p.name, script, itemTitles, itemCover);
         const scoreValue = score(script, itemTitles, p.cta(c), notes);
-        rows.push({ index: i + 1, pillar: p.name, duration: p.duration, script, titles: itemTitles, cover: itemCover, cta: p.cta(c), keyword: p.keyword, notes, shots, prompt, score: scoreValue });
+        const baseRow = { index: i + 1, pillar: p.name };
+        const key = rewriteKey(c, baseRow, script);
+        const savedRewrite = localStorage.getItem(key) || "";
+        rows.push({ index: i + 1, pillar: p.name, duration: p.duration, script, titles: itemTitles, cover: itemCover, cta: p.cta(c), keyword: p.keyword, notes, shots, prompt, score: scoreValue, rewriteKey: key, rewritten: savedRewrite, rewriteContext: c });
       }
       render(rows);
     }
@@ -684,6 +745,16 @@
             <div class="mini-actions">
               <button data-prompt="${item.index - 1}">复制LLM提示词</button>
             </div>
+            <div class="rewrite-panel">
+              <strong>改写后文案</strong>
+              <textarea id="rewrite-${item.index - 1}" placeholder="点击“一键改写”生成更口语化的门店顾问文案；也可以直接编辑。">${escapeHtml(item.rewritten)}</textarea>
+              <div class="mini-actions">
+                <button data-rewrite="${item.index - 1}">一键改写</button>
+                <button data-save-rewrite="${item.index - 1}">保存</button>
+                <button data-copy-rewrite="${item.index - 1}">复制改写稿</button>
+              </div>
+              <div class="rewrite-status" id="rewrite-status-${item.index - 1}">${item.rewritten ? "已加载已保存文案" : ""}</div>
+            </div>
           </div>
         </article>
       `).join("");
@@ -693,6 +764,31 @@
           await navigator.clipboard.writeText(row.prompt);
           button.textContent = "已复制";
           setTimeout(() => button.textContent = "复制LLM提示词", 1200);
+        });
+      });
+      output.querySelectorAll("[data-rewrite]").forEach(button => {
+        button.addEventListener("click", () => {
+          const row = rows[Number(button.dataset.rewrite)];
+          const textarea = document.getElementById(`rewrite-${button.dataset.rewrite}`);
+          textarea.value = rewriteScript(row.script, row.rewriteContext, row.pillar);
+          document.getElementById(`rewrite-status-${button.dataset.rewrite}`).textContent = "已生成，可继续编辑后保存";
+        });
+      });
+      output.querySelectorAll("[data-save-rewrite]").forEach(button => {
+        button.addEventListener("click", () => {
+          const row = rows[Number(button.dataset.saveRewrite)];
+          const textarea = document.getElementById(`rewrite-${button.dataset.saveRewrite}`);
+          localStorage.setItem(row.rewriteKey, textarea.value.trim());
+          row.rewritten = textarea.value.trim();
+          document.getElementById(`rewrite-status-${button.dataset.saveRewrite}`).textContent = "已保存到本地";
+        });
+      });
+      output.querySelectorAll("[data-copy-rewrite]").forEach(button => {
+        button.addEventListener("click", async () => {
+          const textarea = document.getElementById(`rewrite-${button.dataset.copyRewrite}`);
+          await navigator.clipboard.writeText(textarea.value);
+          button.textContent = "已复制";
+          setTimeout(() => button.textContent = "复制改写稿", 1200);
         });
       });
       document.getElementById("countMetric").textContent = rows.length;
@@ -718,7 +814,8 @@
         `关键词：${item.keyword}`,
         `合规：${item.notes.length ? item.notes.join("；") : "未发现高风险表达"}`,
         `评分：${item.score}/100`,
-        `剪辑分镜：${item.shots.join(" | ")}`
+        `剪辑分镜：${item.shots.join(" | ")}`,
+        `改写稿：${document.getElementById(`rewrite-${item.index - 1}`)?.value || item.rewritten || ""}`
       ].join("\n")).join("\n\n");
       await navigator.clipboard.writeText(text);
       document.getElementById("copyAllBtn").textContent = "已复制";

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from custom_home_agent import CaseInput, generate_outputs, validate_copy
+from custom_home_agent import CaseInput, generate_outputs, rewrite_script, validate_copy
 
 
 class CustomHomeAgentTests(unittest.TestCase):
@@ -23,6 +23,7 @@ class CustomHomeAgentTests(unittest.TestCase):
             self.assertEqual(len(item.storyboard), 3)
             self.assertTrue(item.llm_prompt)
             self.assertGreaterEqual(item.score, 0)
+            self.assertTrue(item.rewritten_script)
 
     def test_rotates_all_five_content_pillars(self):
         outputs = generate_outputs(CaseInput(quantity=5))
@@ -56,12 +57,21 @@ class CustomHomeAgentTests(unittest.TestCase):
         self.assertIn("storyboard", data[0])
         self.assertIn("llm_prompt", data[0])
         self.assertIn("score", data[0])
+        self.assertIn("rewritten_script", data[0])
 
     def test_output_contains_storyboard_and_prompt(self):
         output = generate_outputs(CaseInput(quantity=1))[0]
 
         self.assertIn("非标定制家居短视频编导", output.llm_prompt)
         self.assertTrue(any("门店" in shot or "特写" in shot for shot in output.storyboard))
+
+    def test_rewrite_script_is_more_consultative(self):
+        case = CaseInput(store_name="木作先生全屋定制", city="苏州", district="吴中")
+        rewritten = rewrite_script("很多客户来店里第一句话就是：报价看不懂。", case, "价格解释")
+
+        self.assertIn("木作先生全屋定制", rewritten)
+        self.assertIn("同城业主", rewritten)
+        self.assertIn("不要只比总价", rewritten)
 
 
 if __name__ == "__main__":

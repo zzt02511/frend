@@ -193,6 +193,7 @@ Each generated item includes:
 - Editing storyboard suggestions.
 - LLM rewrite prompt.
 - Content score.
+- One-click rewritten script.
 
 Risky phrases checked include:
 
@@ -333,6 +334,7 @@ Do not prioritize these in v1:
   - `storyboard` -> shot list for case-material editing.
   - `llm_prompt` -> prompt for OpenAI/Tongyi/Doubao/DeepSeek rewrite.
   - `score` -> review priority and content selection.
+  - `rewritten_script` -> locally rewritten consultant-style copy.
 - The original project is Windows-first. Avoid Linux/macOS assumptions.
 - Do not delete `.pyd` files unless the user explicitly requests source-only debugging.
 - Use `rg` for searching when available.

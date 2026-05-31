@@ -106,6 +106,7 @@ class ScriptOutput:
     storyboard: list[str]
     llm_prompt: str
     score: int
+    rewritten_script: str
 
 
 def _clean(value: str, fallback: str) -> str:
@@ -179,6 +180,7 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
         storyboard = build_storyboard(key, case, pain)
         llm_prompt = build_llm_prompt(case, pillar["name"], script, titles, cover)
         score = score_output(script, titles, comment_prompt, notes)
+        rewritten_script = rewrite_script(script, case, pillar["name"])
         outputs.append(
             ScriptOutput(
                 index=offset + 1,
@@ -194,9 +196,36 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
                 storyboard=storyboard,
                 llm_prompt=llm_prompt,
                 score=score,
+                rewritten_script=rewritten_script,
             )
         )
     return outputs
+
+
+def rewrite_script(script: str, case: CaseInput, pillar: str) -> str:
+    text = script.strip()
+    replacements = {
+        "很多客户来店里第一句话就是：": "我们最近接待同城业主时，听到最多的问题是：",
+        "这个案例我们先看户型和生活习惯": "这类非标定制不能先套模板，要先看户型、动线和一家人的生活习惯",
+        "不是一上来就堆柜子、压价格": "柜子不是越多越好，价格也不能只看一个总数",
+        "如果你家也是": "如果你家也是",
+        "建议先做一次方案拆解": "建议先做一次免费的需求和报价拆解",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    intro = f"我是{case.store_name}的定制顾问，今天用一个{case.city}{case.district}的真实场景讲清楚。"
+    if not text.startswith("我是"):
+        text = f"{intro}\n{text}"
+
+    if pillar == "价格解释":
+        text += "\n记住一句话：定制柜不要只比总价，要把板材、五金、封边、抽屉和售后逐项看明白。"
+    elif pillar == "工艺展示":
+        text += "\n到店看样板时，别只看颜色和造型，一定要让门店把切面、封边和五金型号拿出来看。"
+    elif pillar == "本地信任":
+        text += "\n同城门店最大的价值，是量尺、复尺、安装和售后都能找到人。"
+
+    return text
 
 
 def build_storyboard(key: str, case: CaseInput, pain: str) -> list[str]:
@@ -355,6 +384,10 @@ def outputs_to_markdown(outputs: list[ScriptOutput], case: CaseInput) -> str:
                 *(f"- {shot}" for shot in item.storyboard),
                 "",
                 f"**内容评分**：{item.score}/100",
+                "",
+                "**一键改写稿**",
+                "",
+                item.rewritten_script,
                 "",
                 "**LLM二次改写提示词**",
                 "",
