@@ -60,10 +60,34 @@ class CustomHomeAgentTests(unittest.TestCase):
         self.assertIn("rewritten_script", data[0])
 
     def test_output_contains_storyboard_and_prompt(self):
-        output = generate_outputs(CaseInput(quantity=1))[0]
+        output = generate_outputs(CaseInput(quantity=1, benchmark_copy="同行爆款开头", promotion="到店领设计方案"))[0]
 
         self.assertIn("非标定制家居短视频编导", output.llm_prompt)
+        self.assertIn("业主痛点", output.llm_prompt)
+        self.assertIn("门店卖点", output.llm_prompt)
+        self.assertIn("到店领设计方案", output.llm_prompt)
+        self.assertIn("同行爆款开头", output.llm_prompt)
         self.assertTrue(any("门店" in shot or "特写" in shot for shot in output.storyboard))
+
+    def test_empty_optional_prompt_fields_are_omitted(self):
+        output = generate_outputs(
+            CaseInput(
+                quantity=1,
+                pain_points="",
+                selling_points="",
+                budget="",
+                promotion="",
+                address="",
+                contact="",
+                benchmark_copy="",
+            )
+        )[0]
+
+        self.assertNotIn("业主痛点：", output.llm_prompt)
+        self.assertNotIn("门店卖点：", output.llm_prompt)
+        self.assertNotIn("预算/报价表达：", output.llm_prompt)
+        self.assertNotIn("活动引导：", output.llm_prompt)
+        self.assertNotIn("对标参考文案：", output.llm_prompt)
 
     def test_rewrite_script_is_more_consultative(self):
         case = CaseInput(store_name="木作先生全屋定制", city="苏州", district="吴中")

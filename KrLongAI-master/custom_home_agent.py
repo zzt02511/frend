@@ -245,15 +245,31 @@ def build_storyboard(key: str, case: CaseInput, pain: str) -> list[str]:
 
 
 def build_llm_prompt(case: CaseInput, pillar: str, script: str, titles: list[str], cover: str) -> str:
+    context_lines = [
+        "行业：非标定制家居",
+        f"城市区域：{case.city}{case.district}",
+        f"门店：{case.store_name}",
+        f"案例：{case.community}，{case.room_type}，{case.area}平，{case.style}",
+        f"柜类：{case.cabinet_type}",
+        f"板材/五金/工艺：{case.board}，{case.hardware}，{case.edge_banding}",
+    ]
+    optional_fields = [
+        ("业主痛点", case.pain_points),
+        ("门店卖点", case.selling_points),
+        ("预算/报价表达", case.budget),
+        ("活动引导", case.promotion),
+        ("门店地址", case.address),
+        ("联系方式", case.contact),
+        ("对标参考文案", case.benchmark_copy),
+    ]
+    for label, value in optional_fields:
+        if str(value or "").strip():
+            context_lines.append(f"{label}：{str(value).strip()}")
+
     return (
         "你是非标定制家居短视频编导。请在不虚构案例、不夸大环保和价格承诺的前提下，"
         "把下面内容改写成更像本地门店老板/设计师口吻的短视频脚本。\n\n"
-        f"行业：非标定制家居\n"
-        f"城市区域：{case.city}{case.district}\n"
-        f"门店：{case.store_name}\n"
-        f"案例：{case.community}，{case.room_type}，{case.area}平，{case.style}\n"
-        f"柜类：{case.cabinet_type}\n"
-        f"板材/五金/工艺：{case.board}，{case.hardware}，{case.edge_banding}\n"
+        f"{chr(10).join(context_lines)}\n"
         f"内容栏目：{pillar}\n"
         f"原脚本：{script}\n"
         f"标题候选：{' / '.join(titles)}\n"

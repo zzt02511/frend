@@ -194,6 +194,8 @@ Each generated item includes:
 - LLM rewrite prompt.
 - Content score.
 - One-click rewritten script.
+- Optional OpenAI-compatible browser rewrite workflow.
+- AI rewrite prompts include the full store/case context, including pain points, selling points, budget wording, promotion, contact info, and benchmark copy.
 
 Risky phrases checked include:
 
@@ -323,7 +325,7 @@ Do not prioritize these in v1:
 
 - Prefer extending `custom_home_agent.py` for script/content generation logic.
 - Prefer extending `custom_home_agent.html` for demo/workbench UX.
-- Keep the MVP dependency-free unless the user explicitly asks for an LLM/API-backed version.
+- Keep the Python MVP dependency-free. The HTML workbench has optional OpenAI-compatible browser rewrite settings stored in localStorage.
 - If integrating with original KrLongAI later, map fields like this:
   - `script` -> digital-human spoken text.
   - `titles` -> publish title candidates.

@@ -463,6 +463,8 @@
       <textarea id="painPoints">收纳不够、担心甲醛、报价看不懂、怕安装翻车</textarea>
       <label for="sellingPoints">门店卖点</label>
       <textarea id="sellingPoints">本地真实案例、透明报价、工厂直连、安装售后可追踪</textarea>
+      <label for="benchmarkCopy">对标爆款文案</label>
+      <textarea id="benchmarkCopy" placeholder="可粘贴同行爆款口播文案，AI改写时会参考结构和钩子，但不会照抄。"></textarea>
 
       <div class="section-title">转化设置</div>
       <label for="budget">预算/报价表达</label>
@@ -477,6 +479,26 @@
         <option value="10" selected>10条</option>
         <option value="15">15条</option>
       </select>
+
+      <div class="section-title">AI 改写设置</div>
+      <label for="aiEndpoint">接口地址</label>
+      <input id="aiEndpoint" value="https://api.openai.com/v1/chat/completions">
+      <div class="grid-2">
+        <div>
+          <label for="aiModel">模型</label>
+          <input id="aiModel" value="gpt-4o-mini">
+        </div>
+        <div>
+          <label for="aiTemperature">温度</label>
+          <input id="aiTemperature" value="0.7">
+        </div>
+      </div>
+      <label for="aiKey">API Key</label>
+      <input id="aiKey" type="password" placeholder="仅保存到本机浏览器">
+      <div class="mini-actions">
+        <button class="secondary" id="saveAiSettingsBtn">保存AI设置</button>
+      </div>
+      <div class="rewrite-status" id="aiSettingsStatus"></div>
 
       <div class="actions">
         <button id="generateBtn">生成内容包</button>
@@ -567,6 +589,8 @@
     }
 
     function getCase() {
+      const painPointsRaw = value("painPoints", "");
+      const sellingPointsRaw = value("sellingPoints", "");
       return {
         city: value("city", "本地"),
         district: value("district", ""),
@@ -579,11 +603,14 @@
         board: value("board", "ENF级板材"),
         hardware: value("hardware", "品牌五金"),
         edgeBanding: value("edgeBanding", "PUR封边"),
-        painPoints: splitPoints(value("painPoints")),
-        sellingPoints: splitPoints(value("sellingPoints")),
-        budget: value("budget", "按实际方案报价"),
-        promotion: value("promotion", "到店领取户型规划建议"),
-        contact: value("contact", "私信预约"),
+        painPointsRaw,
+        sellingPointsRaw,
+        painPoints: splitPoints(painPointsRaw),
+        sellingPoints: splitPoints(sellingPointsRaw),
+        budget: value("budget", ""),
+        promotion: value("promotion", ""),
+        contact: value("contact", ""),
+        benchmarkCopy: value("benchmarkCopy", ""),
         quantity: Number(value("quantity", "10"))
       };
     }
@@ -635,7 +662,7 @@
     }
 
     function buildPrompt(c, pillar, script, itemTitles, itemCover) {
-      return [
+      const lines = [
         "你是非标定制家居短视频编导。请在不虚构案例、不夸大环保和价格承诺的前提下，把下面内容改写成更像本地门店老板/设计师口吻的短视频脚本。",
         "",
         `行业：非标定制家居`,
@@ -643,7 +670,22 @@
         `门店：${c.storeName}`,
         `案例：${c.community}，${c.roomType}，${c.area}平，${c.style}`,
         `柜类：${c.cabinetType}`,
-        `板材/五金/工艺：${c.board}，${c.hardware}，${c.edgeBanding}`,
+        `板材/五金/工艺：${c.board}，${c.hardware}，${c.edgeBanding}`
+      ];
+      [
+        ["业主痛点", c.painPointsRaw],
+        ["门店卖点", c.sellingPointsRaw],
+        ["预算/报价表达", c.budget],
+        ["活动引导", c.promotion],
+        ["联系方式", c.contact],
+        ["对标参考文案", c.benchmarkCopy]
+      ].forEach(([label, fieldValue]) => {
+        if (String(fieldValue || "").trim()) {
+          lines.push(`${label}：${String(fieldValue).trim()}`);
+        }
+      });
+      return [
+        ...lines,
         `内容栏目：${pillar}`,
         `原脚本：${script}`,
         `标题候选：${itemTitles.join(" / ")}`,
@@ -695,6 +737,74 @@
         hash |= 0;
       }
       return `custom-home-rewrite:${hash}`;
+    }
+
+    function loadAiSettings() {
+      const settings = JSON.parse(localStorage.getItem("custom-home-ai-settings") || "{}");
+      if (settings.endpoint) document.getElementById("aiEndpoint").value = settings.endpoint;
+      if (settings.model) document.getElementById("aiModel").value = settings.model;
+      if (settings.temperature) document.getElementById("aiTemperature").value = settings.temperature;
+      if (settings.apiKey) document.getElementById("aiKey").value = settings.apiKey;
+    }
+
+    function getAiSettings() {
+      return {
+        endpoint: value("aiEndpoint", "https://api.openai.com/v1/chat/completions"),
+        model: value("aiModel", "gpt-4o-mini"),
+        temperature: Number(value("aiTemperature", "0.7")),
+        apiKey: value("aiKey", "")
+      };
+    }
+
+    function saveAiSettings() {
+      const settings = getAiSettings();
+      localStorage.setItem("custom-home-ai-settings", JSON.stringify(settings));
+      document.getElementById("aiSettingsStatus").textContent = "AI 设置已保存到本机浏览器";
+    }
+
+    function extractRewriteText(content) {
+      const trimmed = String(content || "").trim();
+      try {
+        const parsed = JSON.parse(trimmed.replace(/^```json\s*/i, "").replace(/```$/i, "").trim());
+        return parsed.script || parsed.rewritten_script || parsed.content || trimmed;
+      } catch {
+        return trimmed;
+      }
+    }
+
+    async function aiRewrite(row) {
+      const settings = getAiSettings();
+      if (!settings.apiKey) {
+        throw new Error("请先填写并保存 API Key，或使用本地“一键改写”。");
+      }
+      const response = await fetch(settings.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${settings.apiKey}`
+        },
+        body: JSON.stringify({
+          model: settings.model,
+          temperature: Number.isFinite(settings.temperature) ? settings.temperature : 0.7,
+          messages: [
+            {
+              role: "system",
+              content: "你是非标定制家居短视频编导，只输出适合短视频口播的改写稿。不要虚构小区案例、不要夸大环保和价格承诺。"
+            },
+            {
+              role: "user",
+              content: `${row.prompt}\n\n请只返回改写后的 script 文本，口吻像本地门店老板或设计师，保留同城转化引导。`
+            }
+          ]
+        })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI 接口失败：${response.status} ${errorText.slice(0, 120)}`);
+      }
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || data.output_text || "";
+      return extractRewriteText(content);
     }
 
     function generate() {
@@ -750,6 +860,7 @@
               <textarea id="rewrite-${item.index - 1}" placeholder="点击“一键改写”生成更口语化的门店顾问文案；也可以直接编辑。">${escapeHtml(item.rewritten)}</textarea>
               <div class="mini-actions">
                 <button data-rewrite="${item.index - 1}">一键改写</button>
+                <button data-ai-rewrite="${item.index - 1}">AI改写</button>
                 <button data-save-rewrite="${item.index - 1}">保存</button>
                 <button data-copy-rewrite="${item.index - 1}">复制改写稿</button>
               </div>
@@ -772,6 +883,29 @@
           const textarea = document.getElementById(`rewrite-${button.dataset.rewrite}`);
           textarea.value = rewriteScript(row.script, row.rewriteContext, row.pillar);
           document.getElementById(`rewrite-status-${button.dataset.rewrite}`).textContent = "已生成，可继续编辑后保存";
+        });
+      });
+      output.querySelectorAll("[data-ai-rewrite]").forEach(button => {
+        button.addEventListener("click", async () => {
+          const index = Number(button.dataset.aiRewrite);
+          const row = rows[index];
+          const textarea = document.getElementById(`rewrite-${index}`);
+          const status = document.getElementById(`rewrite-status-${index}`);
+          const oldText = button.textContent;
+          button.textContent = "改写中...";
+          button.disabled = true;
+          status.textContent = "正在调用 AI 改写";
+          try {
+            const rewritten = await aiRewrite(row);
+            textarea.value = rewritten;
+            row.rewritten = rewritten;
+            status.textContent = "AI 改写完成，可继续编辑后保存";
+          } catch (error) {
+            status.textContent = error.message;
+          } finally {
+            button.textContent = oldText;
+            button.disabled = false;
+          }
         });
       });
       output.querySelectorAll("[data-save-rewrite]").forEach(button => {
@@ -824,6 +958,8 @@
 
     document.getElementById("generateBtn").addEventListener("click", generate);
     document.getElementById("copyAllBtn").addEventListener("click", copyAll);
+    document.getElementById("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
+    loadAiSettings();
     generate();
   </script>
 </body>
