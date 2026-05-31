@@ -2,6 +2,40 @@
 
 This file records the working context, environment fixes, and implementation notes from the current Codex session for `D:\AI\KrLongAI-master`.
 
+## Current Status Snapshot
+
+Current working direction:
+
+- Build a software product similar in spirit to KrLongAI / 轻语AI / 旗博士, but not as a generic all-industry digital-human tool.
+- First vertical: 非标定制家居.
+- First customer: 本地全屋定制、衣柜橱柜、木作定制、门墙柜一体门店/经销商.
+- First business goal: 同城短视频获客, leading to 私信、咨询、到店、预约量尺.
+- First product shape: 服务 + 软件. The software helps generate scripts, titles, cover copy, comments/private-message hooks, and rewrite prompts; humans still review, edit, publish, and track results.
+- Current technical reality: original KrLongAI runtime package is incomplete, so the immediately runnable deliverable is a standalone custom-home lead-generation MVP.
+
+Current usable MVP entry points:
+
+- Browser workbench: `D:\AI\KrLongAI-master\custom_home_agent.html`
+- Python generator: `D:\AI\KrLongAI-master\custom_home_agent.py`
+- Sample input: `D:\AI\KrLongAI-master\custom_home_case.sample.json`
+- Tests: `D:\AI\KrLongAI-master\test_custom_home_agent.py`
+- User-facing MVP guide: `D:\AI\KrLongAI-master\CUSTOM_HOME_AGENT.md`
+
+Recent committed progress:
+
+```text
+af97ef7 Use filled case fields for AI rewrite prompts
+9a507c1 Add editable one-click rewrite workflow
+54ee2f1 Enhance custom home content package outputs
+2c23023 Add custom home lead agent MVP
+```
+
+Latest work added after those commits:
+
+- `custom_home_agent.html`: added local `内容项目` save/load/delete workflow.
+- `CUSTOM_HOME_AGENT.md`: documented local content projects.
+- `AGENT.MD`: expanded project handoff and current status.
+
 ## Project Reality
 
 This repository is a partial delivery of a Windows-first AI digital-human short-video automation project. The original project appears to target this workflow:
@@ -196,6 +230,25 @@ Each generated item includes:
 - One-click rewritten script.
 - Optional OpenAI-compatible browser rewrite workflow.
 - AI rewrite prompts include the full store/case context, including pain points, selling points, budget wording, promotion, contact info, and benchmark copy.
+- Browser workbench supports local content projects stored in `localStorage`.
+
+Frontend workbench features:
+
+- Fill custom-home case parameters in the left panel.
+- Generate 5, 10, or 15 content items.
+- Show generated scripts directly on the page.
+- Show editable rewritten copy for each item.
+- Support offline `一键改写`.
+- Support optional OpenAI-compatible `AI改写`.
+- Save edited rewritten copy into browser `localStorage`.
+- Save/load/delete complete local content projects, including form fields, generated content, and edited rewrites.
+
+AI rewrite behavior:
+
+- Rewrite prompt references only fields that are actually filled.
+- Empty optional fields are not added to the AI prompt.
+- Filled fields can include city, district, community, layout, area, cabinet type, board material, hardware, edge banding, style, pain points, selling points, promotion, store address, contact info, and benchmark copy.
+- This keeps prompts specific without forcing fake or empty context into the output.
 
 Risky phrases checked include:
 
@@ -221,6 +274,18 @@ D:\AI\KrLongAI-master\custom_home_agent.html
 ```
 
 No server is required for the HTML version.
+
+Recommended demo path for a custom-home store:
+
+1. Open `custom_home_agent.html`.
+2. Fill city/district/community and one real case.
+3. Fill only known business fields; leave unknown fields blank.
+4. Paste a benchmark viral copy if available.
+5. Generate 10 items.
+6. Use `一键改写` or `AI改写`.
+7. Edit and save the rewritten copy.
+8. Save the case as a `内容项目`.
+9. Pick 3-5 scripts for human shooting/editing.
 
 Run from command line:
 
@@ -278,8 +343,20 @@ D:\Python312\python.exe -m unittest test_custom_home_agent.py
 Result:
 
 ```text
-Ran 4 tests in 0.195s
+Ran 7 tests in 0.130s
 OK
+```
+
+Frontend inline script syntax was verified with system Node:
+
+```bat
+C:\Program Files\nodejs\node.exe
+```
+
+Result:
+
+```text
+inline script syntax ok
 ```
 
 Sample JSON generation also succeeded:
@@ -320,6 +397,42 @@ Do not prioritize these in v1:
 - Complex account matrix operations.
 - All-industry templates.
 - Fully autonomous video generation before the original resource package is restored.
+
+## Competitive Gap Notes
+
+Compared with 旗博士 and 轻语AI-style products, this MVP currently covers the content strategy/generation layer but does not yet cover the full video production and distribution chain.
+
+Already covered:
+
+- Industry-specific custom-home inputs.
+- Batch short-video script generation.
+- Title, cover, comment prompt, and private-message keyword generation.
+- Localized hooks and homeowner pain points.
+- Compliance risk reminders.
+- Editable rewrite workflow.
+- Optional AI rewrite via browser API settings.
+- Local project storage for repeat demos and case reuse.
+
+Still needed for a stronger commercial product:
+
+- Material library: upload/manage case images, videos, construction clips, factory clips, store photos.
+- Brand/persona settings: store owner IP tone, designer tone, consultant tone, and banned phrases.
+- Template library management: editable templates for 避坑、案例、报价、工艺、本地信任.
+- Finished video pipeline: digital-human voice/video, subtitles, BGM, cover rendering, store info overlay, and export presets.
+- Task center: generation history, status, failures, download links, and weekly delivery batches.
+- Lead conversion assets: private-message reply scripts, comment reply scripts, appointment/measurement scripts.
+- Data loop: record published video URL, views, comments, private messages, leads, visits, and appointments.
+- Multi-store/account support: useful later for agents, dealers, and regional operators.
+- Cloud version: lightweight upload/generate/download flow.
+- Local deployment package: for higher-budget stores or privacy-sensitive teams.
+
+Recommended next implementation order:
+
+1. Add persistent project/case management beyond browser `localStorage`.
+2. Add editable industry template library.
+3. Add material upload and simple shot-list binding.
+4. Add task/history page.
+5. Add video assembly integration only after original KrLongAI resources are restored or a new video stack is chosen.
 
 ## Development Notes For Future Agents
 

@@ -504,6 +504,18 @@
         <button id="generateBtn">生成内容包</button>
         <button class="secondary" id="copyAllBtn" title="复制全部">复制</button>
       </div>
+
+      <div class="section-title">内容项目</div>
+      <label for="projectName">项目名称</label>
+      <input id="projectName" placeholder="如：湖畔花园118平案例">
+      <div class="mini-actions">
+        <button class="secondary" id="saveProjectBtn">保存项目</button>
+        <button class="secondary" id="loadProjectBtn">加载项目</button>
+        <button class="secondary" id="deleteProjectBtn">删除项目</button>
+      </div>
+      <label for="projectList">已保存项目</label>
+      <select id="projectList"></select>
+      <div class="rewrite-status" id="projectStatus"></div>
     </aside>
 
     <main>
@@ -581,6 +593,28 @@
 
     function value(id, fallback = "") {
       return (document.getElementById(id).value || fallback).trim();
+    }
+
+    const inputIds = [
+      "city", "district", "storeName", "community", "roomType", "area", "cabinetType", "style",
+      "board", "hardware", "edgeBanding", "painPoints", "sellingPoints", "benchmarkCopy",
+      "budget", "promotion", "contact", "quantity"
+    ];
+
+    function collectFormValues() {
+      const values = {};
+      inputIds.forEach(id => {
+        values[id] = document.getElementById(id).value;
+      });
+      return values;
+    }
+
+    function applyFormValues(values) {
+      inputIds.forEach(id => {
+        if (Object.prototype.hasOwnProperty.call(values, id)) {
+          document.getElementById(id).value = values[id];
+        }
+      });
     }
 
     function splitPoints(text) {
@@ -760,6 +794,78 @@
       const settings = getAiSettings();
       localStorage.setItem("custom-home-ai-settings", JSON.stringify(settings));
       document.getElementById("aiSettingsStatus").textContent = "AI 设置已保存到本机浏览器";
+    }
+
+    function projectStorageKey(name) {
+      return `custom-home-project:${name}`;
+    }
+
+    function savedProjectNames() {
+      return JSON.parse(localStorage.getItem("custom-home-project-names") || "[]");
+    }
+
+    function setSavedProjectNames(names) {
+      localStorage.setItem("custom-home-project-names", JSON.stringify([...new Set(names)].sort()));
+    }
+
+    function refreshProjectList() {
+      const list = document.getElementById("projectList");
+      const names = savedProjectNames();
+      list.innerHTML = names.length
+        ? names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")
+        : `<option value="">暂无保存项目</option>`;
+    }
+
+    function currentProjectName() {
+      return value("projectName") || `${value("community", "同城案例")}-${new Date().toISOString().slice(0, 10)}`;
+    }
+
+    function saveProject() {
+      const name = currentProjectName();
+      const rows = window.generatedRows || [];
+      const rewrites = {};
+      rows.forEach(item => {
+        const textarea = document.getElementById(`rewrite-${item.index - 1}`);
+        rewrites[item.rewriteKey] = textarea ? textarea.value : item.rewritten || "";
+      });
+      const project = {
+        name,
+        savedAt: new Date().toISOString(),
+        form: collectFormValues(),
+        rows,
+        rewrites
+      };
+      localStorage.setItem(projectStorageKey(name), JSON.stringify(project));
+      setSavedProjectNames([...savedProjectNames(), name]);
+      document.getElementById("projectName").value = name;
+      document.getElementById("projectStatus").textContent = `已保存项目：${name}`;
+      refreshProjectList();
+    }
+
+    function loadProject() {
+      const name = value("projectList");
+      if (!name) return;
+      const project = JSON.parse(localStorage.getItem(projectStorageKey(name)) || "null");
+      if (!project) {
+        document.getElementById("projectStatus").textContent = "项目不存在";
+        return;
+      }
+      applyFormValues(project.form || {});
+      Object.entries(project.rewrites || {}).forEach(([key, text]) => {
+        localStorage.setItem(key, text);
+      });
+      document.getElementById("projectName").value = name;
+      generate();
+      document.getElementById("projectStatus").textContent = `已加载项目：${name}`;
+    }
+
+    function deleteProject() {
+      const name = value("projectList");
+      if (!name) return;
+      localStorage.removeItem(projectStorageKey(name));
+      setSavedProjectNames(savedProjectNames().filter(item => item !== name));
+      refreshProjectList();
+      document.getElementById("projectStatus").textContent = `已删除项目：${name}`;
     }
 
     function extractRewriteText(content) {
@@ -959,7 +1065,11 @@
     document.getElementById("generateBtn").addEventListener("click", generate);
     document.getElementById("copyAllBtn").addEventListener("click", copyAll);
     document.getElementById("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
+    document.getElementById("saveProjectBtn").addEventListener("click", saveProject);
+    document.getElementById("loadProjectBtn").addEventListener("click", loadProject);
+    document.getElementById("deleteProjectBtn").addEventListener("click", deleteProject);
     loadAiSettings();
+    refreshProjectList();
     generate();
   </script>
 </body>
