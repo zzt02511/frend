@@ -3,10 +3,8 @@
 """
 Custom home local lead-generation script agent.
 
-This module is intentionally dependency-free so it can run before the full
-KrLongAI resource package is restored. It turns non-standard custom home case
-inputs into short-video scripts, titles, cover copy, comment prompts, and
-private-message keywords.
+This module stays dependency-free so the MVP can run even when the full
+KrLongAI digital-human resource package has not been restored.
 """
 
 from __future__ import annotations
@@ -16,38 +14,33 @@ import json
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Iterable
 
 
 CONTENT_PILLARS = {
     "avoid_pitfalls": {
         "name": "装修避坑",
         "hook": "{city}{district}准备做{cabinet_type}的业主，先别急着交定金。",
-        "angle": "把容易踩坑的地方讲清楚，降低业主决策焦虑。",
         "cta": "评论区打“避坑”，发你一份{cabinet_type}验收清单。",
     },
     "case_story": {
         "name": "案例讲解",
         "hook": "这套{community}{area}平的{style}案例，最值钱的不是柜子多。",
-        "angle": "用真实户型和生活动线建立信任。",
         "cta": "私信“小区名”，帮你看同户型能不能这样做。",
     },
     "price_explainer": {
         "name": "价格解释",
-        "hook": "为什么同样是{cabinet_type}，有的报价差出一大截？",
-        "angle": "解释报价差异，不打低价战。",
+        "hook": "为什么同样是{cabinet_type}，有的报价会差出一大截？",
         "cta": "评论区打“报价”，发你一份透明报价拆解表。",
     },
     "craft_showcase": {
         "name": "工艺展示",
         "hook": "看{cabinet_type}别只看效果图，真正决定耐不耐用的是这些细节。",
-        "angle": "展示板材、五金、封边、安装和售后能力。",
         "cta": "私信“工艺”，预约到店看样板和安装细节。",
     },
     "local_trust": {
         "name": "本地信任",
         "hook": "如果你也在{city}{district}装修，建议先看完这个本地案例。",
-        "angle": "强调同城服务、量尺流程和售后响应。",
         "cta": "评论区留“小区”，我们帮你匹配附近案例。",
     },
 }
@@ -83,11 +76,12 @@ class CaseInput:
     edge_banding: str = "PUR封边"
     style: str = "现代简约"
     pain_points: str = "收纳不够、动线不好、担心报价不透明"
-    selling_points: str = "本地量尺、真实案例、透明报价、安装售后"
+    selling_points: str = "本地量尺、真实案例、透明报价、安装售后可追踪"
     promotion: str = "到店领取户型规划建议"
     address: str = "本地门店"
     contact: str = "私信预约"
     benchmark_copy: str = ""
+    material_notes: str = ""
     quantity: int = 10
 
 
@@ -107,6 +101,8 @@ class ScriptOutput:
     llm_prompt: str
     score: int
     rewritten_script: str
+    xiaohongshu_note: str
+    xiaohongshu_video_plan: list[str]
 
 
 def _clean(value: str, fallback: str) -> str:
@@ -115,11 +111,8 @@ def _clean(value: str, fallback: str) -> str:
 
 
 def _split_points(value: str) -> list[str]:
-    parts = []
-    for chunk in value.replace("，", ",").replace("、", ",").replace("；", ",").split(","):
-        item = chunk.strip()
-        if item:
-            parts.append(item)
+    normalized = str(value or "").replace("；", "、").replace("，", "、").replace(",", "、")
+    parts = [item.strip() for item in normalized.split("、") if item.strip()]
     return parts or ["收纳不够", "报价不透明", "售后没保障"]
 
 
@@ -140,7 +133,7 @@ def validate_copy(text: str) -> list[str]:
         if claim in text:
             notes.append(f"包含高风险表达：{claim}")
     if "最" in text and ("环保" in text or "便宜" in text or "好" in text):
-        notes.append("避免使用绝对化最高级表达，建议改成可验证事实。")
+        notes.append("避免使用绝对化或最高级表达，建议改成可验证事实。")
     return notes
 
 
@@ -159,12 +152,12 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
         detail_line = _detail_line(key, case, pain, point)
         script = (
             f"{hook}\n"
-            f"很多客户来店里第一句话就是：{pain}。\n"
+            f"很多客户到店第一句话就是：{pain}。\n"
             f"这个案例我们先看户型和生活习惯，再定{case.cabinet_type}方案，"
             f"不是一上来就堆柜子、压价格。\n"
             f"{detail_line}\n"
-            f"如果你家也是{case.room_type}，预算是{case.budget}，建议先做一次方案拆解。"
-            f"{_format(pillar['cta'], case)}"
+            f"如果你家也是{case.room_type}，预算表达是{case.budget}，"
+            f"建议先做一次方案拆解。{_format(pillar['cta'], case)}"
         )
         titles = _titles(key, case, pain)
         cover = _cover_line(key, case, pain)
@@ -181,6 +174,8 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
         llm_prompt = build_llm_prompt(case, pillar["name"], script, titles, cover)
         score = score_output(script, titles, comment_prompt, notes)
         rewritten_script = rewrite_script(script, case, pillar["name"])
+        xiaohongshu_note = build_xiaohongshu_note(case, pillar["name"], script, titles, cover, comment_prompt)
+        xiaohongshu_video_plan = build_xiaohongshu_video_plan(key, case, pain)
         outputs.append(
             ScriptOutput(
                 index=offset + 1,
@@ -197,6 +192,8 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
                 llm_prompt=llm_prompt,
                 score=score,
                 rewritten_script=rewritten_script,
+                xiaohongshu_note=xiaohongshu_note,
+                xiaohongshu_video_plan=xiaohongshu_video_plan,
             )
         )
     return outputs
@@ -205,10 +202,9 @@ def generate_outputs(case: CaseInput) -> list[ScriptOutput]:
 def rewrite_script(script: str, case: CaseInput, pillar: str) -> str:
     text = script.strip()
     replacements = {
-        "很多客户来店里第一句话就是：": "我们最近接待同城业主时，听到最多的问题是：",
+        "很多客户到店第一句话就是：": "我们最近接待同城业主时，听到最多的问题是：",
         "这个案例我们先看户型和生活习惯": "这类非标定制不能先套模板，要先看户型、动线和一家人的生活习惯",
         "不是一上来就堆柜子、压价格": "柜子不是越多越好，价格也不能只看一个总数",
-        "如果你家也是": "如果你家也是",
         "建议先做一次方案拆解": "建议先做一次免费的需求和报价拆解",
     }
     for old, new in replacements.items():
@@ -223,15 +219,15 @@ def rewrite_script(script: str, case: CaseInput, pillar: str) -> str:
     elif pillar == "工艺展示":
         text += "\n到店看样板时，别只看颜色和造型，一定要让门店把切面、封边和五金型号拿出来看。"
     elif pillar == "本地信任":
-        text += "\n同城门店最大的价值，是量尺、复尺、安装和售后都能找到人。"
+        text += "\n同城门店最大的价值，是量尺、复尺、安装和售后都能找到具体负责人。"
 
     return text
 
 
 def build_storyboard(key: str, case: CaseInput, pain: str) -> list[str]:
-    opening = f"0-3秒：数字人口播或门店实拍开场，屏幕大字“{case.city}{case.district}{case.cabinet_type}”。"
+    opening = f"0-3秒：门店实拍或顾问口播开场，屏幕大字“{case.city}{case.district}{case.cabinet_type}”。"
     if key == "avoid_pitfalls":
-        middle = f"3-15秒：切板材、五金、封边、安装收口特写，字幕标出“合同写清楚 / 型号看得见 / 样板可验证”。"
+        middle = "3-15秒：切板材、五金、封边、安装收口特写，字幕标出“合同写清楚 / 型号看得见 / 样板可验证”。"
     elif key == "case_story":
         middle = f"3-25秒：展示{case.community}户型图、完工图、柜体打开细节，突出“{pain}”的解决前后对比。"
     elif key == "price_explainer":
@@ -239,8 +235,8 @@ def build_storyboard(key: str, case: CaseInput, pain: str) -> list[str]:
     elif key == "craft_showcase":
         middle = "3-28秒：连续展示切面、封边、铰链、轨道、安装现场和售后回访画面。"
     else:
-        middle = f"3-25秒：插入同城小区外景、门店门头、量尺现场、安装现场，强化本地可信度。"
-    ending = f"最后3秒：显示门店名“{case.store_name}”、引导语“{case.contact}”，保留评论关键词。"
+        middle = "3-25秒：插入同城小区外景、门店门头、量尺现场、安装现场，强化本地可信度。"
+    ending = f"最后5秒：显示门店名“{case.store_name}”、引导语“{case.contact}”，保留评论关键词。"
     return [opening, middle, ending]
 
 
@@ -260,6 +256,7 @@ def build_llm_prompt(case: CaseInput, pillar: str, script: str, titles: list[str
         ("活动引导", case.promotion),
         ("门店地址", case.address),
         ("联系方式", case.contact),
+        ("真实素材", case.material_notes),
         ("对标参考文案", case.benchmark_copy),
     ]
     for label, value in optional_fields:
@@ -276,6 +273,46 @@ def build_llm_prompt(case: CaseInput, pillar: str, script: str, titles: list[str
         f"封面文案：{cover}\n\n"
         "输出 JSON，字段为 script、titles、cover、comment_prompt、dm_keyword、risk_notes。"
     )
+
+
+def build_xiaohongshu_note(
+    case: CaseInput,
+    pillar: str,
+    script: str,
+    titles: list[str],
+    cover: str,
+    comment_prompt: str,
+) -> str:
+    materials = _clean(case.material_notes, "完工图、柜体细节、板材/五金特写、门店量尺或安装现场")
+    tags = _safe_join(dict.fromkeys([f"#{case.city}装修", f"#{case.cabinet_type}", "#全屋定制", "#装修避坑", "#小红书家居"]).keys(), 8)
+    return (
+        f"标题：{titles[0]}\n\n"
+        f"封面字：{cover}\n\n"
+        f"正文：\n"
+        f"{case.city}{case.district}准备做{case.cabinet_type}的朋友，可以先收藏这条。\n"
+        f"这条内容来自{case.store_name}的一个{case.community}{case.area}平案例，重点想讲清楚：{pillar}。\n\n"
+        f"真实素材建议：{materials}。\n\n"
+        f"口播/配文重点：\n{script}\n\n"
+        f"互动引导：{comment_prompt}\n\n"
+        f"话题：{tags.replace('、', ' ')}"
+    )
+
+
+def build_xiaohongshu_video_plan(key: str, case: CaseInput, pain: str) -> list[str]:
+    materials = _clean(case.material_notes, "真实完工图、施工视频、柜体开合细节、门店/工厂素材")
+    opening = f"封面/前2秒：用真实素材中最清楚的一张图或视频帧，叠字“{case.community}{case.cabinet_type}”。"
+    if key == "avoid_pitfalls":
+        middle = f"中段：依次穿插{materials}，每个镜头只讲一个避坑点，字幕突出合同、型号、封边、安装。"
+    elif key == "case_story":
+        middle = f"中段：先放户型或空间全景，再放柜体打开细节，用素材证明如何解决“{pain}”。"
+    elif key == "price_explainer":
+        middle = f"中段：用报价单局部、板材样块、五金特写和现场视频解释价格差，不展示客户隐私。"
+    elif key == "craft_showcase":
+        middle = f"中段：多用近景和慢镜头展示{case.board}、{case.hardware}、{case.edge_banding}，少用空泛效果图。"
+    else:
+        middle = f"中段：穿插小区外景、门店门头、量尺/安装视频，证明这是{case.city}{case.district}本地服务。"
+    ending = f"结尾3秒：放门店名“{case.store_name}”和引导“{case.contact}”，保留私信关键词。"
+    return [opening, middle, ending]
 
 
 def score_output(script: str, titles: list[str], comment_prompt: str, notes: list[str]) -> int:
@@ -305,17 +342,17 @@ def _detail_line(key: str, case: CaseInput, pain: str, point: str) -> str:
         )
     if key == "price_explainer":
         return (
-            f"报价差通常不只差在板材，还差在五金、封边、见光面、抽屉数量和售后标准。"
+            "报价差通常不只差在板材，还差在五金、封边、见光面、抽屉数量和售后标准。"
             f"我们会把{point}拆开给你看。"
         )
     if key == "craft_showcase":
         return (
-            f"你到店不要只看展厅成品，要看切面、封边、铰链、抽屉轨道和安装现场，"
-            f"这些才决定后面几年好不好用。"
+            "到店不要只看展厅成品，要看切面、封边、铰链、抽屉轨道和安装现场，"
+            "这些才决定后面几年好不好用。"
         )
     return (
         f"{case.store_name}服务{case.city}{case.district}本地客户，量尺、复尺、安装、售后都能追踪，"
-        f"不是外地团队做完就走。"
+        "不是外地团队做完就走。"
     )
 
 
@@ -336,19 +373,19 @@ def _titles(key: str, case: CaseInput, pain: str) -> list[str]:
     if key == "price_explainer":
         return [
             f"{case.cabinet_type}报价为什么差这么多？",
-            f"别只比总价，定制柜报价要看这些项",
-            f"{city}业主看报价前先懂这几个点",
+            "别只比总价，定制柜报价要看这些项",
+            f"{city}业主看报价前先懂这几点",
         ]
     if key == "craft_showcase":
         return [
             f"{case.cabinet_type}耐不耐用，看这几个工艺",
-            f"别只看效果图，定制柜细节更重要",
+            "别只看效果图，定制柜细节更重要",
             f"{case.board}+{case.hardware}到底怎么选？",
         ]
     return [
         f"{city}装修，先找同小区案例",
         f"本地{case.cabinet_type}门店怎么选？",
-        f"到店前先准备这份户型需求清单",
+        "到店前先准备这份户型需求清单",
     ]
 
 
@@ -379,7 +416,7 @@ def outputs_to_markdown(outputs: list[ScriptOutput], case: CaseInput) -> str:
             [
                 f"## {item.index}. {item.pillar}（{item.duration}）",
                 "",
-                f"**口播脚本**",
+                "**口播脚本**",
                 "",
                 item.script,
                 "",

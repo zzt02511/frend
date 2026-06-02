@@ -1,6 +1,6 @@
 # AGENT.MD
 
-This file records the working context, environment fixes, and implementation notes from the current Codex session for `D:\AI\KrLongAI-master`.
+This file records the working context, environment fixes, and implementation notes for `D:\AI\KrLongAI-master`.
 
 ## Current Status Snapshot
 
@@ -10,31 +10,34 @@ Current working direction:
 - First vertical: 非标定制家居.
 - First customer: 本地全屋定制、衣柜橱柜、木作定制、门墙柜一体门店/经销商.
 - First business goal: 同城短视频获客, leading to 私信、咨询、到店、预约量尺.
-- First product shape: 服务 + 软件. The software helps generate scripts, titles, cover copy, comments/private-message hooks, and rewrite prompts; humans still review, edit, publish, and track results.
-- Current technical reality: original KrLongAI runtime package is incomplete, so the immediately runnable deliverable is a standalone custom-home lead-generation MVP.
+- First product shape: 服务 + 软件. The software helps generate scripts, titles, cover copy, comments/private-message hooks, rewrite prompts, and project files; humans still review, edit, publish, and track results.
+- Current technical reality: the original KrLongAI runtime package is incomplete, so the immediately runnable deliverable is a standalone custom-home lead-generation MVP.
 
 Current usable MVP entry points:
 
 - Browser workbench: `D:\AI\KrLongAI-master\custom_home_agent.html`
+- Local server workbench: `D:\AI\KrLongAI-master\custom_home_server.py`
 - Python generator: `D:\AI\KrLongAI-master\custom_home_agent.py`
 - Sample input: `D:\AI\KrLongAI-master\custom_home_case.sample.json`
 - Tests: `D:\AI\KrLongAI-master\test_custom_home_agent.py`
 - User-facing MVP guide: `D:\AI\KrLongAI-master\CUSTOM_HOME_AGENT.md`
+- Local project folder: `D:\AI\KrLongAI-master\custom_home_projects`
+- Local material folder: `D:\AI\KrLongAI-master\custom_home_materials`
 
-Recent committed progress:
+Latest work:
 
-```text
-af97ef7 Use filled case fields for AI rewrite prompts
-9a507c1 Add editable one-click rewrite workflow
-54ee2f1 Enhance custom home content package outputs
-2c23023 Add custom home lead agent MVP
-```
-
-Latest work added after those commits:
-
-- `custom_home_agent.html`: added local `内容项目` save/load/delete workflow.
-- `CUSTOM_HOME_AGENT.md`: documented local content projects.
-- `AGENT.MD`: expanded project handoff and current status.
+- Fixed乱码 in the custom-home MVP generator, tests, sample JSON, docs, and workbench copy.
+- Improved generated Chinese copy quality for the first vertical.
+- Rebuilt the HTML workbench with a clearer product interface, project strip, metrics, content cards, rewrite panels, and server/localStorage status.
+- Added real-material workflow for Xiaohongshu: register/upload real photos and videos, generate note drafts, and generate video material matching plans.
+- Added `custom_home_server.py`, a dependency-free local HTTP server with:
+  - `POST /api/generate`
+  - `GET /api/projects`
+  - `POST /api/projects`
+  - `GET /api/projects/<name>`
+  - `DELETE /api/projects/<name>`
+  - `POST /api/materials`
+- Project saving now writes JSON files under `custom_home_projects/` when the workbench is opened through the local server.
 
 ## Project Reality
 
@@ -106,89 +109,29 @@ The full resource package link found in `代码地址.txt` is:
 https://pan.baidu.com/s/12kNd-iKyWLku9HWNCRccGQ?pwd=1234
 ```
 
-## Python Environment Fix
+## Python Environment
 
-The user originally had a broken Python registration:
-
-- `py -0p` pointed to `C:\Python312\python.exe`.
-- That file did not exist.
-- `where python` only showed the Windows Store alias.
-
-The correct fix was to install **Python 3.12.10 64-bit**, not Python 3.14 and not `Python-3.12.13.tar.xz`.
-
-Important note:
-
-- `Python-3.12.13.tar.xz` is a source package and is not suitable for direct Windows installation.
-- Python 3.12.13 is source-only on python.org.
-- Python 3.12.10 is the last Python 3.12 release with a Windows installer.
-
-Installed path:
+Use Python 3.12.10 64-bit installed at:
 
 ```text
 D:\Python312
 ```
 
-Recommended installer options:
-
-```text
-[x] Install Python 3.12 for all users
-[x] Associate files with Python
-[x] Create shortcuts for installed applications
-[x] Add Python to environment variables
-[ ] Precompile standard library
-[ ] Download debugging symbols
-[ ] Download debug binaries
-```
-
-After installation, the user verified:
-
-```bat
-python --version
-py -3.12 --version
-pip --version
-where.exe python
-```
-
-Expected/current result:
-
-```text
-Python 3.12.10
-pip 25.0.1 from D:\Python312\Lib\site-packages\pip (python 3.12)
-D:\Python312\python.exe
-C:\Users\78575\AppData\Local\Microsoft\WindowsApps\python.exe
-```
-
-The Windows Store alias appears after `D:\Python312\python.exe`, so it does not interfere.
-
-In this Codex session, `python` may still be unavailable because the Codex process started before PATH was refreshed. Use the absolute path when needed:
+In this Codex session, prefer the absolute path:
 
 ```bat
 D:\Python312\python.exe
 ```
 
-## Node Environment Finding
-
-Node.js is installed and works outside the sandbox:
+Useful commands:
 
 ```bat
-C:\Program Files\nodejs\node.exe -v
+D:\Python312\python.exe -m unittest test_custom_home_agent.py
+D:\Python312\python.exe custom_home_agent.py --input custom_home_case.sample.json --json
+D:\Python312\python.exe custom_home_server.py --port 8765
 ```
-
-Verified output:
-
-```text
-v24.9.0
-```
-
-Inside the Codex sandbox, `node` may resolve to the Codex App bundled resource path or be denied access to `C:\Program Files\nodejs`. This is a sandbox visibility issue, not a broken Node installation.
-
-If Node commands are needed from Codex, run them with escalated permission or use a Node installation under a user/workspace path that the sandbox can access.
 
 ## Implemented MVP: Custom Home Local Lead Agent
-
-Because the original KrLongAI resource package is incomplete, this session implemented a standalone MVP for the selected vertical:
-
-**Non-standard custom home / whole-house customization local lead-generation content agent**
 
 Target customer:
 
@@ -199,14 +142,6 @@ Primary scenario:
 
 - Local short-video lead generation.
 - Goal: private messages, inquiries, store visits, and measurement appointments.
-
-Implemented files:
-
-- `custom_home_agent.py`: Dependency-free Python generation core.
-- `custom_home_agent.html`: Local browser-based workbench.
-- `custom_home_case.sample.json`: Sample custom-home case input.
-- `test_custom_home_agent.py`: Unit tests.
-- `CUSTOM_HOME_AGENT.md`: Usage and handoff documentation.
 
 Implemented content pillars:
 
@@ -228,9 +163,9 @@ Each generated item includes:
 - LLM rewrite prompt.
 - Content score.
 - One-click rewritten script.
+- Xiaohongshu note draft.
+- Xiaohongshu video material matching plan.
 - Optional OpenAI-compatible browser rewrite workflow.
-- AI rewrite prompts include the full store/case context, including pain points, selling points, budget wording, promotion, contact info, and benchmark copy.
-- Browser workbench supports local content projects stored in `localStorage`.
 
 Frontend workbench features:
 
@@ -238,219 +173,74 @@ Frontend workbench features:
 - Generate 5, 10, or 15 content items.
 - Show generated scripts directly on the page.
 - Show editable rewritten copy for each item.
-- Support offline `一键改写`.
-- Support optional OpenAI-compatible `AI改写`.
-- Save edited rewritten copy into browser `localStorage`.
-- Save/load/delete complete local content projects, including form fields, generated content, and edited rewrites.
-
-AI rewrite behavior:
-
-- Rewrite prompt references only fields that are actually filled.
-- Empty optional fields are not added to the AI prompt.
-- Filled fields can include city, district, community, layout, area, cabinet type, board material, hardware, edge banding, style, pain points, selling points, promotion, store address, contact info, and benchmark copy.
-- This keeps prompts specific without forcing fake or empty context into the output.
-
-Risky phrases checked include:
-
-- `0甲醛`
-- `零甲醛`
-- `绝对环保`
-- `100%环保`
-- `最低价`
-- `全网最低`
-- `保证成交`
-- `稳赚`
-- `省一半`
-- `省50%`
-- `免费送`
-- `虚假房源`
+- Support offline one-click rewrite.
+- Support optional OpenAI-compatible AI rewrite.
+- Register/upload real photos and videos for Xiaohongshu content.
+- Generate Xiaohongshu note drafts and real-material video edit plans.
+- Copy all content or copy a single LLM prompt/rewrite.
+- Save/load/delete content projects.
+- Use local JSON files when opened through `custom_home_server.py`.
+- Fall back to browser `localStorage` when opened directly as a file.
 
 ## How To Use The MVP
 
-Open the local workbench directly in a browser:
+Recommended local server mode:
+
+```bat
+cd /d D:\AI\KrLongAI-master
+D:\Python312\python.exe custom_home_server.py --port 8765
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+Direct HTML mode also works:
 
 ```text
 D:\AI\KrLongAI-master\custom_home_agent.html
 ```
 
-No server is required for the HTML version.
-
-Recommended demo path for a custom-home store:
-
-1. Open `custom_home_agent.html`.
-2. Fill city/district/community and one real case.
-3. Fill only known business fields; leave unknown fields blank.
-4. Paste a benchmark viral copy if available.
-5. Generate 10 items.
-6. Use `一键改写` or `AI改写`.
-7. Edit and save the rewritten copy.
-8. Save the case as a `内容项目`.
-9. Pick 3-5 scripts for human shooting/editing.
-
-Run from command line:
-
-```bat
-cd /d D:\AI\KrLongAI-master
-python custom_home_agent.py --input custom_home_case.sample.json --json
-```
-
-Generate Markdown output:
-
-```bat
-cd /d D:\AI\KrLongAI-master
-python custom_home_agent.py --input custom_home_case.sample.json --output custom_home_scripts.md
-```
-
-Run tests:
-
-```bat
-cd /d D:\AI\KrLongAI-master
-python -m unittest test_custom_home_agent.py
-```
-
-If running from the existing Codex session, use:
-
-```bat
-cd /d D:\AI\KrLongAI-master
-D:\Python312\python.exe -m unittest test_custom_home_agent.py
-D:\Python312\python.exe custom_home_agent.py --input custom_home_case.sample.json --json
-```
-
-Do not run the tests from `D:\` directly. If you do, Python will not find `test_custom_home_agent.py`.
-
-Wrong:
-
-```bat
-cd /d D:\
-python -m unittest test_custom_home_agent.py
-```
-
-Right:
-
-```bat
-cd /d D:\AI\KrLongAI-master
-python -m unittest test_custom_home_agent.py
-```
+No server is required for direct HTML mode, but projects only persist in the current browser.
 
 ## Verification Performed
 
-The MVP was verified with:
+Verified with:
 
 ```bat
 D:\Python312\python.exe -m unittest test_custom_home_agent.py
-```
-
-Result:
-
-```text
-Ran 7 tests in 0.130s
-OK
-```
-
-Frontend inline script syntax was verified with system Node:
-
-```bat
-C:\Program Files\nodejs\node.exe
-```
-
-Result:
-
-```text
-inline script syntax ok
-```
-
-Sample JSON generation also succeeded:
-
-```bat
+D:\Python312\python.exe -m py_compile custom_home_agent.py custom_home_server.py
 D:\Python312\python.exe custom_home_agent.py --input custom_home_case.sample.json --json
 ```
 
-It generated 10 custom-home local lead-generation content items.
+Local server API was also smoke-tested:
 
-One bug was fixed during verification:
+- `POST /api/generate`
+- `POST /api/projects`
+- `GET /api/projects/<name>`
+- `DELETE /api/projects/<name>`
+- `POST /api/materials`
 
-- Windows/Codex subprocess output had an encoding issue with Chinese JSON.
-- `custom_home_agent.py` now reconfigures `stdout` to UTF-8 in `main()`.
+Frontend inline script syntax was checked with Node's `vm.Script`.
 
-## Product Direction From Discussion
+## Recommended Next Implementation Order
 
-The user wants to build software similar to the KrLongAI/轻语IP智能体 style, but narrowed to:
-
-- Main industry: 非标定制家居.
-- First customer type: 本地门店/经销商.
-- First scenario: 同城获客.
-- Delivery model: 服务 + 软件.
-- Long-term shape: 本地部署 + 云端 SaaS.
-
-Recommended first commercial package:
-
-1. Collect 3 real local cases from a store.
-2. Generate 10 scripts per case.
-3. Produce 5 finished videos manually or semi-automatically.
-4. Help publish manually.
-5. Track comments, private messages, inquiries, visits, and measurement appointments.
-6. Validate whether the store will pay for stable monthly content output.
-
-Do not prioritize these in v1:
-
-- Full multi-platform automated publishing.
-- Complex account matrix operations.
-- All-industry templates.
-- Fully autonomous video generation before the original resource package is restored.
-
-## Competitive Gap Notes
-
-Compared with 旗博士 and 轻语AI-style products, this MVP currently covers the content strategy/generation layer but does not yet cover the full video production and distribution chain.
-
-Already covered:
-
-- Industry-specific custom-home inputs.
-- Batch short-video script generation.
-- Title, cover, comment prompt, and private-message keyword generation.
-- Localized hooks and homeowner pain points.
-- Compliance risk reminders.
-- Editable rewrite workflow.
-- Optional AI rewrite via browser API settings.
-- Local project storage for repeat demos and case reuse.
-
-Still needed for a stronger commercial product:
-
-- Material library: upload/manage case images, videos, construction clips, factory clips, store photos.
-- Brand/persona settings: store owner IP tone, designer tone, consultant tone, and banned phrases.
-- Template library management: editable templates for 避坑、案例、报价、工艺、本地信任.
-- Finished video pipeline: digital-human voice/video, subtitles, BGM, cover rendering, store info overlay, and export presets.
-- Task center: generation history, status, failures, download links, and weekly delivery batches.
-- Lead conversion assets: private-message reply scripts, comment reply scripts, appointment/measurement scripts.
-- Data loop: record published video URL, views, comments, private messages, leads, visits, and appointments.
-- Multi-store/account support: useful later for agents, dealers, and regional operators.
-- Cloud version: lightweight upload/generate/download flow.
-- Local deployment package: for higher-budget stores or privacy-sensitive teams.
-
-Recommended next implementation order:
-
-1. Add persistent project/case management beyond browser `localStorage`.
-2. Add editable industry template library.
-3. Add material upload and simple shot-list binding.
-4. Add task/history page.
-5. Add video assembly integration only after original KrLongAI resources are restored or a new video stack is chosen.
+1. Add editable industry template library.
+2. Add material upload and simple shot-list binding.
+3. Add task/history page for weekly delivery batches.
+4. Add lead conversion assets: private-message replies, comment replies, appointment/measurement scripts.
+5. Add data loop: record published video URL, views, comments, private messages, leads, visits, and appointments.
+6. Add video assembly integration only after original KrLongAI resources are restored or a new video stack is chosen.
 
 ## Development Notes For Future Agents
 
 - Prefer extending `custom_home_agent.py` for script/content generation logic.
 - Prefer extending `custom_home_agent.html` for demo/workbench UX.
-- Keep the Python MVP dependency-free. The HTML workbench has optional OpenAI-compatible browser rewrite settings stored in localStorage.
-- If integrating with original KrLongAI later, map fields like this:
-  - `script` -> digital-human spoken text.
-  - `titles` -> publish title candidates.
-  - `cover` -> cover large text.
-  - `comment_prompt` -> caption/comment guidance.
-  - `dm_keyword` -> private-message keyword.
-  - `compliance_notes` -> human review checklist.
-  - `storyboard` -> shot list for case-material editing.
-  - `llm_prompt` -> prompt for OpenAI/Tongyi/Doubao/DeepSeek rewrite.
-  - `score` -> review priority and content selection.
-  - `rewritten_script` -> locally rewritten consultant-style copy.
+- Prefer extending `custom_home_server.py` for local persistence/API behavior.
+- Keep the MVP dependency-free unless the user explicitly chooses a larger stack.
 - The original project is Windows-first. Avoid Linux/macOS assumptions.
 - Do not delete `.pyd` files unless the user explicitly requests source-only debugging.
 - Use `rg` for searching when available.
-- Use `D:\Python312\python.exe` in this Codex session if `python` is still not visible.
+- Use `D:\Python312\python.exe` in this Codex session if `python` is not visible.

@@ -30,7 +30,7 @@ template:
       type: select
       required: false
       default: "治愈"
-      options: ["治愈", "元气", "慵懒", "治愈", "燃"]
+      options: ["治愈", "元气", "慵懒", "燃"]
       hint: "选择今天的心情氛围"
 
     - name: location

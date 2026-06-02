@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.log
+server.out.txt
+server.err.txt
+server.out.log
+server.err.log
+custom_home_cloud_settings.json
+custom_home_materials/
+content_pipeline_exports/

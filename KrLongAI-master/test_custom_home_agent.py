@@ -24,6 +24,8 @@ class CustomHomeAgentTests(unittest.TestCase):
             self.assertTrue(item.llm_prompt)
             self.assertGreaterEqual(item.score, 0)
             self.assertTrue(item.rewritten_script)
+            self.assertTrue(item.xiaohongshu_note)
+            self.assertTrue(item.xiaohongshu_video_plan)
 
     def test_rotates_all_five_content_pillars(self):
         outputs = generate_outputs(CaseInput(quantity=5))
@@ -69,6 +71,18 @@ class CustomHomeAgentTests(unittest.TestCase):
         self.assertIn("同行爆款开头", output.llm_prompt)
         self.assertTrue(any("门店" in shot or "特写" in shot for shot in output.storyboard))
 
+    def test_xiaohongshu_outputs_reference_real_materials(self):
+        output = generate_outputs(
+            CaseInput(
+                quantity=1,
+                material_notes="客厅整墙柜实拍、PUR封边特写、安装现场短视频",
+            )
+        )[0]
+
+        self.assertIn("小红书", output.xiaohongshu_note)
+        self.assertIn("客厅整墙柜实拍", output.xiaohongshu_note)
+        self.assertTrue(any("真实素材" in step or "实拍" in step for step in output.xiaohongshu_video_plan))
+
     def test_empty_optional_prompt_fields_are_omitted(self):
         output = generate_outputs(
             CaseInput(
@@ -91,7 +105,7 @@ class CustomHomeAgentTests(unittest.TestCase):
 
     def test_rewrite_script_is_more_consultative(self):
         case = CaseInput(store_name="木作先生全屋定制", city="苏州", district="吴中")
-        rewritten = rewrite_script("很多客户来店里第一句话就是：报价看不懂。", case, "价格解释")
+        rewritten = rewrite_script("很多客户到店第一句话就是：报价看不懂。", case, "价格解释")
 
         self.assertIn("木作先生全屋定制", rewritten)
         self.assertIn("同城业主", rewritten)

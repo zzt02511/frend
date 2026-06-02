@@ -6,6 +6,56 @@ from typing import Optional
 from app.config import settings
 
 
+def _detect_hwaccel() -> str:
+    """检测可用的硬件加速编码器"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            [settings.ffmpeg_path, "-encoders"],
+            capture_output=True, text=True, timeout=5,
+        )
+        encoders = result.stdout + result.stderr
+        if "h264_amf" in encoders:
+            return "h264_amf"   # AMD GPU
+        if "h264_nvenc" in encoders:
+            return "h264_nvenc"  # NVIDIA GPU
+        if "h264_qsv" in encoders:
+            return "h264_qsv"    # Intel QuickSync
+        if "h264_videotoolbox" in encoders:
+            return "h264_videotoolbox"  # macOS
+    except Exception:
+        pass
+    return ""  # 无硬件加速，回退到 libx264
+
+
+# 启动时检测一次
+_HWACCEL_ENCODER = _detect_hwaccel()
+
+
+def _get_font_spec(font_path: str = "") -> str:
+    """获取适用于 drawtext 的字体系列或文件路径参数
+
+    在 Windows 上优先使用 fontfile= 绝对路径，避免 fontconfig 缺失问题。
+    """
+    if font_path and os.path.exists(font_path):
+        # 使用绝对路径 + fontfile 参数
+        escaped = _escape_ffmpeg_path(font_path)
+        return f"fontfile='{escaped}'"
+    # 尝试自动检测 Windows 字体
+    win_fonts = [
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/simsun.ttc",
+        "C:/Windows/Fonts/simhei.ttf",
+        "C:/Windows/Fonts/yahei.ttf",
+    ]
+    for fp in win_fonts:
+        if os.path.exists(fp):
+            escaped = _escape_ffmpeg_path(fp)
+            return f"fontfile='{escaped}'"
+    # 最后尝试 fontconfig 名称
+    return "font='SimSun'"
+
+
 def build_scene_command(
     output_path: str,
     width: int = 1080,
@@ -28,15 +78,24 @@ def build_scene_command(
         "-i", f"color=c={bg_color}:s={width}x{height}:d={duration}:r={fps}",
     ]
 
+    # 启用硬件加速（如果有）
+    hwaccel_opts = []
+    if _HWACCEL_ENCODER == "h264_amf":
+        hwaccel_opts = ["-hwaccel", "d3d11va"]
+    elif _HWACCEL_ENCODER == "h264_nvenc":
+        hwaccel_opts = ["-hwaccel", "cuda"]
+    elif _HWACCEL_ENCODER == "h264_qsv":
+        hwaccel_opts = ["-hwaccel", "qsv"]
+
     filter_parts = []
 
     # 文本叠加
     if text_content:
         escaped_text = _escape_ffmpeg_text(text_content)
-        font_name = font_path or _find_chinese_font()
+        font_spec = _get_font_spec(font_path)
         drawtext = (
             f"drawtext=text='{escaped_text}'"
-            f":font='{font_name}'"
+            f":{font_spec}"
             f":fontsize={text_size}"
             f":fontcolor={text_color}"
             f":x=(w-text_w)/2"
@@ -51,8 +110,6 @@ def build_scene_command(
         img_w = min(width // 2, 600)
         img_x = (width - img_w) // 2
         img_y = (height - img_w) // 2
-        overlay = f"[0:v]{''.join(filter_parts) if filter_parts else 'null'}[bg];[bg][1:v]overlay={img_x}:{img_y}:enable='between(t,0,{duration})'[out]"
-        # 简化，用更直接的方式
         filter_parts = [f"overlay={img_x}:{img_y}:enable='between(t,0,{duration})'"]
 
     # 构建 filter_complex
@@ -63,11 +120,19 @@ def build_scene_command(
     else:
         cmd.extend(["-map", "0:v"])
 
-    # 编码
-    cmd.extend([
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
+    # 编码 - 使用硬件加速或 ultrafast 预设
+    encoder = _HWACCEL_ENCODER or "libx264"
+    preset_flag = []
+    if _HWACCEL_ENCODER == "h264_amf":
+        preset_flag = ["-quality", "speed"]
+    elif _HWACCEL_ENCODER:
+        preset_flag = ["-preset", "p1"]  # NVENC/QSV 最快预设
+    else:
+        preset_flag = ["-preset", "ultrafast", "-crf", "28"]
+
+    cmd.extend(hwaccel_opts + [
+        "-c:v", encoder,
+        *preset_flag,
         "-pix_fmt", "yuv420p",
         "-y",
         output_path,
@@ -162,14 +227,21 @@ def build_subtitle_command(
     srt_abs = os.path.abspath(srt_path).replace("\\", "/")
     srt_escaped = _escape_filter_value(srt_abs)
 
+    encoder = _HWACCEL_ENCODER or "libx264"
+    if _HWACCEL_ENCODER == "h264_amf":
+        preset_flag = ["-quality", "speed"]
+    elif _HWACCEL_ENCODER:
+        preset_flag = ["-preset", "p1"]
+    else:
+        preset_flag = ["-preset", "ultrafast", "-crf", "28"]
+
     return [
         settings.ffmpeg_path,
         "-i", video_path,
         "-vf", f"subtitles={srt_escaped}",
         "-c:a", "copy",
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-crf", "23",
+        "-c:v", encoder,
+        *preset_flag,
         "-y",
         output_path,
     ]
@@ -197,24 +269,6 @@ def _escape_filter_value(value: str) -> str:
     return value.replace(":", "\\:")
 
 
-def _find_chinese_font() -> str:
-    """查找系统中可用的中文字体名 (fontconfig)"""
-    # 使用 fontconfig 字体名（通过 --enable-fontconfig 支持）
-    possible_names = [
-        "SimSun",           # 宋体
-        "Microsoft YaHei",  # 微软雅黑
-        "SimHei",           # 黑体
-        "FangSong",         # 仿宋
-        "KaiTi",            # 楷体
-    ]
-    # 检查 fontconfig 是否可用（通过检测字体文件是否存在来决定默认值）
-    # 如果 fontconfig 不可用，回退到文件路径方式
-    font_paths = [
-        "C:/Windows/Fonts/simsun.ttc",
-        "C:/Windows/Fonts/msyh.ttc",
-        "C:/Windows/Fonts/simhei.ttf",
-    ]
-    for fp in font_paths:
-        if os.path.exists(fp):
-            return possible_names[0]  # 优先使用 fontconfig 名称
-    return "SimSun"
+def _escape_ffmpeg_path(path: str) -> str:
+    """转义 FFmpeg filter 中的文件路径（转义冒号，统一正斜杠）"""
+    return path.replace("\\", "/").replace(":", "\\:")

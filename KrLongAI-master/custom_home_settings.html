@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>内容生产流水线设置</title>
+  <style>
+    :root {
+      --ink: #20211d;
+      --muted: #62645d;
+      --paper: #f5f1e8;
+      --panel: #fffdf8;
+      --line: #d8ccba;
+      --wood: #8a5d35;
+      --leaf: #50684d;
+      --clay: #a04f3d;
+      --gold: #c4a15f;
+      --shadow: 0 18px 42px rgba(32, 33, 29, .12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(32,33,29,.04) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(32,33,29,.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 32px 32px;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 30px; letter-spacing: 0; }
+    h2 { margin: 0 0 12px; font-size: 19px; }
+    p { margin: 7px 0 0; color: var(--muted); line-height: 1.65; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    label { display: block; margin: 10px 0 6px; color: var(--muted); font-size: 12px; font-weight: 900; }
+    input, select, textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fffdf8;
+      outline: none;
+      font: inherit;
+      font-size: 13px;
+    }
+    textarea { min-height: 170px; resize: vertical; font-family: Consolas, "Microsoft YaHei", monospace; line-height: 1.55; }
+    input:focus, select:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(196,161,95,.16); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    button, a.button {
+      min-height: 38px;
+      border: 0;
+      border-radius: 6px;
+      padding: 9px 13px;
+      color: #fffdf8;
+      background: var(--clay);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    button.secondary, a.secondary { color: var(--ink); background: #f4ead8; border: 1px solid var(--line); }
+    button.ghost { color: var(--leaf); background: rgba(80,104,77,.09); border: 1px solid rgba(80,104,77,.22); }
+    .status { min-height: 20px; margin-top: 9px; color: var(--leaf); font-size: 13px; font-weight: 800; }
+    .hint { padding: 10px 12px; background: rgba(80,104,77,.08); border-left: 3px solid var(--leaf); color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .wide { grid-column: 1 / -1; }
+    @media (max-width: 900px) {
+      .grid, .grid-2 { grid-template-columns: 1fr; }
+      .topbar { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div>
+        <h1>内容生产流水线设置</h1>
+        <p>集中配置数字人 API、语音 API、AI 改写接口和素材精修默认值。工作台只负责案例、素材和内容产出。</p>
+      </div>
+      <a class="button secondary" href="custom_home_agent.html">返回工作台</a>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>数字人 API</h2>
+        <div class="hint">先用第三方 API 跑通流程；以后自建 HeyGem/Duix 服务时，把供应商切回自建即可。</div>
+        <label for="avatarProvider">供应商</label>
+        <select id="avatarProvider">
+          <option value="heygem">HeyGem / Duix 自建</option>
+          <option value="heygen">HeyGen API</option>
+          <option value="did">D-ID API</option>
+          <option value="custom">自定义数字人 API</option>
+        </select>
+        <div class="row-actions">
+          <button class="ghost" data-avatar-preset="heygen">套用 HeyGen</button>
+          <button class="ghost" data-avatar-preset="did">套用 D-ID</button>
+          <button class="ghost" data-avatar-preset="heygem">套用自建 HeyGem</button>
+        </div>
+        <label for="avatarSubmitUrl">提交接口 URL</label>
+        <input id="avatarSubmitUrl" placeholder="https://api.example.com/avatar/create">
+        <label for="avatarStatusUrl">状态查询 URL</label>
+        <input id="avatarStatusUrl" placeholder="可选，后续轮询任务时使用">
+        <div class="grid-2">
+          <div><label for="avatarId">数字人/形象 ID</label><input id="avatarId" placeholder="avatar_id 或 source_url"></div>
+          <div><label for="avatarVoiceId">口播声音 ID</label><input id="avatarVoiceId" placeholder="数字人供应商内的 voice_id"></div>
+        </div>
+        <label for="avatarAppId">数字人 AppID / 附加应用 ID</label>
+        <input id="avatarAppId" placeholder="供应商要求时填写；不需要可留空">
+        <div class="grid-2">
+          <div><label for="avatarAuthHeader">鉴权 Header</label><input id="avatarAuthHeader" value="Authorization"></div>
+          <div><label for="avatarAuthScheme">鉴权前缀</label><input id="avatarAuthScheme" value="Bearer" placeholder="Bearer / Basic / 留空"></div>
+        </div>
+        <label for="avatarApiKey">数字人 API Key</label>
+        <input id="avatarApiKey" type="password" placeholder="保存到本地后端配置文件">
+        <div class="grid-2">
+          <div><label for="avatarTaskPath">任务 ID 响应路径</label><input id="avatarTaskPath" value="taskId"></div>
+          <div><label for="avatarVideoPath">视频 URL 响应路径</label><input id="avatarVideoPath" value="video_url"></div>
+        </div>
+        <label for="avatarPayloadTemplate">请求 JSON 模板</label>
+        <textarea id="avatarPayloadTemplate" spellcheck="false" placeholder='可使用 {script} {title} {avatar_id} {voice_id} {task_id}'></textarea>
+      </section>
+
+      <section class="card">
+        <h2>语音 API</h2>
+        <div class="hint">语音可以独立生成，也可以给数字人口播复用同一个 voice_id。</div>
+        <label for="voiceProvider">供应商</label>
+        <select id="voiceProvider">
+          <option value="duix">Duix / 自建 TTS</option>
+          <option value="openai_tts">OpenAI TTS</option>
+          <option value="volcengine_tts">火山引擎语音合成</option>
+          <option value="custom">自定义语音 API</option>
+        </select>
+        <div class="row-actions">
+          <button class="ghost" data-voice-preset="openai_tts">套用 OpenAI TTS</button>
+          <button class="ghost" data-voice-preset="volcengine_tts">套用火山 TTS</button>
+          <button class="ghost" data-voice-preset="duix">套用自建 TTS</button>
+        </div>
+        <label for="voiceSubmitUrl">提交接口 URL</label>
+        <input id="voiceSubmitUrl" placeholder="https://api.example.com/tts">
+        <label for="voiceId">声音 ID</label>
+        <input id="voiceId" placeholder="alloy / zh_female_xxx / 自定义 voice_id">
+        <label for="voiceAppId">语音 AppID / 应用 ID</label>
+        <input id="voiceAppId" placeholder="火山等供应商通常需要 appid">
+        <div class="grid-2">
+          <div><label for="voiceAuthHeader">鉴权 Header</label><input id="voiceAuthHeader" value="Authorization"></div>
+          <div><label for="voiceAuthScheme">鉴权前缀</label><input id="voiceAuthScheme" value="Bearer"></div>
+        </div>
+        <label for="voiceApiKey">语音 API Key</label>
+        <input id="voiceApiKey" type="password" placeholder="保存到本地后端配置文件">
+        <label for="voiceAudioPath">音频 URL 响应路径</label>
+        <input id="voiceAudioPath" value="audio_url">
+        <label for="voicePayloadTemplate">请求 JSON 模板</label>
+        <textarea id="voicePayloadTemplate" spellcheck="false" placeholder='可使用 {text} {voice_id} {task_id} {api_key}'></textarea>
+      </section>
+
+      <section class="card">
+        <h2>自建服务兼容</h2>
+        <label for="heygemUrl">HeyGem / Duix 地址</label>
+        <input id="heygemUrl" value="http://127.0.0.1:8383">
+        <label for="ttsUrl">TTS / 语音地址</label>
+        <input id="ttsUrl" value="http://127.0.0.1:18180">
+        <label for="cloudKey">自建服务 API Key</label>
+        <input id="cloudKey" type="password" placeholder="如有鉴权则填写">
+        <div class="row-actions">
+          <button id="saveCloudBtn">保存云端/API 配置</button>
+          <button class="secondary" id="checkCloudBtn">检测连接</button>
+        </div>
+        <div class="status" id="cloudStatus"></div>
+      </section>
+
+      <section class="card">
+        <h2>AI 改写接口</h2>
+        <label for="aiEndpoint">OpenAI-compatible 接口</label>
+        <input id="aiEndpoint" value="https://api.openai.com/v1/chat/completions">
+        <div class="grid-2">
+          <div><label for="aiModel">模型</label><input id="aiModel" value="gpt-4o-mini"></div>
+          <div><label for="aiTemperature">温度</label><input id="aiTemperature" value="0.7"></div>
+        </div>
+        <label for="aiKey">API Key</label>
+        <input id="aiKey" type="password" placeholder="仅保存到当前浏览器">
+        <div class="row-actions">
+          <button id="saveAiSettingsBtn">保存 AI 设置</button>
+        </div>
+        <div class="status" id="aiSettingsStatus"></div>
+      </section>
+
+      <section class="card">
+        <h2>素材精修默认值</h2>
+        <div class="grid-2">
+          <div>
+            <label for="defaultRefineType">默认素材类型</label>
+            <select id="defaultRefineType">
+              <option value="product">产品照</option>
+              <option value="portrait">人员照</option>
+              <option value="environment">工作环境</option>
+            </select>
+          </div>
+          <div>
+            <label for="defaultRefineRatio">默认裁切比例</label>
+            <select id="defaultRefineRatio">
+              <option value="1:1">1:1 图文封面</option>
+              <option value="3:4">3:4 小红书图文</option>
+              <option value="4:5">4:5 信息流</option>
+              <option value="9:16">9:16 视频封面</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div><label for="defaultRefineStrength">增强强度</label><input id="defaultRefineStrength" type="range" min="0" max="100" value="55"></div>
+          <div><label for="defaultRefineZoom">裁切放大</label><input id="defaultRefineZoom" type="range" min="0" max="40" value="8"></div>
+        </div>
+        <div class="row-actions">
+          <button id="saveRefineDefaultsBtn">保存精修默认值</button>
+        </div>
+        <div class="status" id="refineStatus"></div>
+      </section>
+
+      <section class="card">
+        <h2>运行提示</h2>
+        <p>本地启动：</p>
+        <div class="hint">D:\Python312\python.exe custom_home_server.py --port 8765</div>
+        <p>SSH 隧道示例：</p>
+        <div class="hint">ssh -L 8383:127.0.0.1:8383 -L 18180:127.0.0.1:18180 root@云主机IP</div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+    const value = (id, fallback = "") => (el(id).value || fallback).trim();
+    let presets = { avatar: {}, voice: {} };
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || response.statusText);
+      return data;
+    }
+
+    function loadAiSettings() {
+      const s = JSON.parse(localStorage.getItem("custom-home-ai-settings") || "{}");
+      if (s.endpoint) el("aiEndpoint").value = s.endpoint;
+      if (s.model) el("aiModel").value = s.model;
+      if (s.temperature) el("aiTemperature").value = s.temperature;
+      if (s.apiKey) el("aiKey").value = s.apiKey;
+    }
+
+    function saveAiSettings() {
+      localStorage.setItem("custom-home-ai-settings", JSON.stringify({
+        endpoint: value("aiEndpoint"),
+        model: value("aiModel"),
+        temperature: value("aiTemperature"),
+        apiKey: value("aiKey")
+      }));
+      el("aiSettingsStatus").textContent = "AI 设置已保存到当前浏览器。";
+    }
+
+    function applyAvatarPreset(name) {
+      const p = presets.avatar?.[name];
+      if (!p) return;
+      el("avatarProvider").value = name;
+      el("avatarSubmitUrl").value = p.submit_url || "";
+      el("avatarAuthHeader").value = p.auth_header || "Authorization";
+      el("avatarAuthScheme").value = p.auth_scheme || "";
+      el("avatarTaskPath").value = p.task_path || "taskId";
+      el("avatarVideoPath").value = p.video_path || "video_url";
+      el("avatarPayloadTemplate").value = p.template || "";
+    }
+
+    function applyVoicePreset(name) {
+      const p = presets.voice?.[name];
+      if (!p) return;
+      el("voiceProvider").value = name;
+      el("voiceSubmitUrl").value = p.submit_url || "";
+      el("voiceAuthHeader").value = p.auth_header || "Authorization";
+      el("voiceAuthScheme").value = p.auth_scheme || "";
+      el("voiceAudioPath").value = p.audio_path || "audio_url";
+      el("voicePayloadTemplate").value = p.template || "";
+    }
+
+    async function loadCloudSettings() {
+      try {
+        const s = await api("/api/cloud/settings");
+        presets = s.provider_presets || presets;
+        if (s.heygem_base_url) el("heygemUrl").value = s.heygem_base_url;
+        if (s.tts_base_url) el("ttsUrl").value = s.tts_base_url;
+        if (s.avatar_id) {
+          el("avatarId").value = s.avatar_id;
+          el("avatarVoiceId").value = s.voice_id || "";
+        }
+        if (s.avatar_app_id) el("avatarAppId").value = s.avatar_app_id;
+        if (s.voice_id) el("voiceId").value = s.voice_id;
+        if (s.voice_app_id) el("voiceAppId").value = s.voice_app_id;
+        if (s.avatar_provider) el("avatarProvider").value = s.avatar_provider;
+        if (s.avatar_submit_url) el("avatarSubmitUrl").value = s.avatar_submit_url;
+        if (s.avatar_status_url) el("avatarStatusUrl").value = s.avatar_status_url;
+        if (s.avatar_auth_header) el("avatarAuthHeader").value = s.avatar_auth_header;
+        if (s.avatar_auth_scheme !== undefined) el("avatarAuthScheme").value = s.avatar_auth_scheme;
+        if (s.avatar_response_task_path) el("avatarTaskPath").value = s.avatar_response_task_path;
+        if (s.avatar_response_video_path) el("avatarVideoPath").value = s.avatar_response_video_path;
+        if (s.avatar_payload_template) el("avatarPayloadTemplate").value = s.avatar_payload_template;
+        if (s.voice_provider) el("voiceProvider").value = s.voice_provider;
+        if (s.voice_submit_url) el("voiceSubmitUrl").value = s.voice_submit_url;
+        if (s.voice_auth_header) el("voiceAuthHeader").value = s.voice_auth_header;
+        if (s.voice_auth_scheme !== undefined) el("voiceAuthScheme").value = s.voice_auth_scheme;
+        if (s.voice_response_audio_path) el("voiceAudioPath").value = s.voice_response_audio_path;
+        if (s.voice_payload_template) el("voicePayloadTemplate").value = s.voice_payload_template;
+      } catch {
+        el("cloudStatus").textContent = "未连接本地服务，云端/API 配置暂时不可保存。";
+      }
+    }
+
+    async function saveCloudSettings() {
+      const voiceId = value("voiceId") || value("avatarVoiceId");
+      const payload = {
+        heygem_base_url: value("heygemUrl"),
+        tts_base_url: value("ttsUrl"),
+        api_key: value("cloudKey"),
+        avatar_id: value("avatarId"),
+        avatar_app_id: value("avatarAppId"),
+        voice_id: voiceId,
+        avatar_provider: value("avatarProvider"),
+        avatar_submit_url: value("avatarSubmitUrl"),
+        avatar_status_url: value("avatarStatusUrl"),
+        avatar_api_key: value("avatarApiKey"),
+        avatar_auth_header: value("avatarAuthHeader"),
+        avatar_auth_scheme: value("avatarAuthScheme"),
+        avatar_response_task_path: value("avatarTaskPath"),
+        avatar_response_video_path: value("avatarVideoPath"),
+        avatar_payload_template: el("avatarPayloadTemplate").value.trim(),
+        voice_provider: value("voiceProvider"),
+        voice_app_id: value("voiceAppId"),
+        voice_submit_url: value("voiceSubmitUrl"),
+        voice_api_key: value("voiceApiKey"),
+        voice_auth_header: value("voiceAuthHeader"),
+        voice_auth_scheme: value("voiceAuthScheme"),
+        voice_response_audio_path: value("voiceAudioPath"),
+        voice_payload_template: el("voicePayloadTemplate").value.trim()
+      };
+      await api("/api/cloud/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      el("cloudStatus").textContent = "云端/API 配置已保存。";
+    }
+
+    async function checkCloud() {
+      await saveCloudSettings();
+      const result = await api("/api/cloud/health");
+      const localAvatar = result.heygem?.ok === false ? "未通" : "有响应";
+      const localVoice = result.tts?.ok === false ? "未通" : "有响应";
+      const avatarApi = result.avatar_api ? `；数字人 API: ${result.avatar_api.provider}` : "";
+      const voiceApi = result.voice_api ? `；语音 API: ${result.voice_api.provider}` : "";
+      el("cloudStatus").textContent = `自建 HeyGem: ${localAvatar}；自建 TTS: ${localVoice}${avatarApi}${voiceApi}`;
+    }
+
+    function loadRefineDefaults() {
+      const s = JSON.parse(localStorage.getItem("custom-home-refine-defaults") || "{}");
+      if (s.type) el("defaultRefineType").value = s.type;
+      if (s.ratio) el("defaultRefineRatio").value = s.ratio;
+      if (s.strength) el("defaultRefineStrength").value = s.strength;
+      if (s.zoom) el("defaultRefineZoom").value = s.zoom;
+    }
+
+    function saveRefineDefaults() {
+      localStorage.setItem("custom-home-refine-defaults", JSON.stringify({
+        type: value("defaultRefineType"),
+        ratio: value("defaultRefineRatio"),
+        strength: value("defaultRefineStrength"),
+        zoom: value("defaultRefineZoom")
+      }));
+      el("refineStatus").textContent = "素材精修默认值已保存。";
+    }
+
+    el("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
+    el("saveCloudBtn").addEventListener("click", saveCloudSettings);
+    el("checkCloudBtn").addEventListener("click", checkCloud);
+    el("saveRefineDefaultsBtn").addEventListener("click", saveRefineDefaults);
+    document.querySelectorAll("[data-avatar-preset]").forEach(btn => {
+      btn.addEventListener("click", () => applyAvatarPreset(btn.dataset.avatarPreset));
+    });
+    document.querySelectorAll("[data-voice-preset]").forEach(btn => {
+      btn.addEventListener("click", () => applyVoicePreset(btn.dataset.voicePreset));
+    });
+
+    loadAiSettings();
+    loadCloudSettings();
+    loadRefineDefaults();
+  </script>
+</body>
+</html>

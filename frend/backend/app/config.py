@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # 渲染限制
     max_concurrent_jobs: int = 2
-    max_job_duration_seconds: int = 300
+    max_job_duration_seconds: int = 600
     max_asset_storage_mb: int = 500
 
     # FFmpeg

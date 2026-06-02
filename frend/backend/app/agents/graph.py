@@ -65,16 +65,22 @@ async def _template_parse_node(state: AgentState) -> dict:
 
 async def _script_generate_node(state: AgentState) -> dict:
     """脚本生成节点"""
+    # 前面节点已有错误则跳过
+    if state.get("errors"):
+        return {**state, "current_step": "script_generate", "progress": 0.35}
+
     from app.skills.script_writer import ScriptWriterSkill
 
     skill = ScriptWriterSkill()
     ctx = type("Ctx", (), {"state": state, "working_memory": state.get("working_memory", {}), "config": state.get("config", {})})()
     result = await skill.execute(ctx)
 
+    if not result.success:
+        return {**state, "errors": state.get("errors", []) + [result.error or "脚本生成失败"], "current_step": "script_generate", "progress": 0.35}
+
     return {
         **state,
         "script": result.data.get("scenes", []) if result.success else [],
-        "errors": state.get("errors", []) + ([result.error] if not result.success and result.error else []),
         "current_step": "script_generate",
         "progress": 0.35,
     }
@@ -82,11 +88,18 @@ async def _script_generate_node(state: AgentState) -> dict:
 
 async def _collect_assets_node(state: AgentState) -> dict:
     """资产采集节点"""
+    # 前面节点已有错误则跳过
+    if state.get("errors"):
+        return {**state, "current_step": "collect_assets", "progress": 0.50}
+
     from app.skills.image_gen import ImageGenSkill
 
     skill = ImageGenSkill()
     ctx = type("Ctx", (), {"state": state, "working_memory": state.get("working_memory", {}), "config": state.get("config", {})})()
     result = await skill.execute(ctx)
+
+    if not result.success:
+        return {**state, "errors": state.get("errors", []) + [result.error or "素材采集失败"], "current_step": "collect_assets", "progress": 0.50}
 
     return {
         **state,
@@ -98,11 +111,18 @@ async def _collect_assets_node(state: AgentState) -> dict:
 
 async def _generate_tts_node(state: AgentState) -> dict:
     """TTS 生成节点"""
+    # 前面节点已有错误则跳过
+    if state.get("errors"):
+        return {**state, "current_step": "generate_tts", "progress": 0.65}
+
     from app.skills.tts_speaker import TTSSpeakerSkill
 
     skill = TTSSpeakerSkill()
     ctx = type("Ctx", (), {"state": state, "working_memory": state.get("working_memory", {}), "config": state.get("config", {})})()
     result = await skill.execute(ctx)
+
+    if not result.success:
+        return {**state, "errors": state.get("errors", []) + [result.error or "TTS 生成失败"], "current_step": "generate_tts", "progress": 0.65}
 
     return {
         **state,
@@ -114,11 +134,18 @@ async def _generate_tts_node(state: AgentState) -> dict:
 
 async def _generate_srt_node(state: AgentState) -> dict:
     """字幕生成节点"""
+    # 前面节点已有错误则跳过
+    if state.get("errors"):
+        return {**state, "current_step": "generate_srt", "progress": 0.75}
+
     from app.skills.subtitle_gen import SubtitleGenSkill
 
     skill = SubtitleGenSkill()
     ctx = type("Ctx", (), {"state": state, "working_memory": state.get("working_memory", {}), "config": state.get("config", {})})()
     result = await skill.execute(ctx)
+
+    if not result.success:
+        return {**state, "errors": state.get("errors", []) + [result.error or "字幕生成失败"], "current_step": "generate_srt", "progress": 0.75}
 
     return {
         **state,
@@ -130,11 +157,18 @@ async def _generate_srt_node(state: AgentState) -> dict:
 
 async def _ffmpeg_render_node(state: AgentState) -> dict:
     """FFmpeg 渲染节点"""
+    # 前面节点已有错误则跳过
+    if state.get("errors"):
+        return {**state, "current_step": "ffmpeg_render", "progress": 0.95}
+
     from app.skills.ffmpeg_renderer import FFmpegRendererSkill
 
     skill = FFmpegRendererSkill()
     ctx = type("Ctx", (), {"state": state, "working_memory": state.get("working_memory", {}), "config": state.get("config", {})})()
     result = await skill.execute(ctx)
+
+    if not result.success:
+        return {**state, "errors": state.get("errors", []) + [result.error or "FFmpeg 渲染失败"], "current_step": "ffmpeg_render", "progress": 0.95}
 
     return {
         **state,

@@ -1,6 +1,6 @@
 # 非标定制家居同城获客智能体 MVP
 
-这是当前仓库里可直接运行的第一版行业化 MVP。它不依赖缺失的 `utils/`、CosyVoice、数字人模型资源，先实现“定制家居案例 -> 短视频口播内容包”的核心商业验证链路。
+这是当前仓库里可直接运行的行业化 MVP。它不依赖缺失的 `utils/`、CosyVoice、数字人模型资源，先实现“定制家居案例 -> 短视频口播内容包 -> 项目保存”的核心商业验证链路。
 
 ## 已实现能力
 
@@ -17,7 +17,20 @@
   - LLM 二次改写提示词
   - 内容评分
   - 一键改写稿
-- 风险表达检测：会提示 `0甲醛`、`绝对环保`、`全网最低`、`保证成交`、`省50%` 等高风险话术。
+  - 小红书图文笔记
+  - 小红书视频素材搭配方案
+- 风险表达检测：会提示 `0甲醛`、`零甲醛`、`绝对环保`、`全网最低`、`保证成交`、`省50%` 等高风险话术。
+- 本地项目管理：
+  - 直接打开 HTML 时，项目保存到浏览器 `localStorage`。
+  - 通过 `custom_home_server.py` 启动时，项目保存到 `custom_home_projects/*.json`。
+- 真实素材工作流：
+  - 可登记实拍图片/视频素材说明。
+  - 通过本地服务打开时，可把图片/视频上传到 `custom_home_materials/<项目名>/`。
+  - 小红书图文和视频方案会引用这些真实素材，而不是只生成空泛文案。
+- 云主机能力：
+  - 可配置远程 HeyGem/Duix 地址。
+  - 可配置远程 TTS/语音地址。
+  - 可把每条口播脚本提交到云端生成语音或数字人口播任务。
 
 ## 打开可视化工作台
 
@@ -27,46 +40,73 @@
 custom_home_agent.html
 ```
 
-这个页面不需要启动服务，也不需要安装依赖。适合给非标定制家居门店演示：填一个案例，批量生成 5/10/15 条可发布内容。
+这种方式不需要启动服务，也不需要安装依赖。项目数据只保存在当前浏览器。
+
+推荐使用本地服务方式：
+
+```bat
+cd /d D:\AI\KrLongAI-master
+D:\Python312\python.exe custom_home_server.py --port 8765
+```
+
+然后访问：
+
+```text
+http://127.0.0.1:8765/
+```
+
+这种方式支持把内容项目保存为本地 JSON 文件：
+
+```text
+D:\AI\KrLongAI-master\custom_home_projects
+```
+
+上传的实拍图片/视频会保存到：
+
+```text
+D:\AI\KrLongAI-master\custom_home_materials
+```
 
 ## 命令行生成
 
 使用内置样例：
 
 ```bat
-python custom_home_agent.py --input custom_home_case.sample.json --output custom_home_scripts.md
+D:\Python312\python.exe custom_home_agent.py --input custom_home_case.sample.json --output custom_home_scripts.md
 ```
 
 输出 JSON：
 
 ```bat
-python custom_home_agent.py --input custom_home_case.sample.json --json
+D:\Python312\python.exe custom_home_agent.py --input custom_home_case.sample.json --json
 ```
-
-JSON 会包含 `storyboard`、`llm_prompt`、`score` 字段，可直接交给大模型、剪辑工具或后续数字人链路。
-
-可视化工作台支持每条内容的“一键改写”。改写稿会显示在卡片里的可编辑文本框中，编辑后点击“保存”会存到浏览器本地，再次生成同一案例时会自动加载；也可以一键复制改写稿。
-
-可视化工作台还支持可选的 `AI改写`：
-
-- 在左侧 `AI 改写设置` 填入 OpenAI-compatible `chat/completions` 接口地址、模型和 API Key。
-- 点击 `保存AI设置` 后，配置仅保存到本机浏览器。
-- 每条卡片点击 `AI改写` 会调用接口，并把结果写入同一个可编辑文本框。
-- AI 改写会参考左侧全部业务参数：城市、区域、小区、户型、面积、柜类、板材、五金、工艺、业主痛点、门店卖点、预算表达、活动引导、联系方式和对标爆款文案。
-- 如果接口不支持浏览器跨域请求、网络失败或 Key 不正确，页面会显示错误；此时仍可使用离线的 `一键改写`。
-
-可视化工作台支持 `内容项目`：
-
-- 输入项目名称后点击 `保存项目`，会保存当前表单、生成内容和已编辑改写稿。
-- `加载项目` 会恢复对应门店案例参数，并重新生成内容包。
-- `删除项目` 会从本机浏览器删除该项目。
-- 项目数据仅保存到当前浏览器 `localStorage`，不会上传服务器。
 
 快速生成 3 条默认内容：
 
 ```bat
-python custom_home_agent.py --quantity 3
+D:\Python312\python.exe custom_home_agent.py --quantity 3
 ```
+
+运行测试：
+
+```bat
+D:\Python312\python.exe -m unittest test_custom_home_agent.py
+```
+
+## 推荐演示流程
+
+1. 启动 `custom_home_server.py`。
+2. 打开 `http://127.0.0.1:8765/`。
+3. 填写一个真实门店案例：小区、户型、面积、风格、预算表达、痛点和卖点。
+4. 如需配置云主机、AI 改写或素材精修默认值，打开 `custom_home_settings.html`。
+5. 生成 10 条内容。
+6. 使用“一键改写”或可选的“AI 改写”。
+7. 上传真实完工图、板材/五金特写、安装现场视频，或先填写素材说明。
+8. 复制小红书图文笔记，或按“小红书视频素材搭配”去剪视频。
+9. 人工挑选 3-5 条最适合拍摄/发布的内容。
+10. 如果云主机已启动 HeyGem/Duix，在内容卡片点击“提交 HeyGem 数字人”。
+11. 点击“保存项目”，形成可复用的本地 JSON 案例档案。
+12. 发布后记录评论、私信、留资、到店、量尺预约，判断门店是否愿意为月度稳定内容输出付费。
 
 ## 后续接入 KrLongAI 主链路
 
@@ -76,20 +116,12 @@ python custom_home_agent.py --quantity 3
 2. `titles` 作为发布标题候选。
 3. `cover` 作为封面大字。
 4. `comment_prompt` 和 `dm_keyword` 作为发布运营话术。
-5. `compliance_notes` 作为发布前人工复核提醒。
+5. `compliance_notes` 作为发布前人工复核提示。
 6. `storyboard` 作为剪辑镜头清单。
 7. `llm_prompt` 作为接入 OpenAI/通义/豆包/DeepSeek 时的二次改写提示词。
 8. `score` 作为人工筛选优先级。
-9. `rewritten_script` 作为一键改写后的门店顾问口吻文案。
+9. `rewritten_script` 作为一键改写后的门店顾问口播文案。
+10. `xiaohongshu_note` 作为小红书图文笔记草稿。
+11. `xiaohongshu_video_plan` 作为实拍素材剪辑搭配建议。
 
-第一阶段仍建议人工发布，不先接自动发布模块，降低平台风控和接口失效风险。
-
-## 试点交付建议
-
-给第一批本地门店使用时，按这个交付流程跑：
-
-1. 收集 3 个真实案例：小区、户型、面积、风格、预算区间、完工图或施工图。
-2. 每个案例生成 10 条内容。
-3. 人工挑选 5 条脚本做成视频。
-4. 发布后记录评论、私信、留资、到店、量尺预约。
-5. 用结果判断客户愿意为“每月稳定产出 60 条内容”付多少钱。
+第一阶段仍建议人工发布，不先接自动发布模块，以降低平台风控和接口失效风险。

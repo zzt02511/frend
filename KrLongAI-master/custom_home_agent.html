@@ -3,522 +3,214 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>非标定制家居同城获客智能体</title>
+  <title>非标定制家居内容生产流水线</title>
   <style>
     :root {
-      --ink: #20201d;
-      --muted: #68655d;
-      --paper: #f7f3ea;
-      --panel: #fffdf7;
-      --line: #d8d0c2;
-      --oak: #8b6f47;
-      --moss: #4f6f52;
-      --steel: #3f6173;
-      --brick: #a64f3c;
-      --shadow: 0 18px 48px rgba(42, 37, 28, .12);
+      --ink: #20211d;
+      --muted: #62645d;
+      --paper: #f5f1e8;
+      --panel: #fffdf8;
+      --line: #d8ccba;
+      --wood: #8a5d35;
+      --leaf: #50684d;
+      --blue: #2f6173;
+      --clay: #a04f3d;
+      --gold: #c4a15f;
+      --shadow: 0 18px 42px rgba(32, 33, 29, .12);
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       color: var(--ink);
       background:
-        linear-gradient(90deg, rgba(32, 32, 29, .035) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(32, 32, 29, .03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(32,33,29,.04) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(32,33,29,.035) 1px, transparent 1px),
         var(--paper);
-      background-size: 28px 28px;
-      font-family: "Microsoft YaHei", "PingFang SC", "Noto Serif SC", serif;
+      background-size: 32px 32px;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
     }
-
-    .app {
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns: 380px minmax(0, 1fr);
-    }
-
-    aside {
-      min-height: 100vh;
-      padding: 24px;
-      background: #25241f;
-      color: #f7f3ea;
-      border-right: 1px solid rgba(255, 255, 255, .08);
-      position: sticky;
-      top: 0;
-    }
-
-    main {
-      padding: 24px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 22px;
-    }
-
-    .mark {
-      width: 44px;
-      height: 44px;
-      display: grid;
-      place-items: center;
-      border: 1px solid rgba(247, 243, 234, .35);
-      background: linear-gradient(135deg, #8b6f47, #4f6f52);
-      font-weight: 800;
-      font-size: 20px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.12;
-      letter-spacing: 0;
-    }
-
-    .sub {
-      margin: 4px 0 0;
-      color: rgba(247, 243, 234, .68);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .section-title {
-      margin: 22px 0 10px;
-      color: rgba(247, 243, 234, .7);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    label {
-      display: block;
-      margin: 10px 0 6px;
-      font-size: 12px;
-      font-weight: 700;
-      color: inherit;
-    }
-
-    input,
-    textarea,
-    select {
+    .app { min-height: 100vh; display: grid; grid-template-columns: 410px minmax(0, 1fr); }
+    aside { height: 100vh; overflow: auto; position: sticky; top: 0; padding: 22px; color: #fffaf0; background: #24251f; }
+    main { padding: 22px; }
+    h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+    h2 { margin: 0; font-size: 28px; }
+    h3 { margin: 0; font-size: 17px; }
+    .sub { margin: 6px 0 18px; color: rgba(255,250,240,.7); font-size: 13px; line-height: 1.6; }
+    .section-title { margin: 22px 0 10px; color: rgba(255,250,240,.78); font-size: 12px; font-weight: 900; }
+    label { display: block; margin: 9px 0 5px; font-size: 12px; font-weight: 800; }
+    input, textarea, select {
       width: 100%;
-      min-height: 40px;
-      border: 1px solid rgba(247, 243, 234, .18);
+      min-height: 39px;
+      border: 1px solid rgba(255,255,255,.17);
       border-radius: 6px;
-      padding: 10px 11px;
-      background: rgba(255, 255, 255, .075);
-      color: #fffdf7;
+      padding: 9px 10px;
+      color: #fffdf8;
+      background: rgba(255,255,255,.075);
       outline: none;
       font: inherit;
       font-size: 13px;
     }
-
-    textarea {
-      min-height: 86px;
-      resize: vertical;
-      line-height: 1.55;
-    }
-
-    input:focus,
-    textarea:focus,
-    select:focus {
-      border-color: rgba(202, 180, 127, .9);
-      box-shadow: 0 0 0 3px rgba(202, 180, 127, .14);
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .actions {
-      display: grid;
-      grid-template-columns: 1fr 44px;
-      gap: 10px;
-      margin-top: 18px;
-    }
-
+    textarea { min-height: 78px; resize: vertical; line-height: 1.55; }
+    input:focus, textarea:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(196,161,95,.16); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     button {
-      min-height: 42px;
+      min-height: 38px;
       border: 0;
       border-radius: 6px;
-      font: inherit;
-      font-weight: 800;
+      padding: 0 13px;
+      color: #fffdf8;
+      background: var(--clay);
       cursor: pointer;
-      color: #fffdf7;
-      background: var(--brick);
-      transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-      filter: brightness(1.04);
-      box-shadow: 0 12px 24px rgba(166, 79, 60, .24);
-    }
-
-    button.secondary {
-      background: rgba(255, 255, 255, .1);
-      border: 1px solid rgba(255, 255, 255, .18);
-    }
-
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(130px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .metric {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-      box-shadow: 0 10px 22px rgba(42, 37, 28, .06);
-    }
-
-    .metric b {
-      display: block;
-      font-size: 26px;
-      line-height: 1;
-    }
-
-    .metric span {
-      display: block;
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .pill {
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255, 253, 247, .72);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .output-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 14px;
-    }
-
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .card-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(135deg, rgba(139, 111, 71, .13), rgba(79, 111, 82, .08));
-    }
-
-    .card h2 {
-      margin: 0;
-      font-size: 17px;
-      line-height: 1.3;
-    }
-
-    .duration {
-      white-space: nowrap;
-      color: var(--steel);
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .card-body {
-      padding: 14px;
-    }
-
-    .script {
-      margin: 0 0 12px;
-      line-height: 1.7;
-      font-size: 14px;
-      white-space: pre-wrap;
-    }
-
-    .label {
-      margin: 12px 0 6px;
-      font-size: 12px;
-      font-weight: 900;
-      color: var(--oak);
-    }
-
-    ul {
-      margin: 0;
-      padding-left: 18px;
-      line-height: 1.65;
+      font: inherit;
       font-size: 13px;
-    }
-
-    .meta {
-      display: grid;
-      gap: 6px;
-      margin-top: 12px;
-      padding: 10px;
-      border: 1px dashed rgba(63, 97, 115, .32);
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      background: rgba(63, 97, 115, .05);
-    }
-
-    .storyboard {
-      margin-top: 12px;
-      padding: 10px;
-      border-left: 3px solid var(--moss);
-      background: rgba(79, 111, 82, .07);
-      color: var(--ink);
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    .score {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 54px;
-      height: 28px;
-      margin-top: 10px;
-      border-radius: 999px;
-      background: var(--moss);
-      color: #fffdf7;
-      font-size: 12px;
       font-weight: 900;
     }
-
-    .mini-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .mini-actions button {
-      min-height: 32px;
-      padding: 0 10px;
-      font-size: 12px;
-      background: var(--steel);
-    }
-
-    .rewrite-panel {
-      margin-top: 12px;
-      padding: 10px;
-      border: 1px solid rgba(166, 79, 60, .25);
-      border-radius: 6px;
-      background: rgba(166, 79, 60, .055);
-    }
-
-    .rewrite-panel textarea {
-      min-height: 150px;
-      margin-top: 8px;
-      color: var(--ink);
-      background: #fffdf7;
-      border-color: rgba(166, 79, 60, .22);
-    }
-
-    .rewrite-status {
-      min-height: 18px;
-      margin-top: 6px;
-      color: var(--moss);
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .warn {
-      color: var(--brick);
-      font-weight: 800;
-    }
-
-    .empty {
-      min-height: 420px;
-      display: grid;
-      place-items: center;
-      border: 1px dashed var(--line);
-      background: rgba(255, 253, 247, .48);
+    button.secondary { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); }
+    button.ghost { color: var(--ink); background: #f4ead8; border: 1px solid var(--line); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 16px; }
+    .topbar p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .status-box, .project-strip, .metric, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
       border-radius: 8px;
-      color: var(--muted);
-      text-align: center;
-      padding: 24px;
+      box-shadow: 0 10px 24px rgba(32,33,29,.07);
     }
-
-    @media (max-width: 980px) {
-      .app {
-        grid-template-columns: 1fr;
-      }
-
-      aside {
-        position: static;
-        min-height: auto;
-      }
-
-      .summary {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 560px) {
-      aside,
-      main {
-        padding: 16px;
-      }
-
-      .grid-2,
-      .summary {
-        grid-template-columns: 1fr;
-      }
-
-      .output-grid {
-        grid-template-columns: 1fr;
-      }
+    .status-box { padding: 12px; margin-bottom: 14px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .metric { padding: 14px; }
+    .metric b { display: block; font-size: 26px; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .project-strip { display: grid; grid-template-columns: minmax(180px, 1fr) 190px auto; gap: 10px; align-items: end; padding: 13px; margin-bottom: 14px; }
+    .project-strip label { color: var(--muted); margin-top: 0; }
+    .project-strip input, .project-strip select { color: var(--ink); background: #fffdf8; border-color: var(--line); }
+    .output-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+    .card { overflow: hidden; }
+    .card-head { display: flex; justify-content: space-between; gap: 12px; padding: 13px 14px; background: linear-gradient(135deg, rgba(138,93,53,.15), rgba(80,104,77,.09)); border-bottom: 1px solid var(--line); }
+    .card-body { padding: 14px; }
+    .script { margin: 0 0 12px; font-size: 14px; line-height: 1.72; white-space: pre-wrap; }
+    .label { margin: 12px 0 6px; color: var(--wood); font-size: 12px; font-weight: 900; }
+    ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.65; }
+    .meta, .panel { margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; }
+    .meta { color: var(--muted); background: rgba(47,97,115,.055); border: 1px dashed rgba(47,97,115,.3); }
+    .panel { background: rgba(80,104,77,.08); border-left: 3px solid var(--leaf); }
+    .card textarea { color: var(--ink); background: #fffdf8; border-color: rgba(160,79,61,.22); min-height: 150px; }
+    .badge { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: var(--leaf); color: #fffdf8; font-size: 12px; font-weight: 900; }
+    .status { min-height: 18px; margin-top: 7px; color: var(--leaf); font-size: 12px; font-weight: 800; }
+    .warn { color: var(--clay); font-weight: 900; }
+    .empty { min-height: 380px; display: grid; place-items: center; padding: 28px; text-align: center; color: var(--muted); background: rgba(255,253,248,.58); border: 1px dashed var(--line); border-radius: 8px; }
+    .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 8px; }
+    .template-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: rgba(255,253,248,.78); cursor: pointer; box-shadow: 0 8px 18px rgba(32,33,29,.06); }
+    .template-card.active { border-color: var(--clay); box-shadow: 0 0 0 3px rgba(160,79,61,.12); }
+    .template-card b { display: block; font-size: 14px; margin-bottom: 5px; }
+    .template-card span { display: block; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .template-card small { display: inline-flex; margin-top: 8px; padding: 4px 7px; border-radius: 999px; background: rgba(80,104,77,.1); color: var(--leaf); font-weight: 900; }
+    @media (max-width: 1040px) {
+      .app { grid-template-columns: 1fr; }
+      aside { position: static; height: auto; }
+      .summary { grid-template-columns: repeat(2, 1fr); }
+      .project-strip { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="app">
     <aside>
-      <div class="brand">
-        <div class="mark">木</div>
-        <div>
-          <h1>非标定制家居<br>同城获客智能体</h1>
-          <p class="sub">为全屋定制、衣柜橱柜、木作门店批量生成短视频口播内容。</p>
-        </div>
+      <h1>非标定制家居<br>内容生产流水线</h1>
+      <p class="sub">本地生成文案和项目，云端/API 负责 TTS、数字人和后续视频合成。</p>
+      <div class="row-actions">
+        <a class="button secondary" href="custom_home_settings.html" style="min-height:38px;border-radius:6px;padding:9px 13px;color:#fffdf8;text-decoration:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.1);font-size:13px;font-weight:900;">打开设置页</a>
       </div>
 
       <div class="section-title">门店与案例</div>
       <div class="grid-2">
-        <div>
-          <label for="city">城市</label>
-          <input id="city" value="苏州">
-        </div>
-        <div>
-          <label for="district">区域</label>
-          <input id="district" value="吴中">
-        </div>
+        <div><label for="city">城市</label><input id="city" value="苏州"></div>
+        <div><label for="district">区域</label><input id="district" value="吴中"></div>
       </div>
-      <label for="storeName">门店名称</label>
-      <input id="storeName" value="木作先生全屋定制">
-      <label for="community">小区/楼盘</label>
-      <input id="community" value="湖畔花园">
+      <label for="store_name">门店名称</label><input id="store_name" value="木作先生全屋定制">
+      <label for="community">小区/楼盘</label><input id="community" value="湖畔花园">
       <div class="grid-2">
-        <div>
-          <label for="roomType">户型</label>
-          <input id="roomType" value="三室两厅">
-        </div>
-        <div>
-          <label for="area">面积</label>
-          <input id="area" value="118">
-        </div>
+        <div><label for="room_type">户型</label><input id="room_type" value="三室两厅"></div>
+        <div><label for="area">面积</label><input id="area" value="118"></div>
       </div>
 
       <div class="section-title">产品与卖点</div>
       <div class="grid-2">
         <div>
-          <label for="cabinetType">柜类</label>
-          <select id="cabinetType">
-            <option>全屋定制</option>
-            <option>衣柜定制</option>
-            <option>橱柜定制</option>
-            <option>门墙柜一体</option>
-            <option>木作定制</option>
+          <label for="cabinet_type">柜类</label>
+          <select id="cabinet_type">
+            <option>全屋定制</option><option>衣柜定制</option><option>橱柜定制</option><option>门墙柜一体</option><option>木作定制</option>
           </select>
         </div>
-        <div>
-          <label for="style">风格</label>
-          <input id="style" value="奶油原木风">
-        </div>
+        <div><label for="style">风格</label><input id="style" value="奶油原木风"></div>
       </div>
       <div class="grid-2">
-        <div>
-          <label for="board">板材</label>
-          <input id="board" value="ENF级板材">
-        </div>
-        <div>
-          <label for="hardware">五金</label>
-          <input id="hardware" value="品牌缓冲五金">
-        </div>
+        <div><label for="board">板材</label><input id="board" value="ENF级板材"></div>
+        <div><label for="hardware">五金</label><input id="hardware" value="品牌缓冲五金"></div>
       </div>
-      <label for="edgeBanding">封边/工艺</label>
-      <input id="edgeBanding" value="PUR封边、现场复尺">
-      <label for="painPoints">业主痛点</label>
-      <textarea id="painPoints">收纳不够、担心甲醛、报价看不懂、怕安装翻车</textarea>
-      <label for="sellingPoints">门店卖点</label>
-      <textarea id="sellingPoints">本地真实案例、透明报价、工厂直连、安装售后可追踪</textarea>
-      <label for="benchmarkCopy">对标爆款文案</label>
-      <textarea id="benchmarkCopy" placeholder="可粘贴同行爆款口播文案，AI改写时会参考结构和钩子，但不会照抄。"></textarea>
+      <label for="edge_banding">封边/工艺</label><input id="edge_banding" value="PUR封边、现场复尺">
+      <label for="pain_points">业主痛点</label><textarea id="pain_points">收纳不够、担心甲醛、报价看不懂、怕安装翻车</textarea>
+      <label for="selling_points">门店卖点</label><textarea id="selling_points">本地真实案例、透明报价、工厂直连、安装售后可追踪</textarea>
+      <label for="benchmark_copy">对标爆款文案</label><textarea id="benchmark_copy" placeholder="可粘贴同行爆款文案，AI 改写时参考结构。"></textarea>
+
+      <div class="section-title">真实素材</div>
+      <label for="materialFiles">上传实拍图片/视频</label><input id="materialFiles" type="file" accept="image/*,video/*" multiple>
+      <div class="row-actions"><button class="secondary" id="uploadMaterialsBtn">上传到本地素材库</button></div>
+      <div class="status" id="materialStatus"></div>
+      <label for="refineFile">图片精修</label><input id="refineFile" type="file" accept="image/*">
+      <div class="status">精修类型、裁切比例、增强强度在设置页统一配置。</div>
+      <canvas id="refineCanvas" width="900" height="1200" style="width:100%;margin-top:10px;border:1px solid rgba(255,255,255,.18);border-radius:6px;background:rgba(255,255,255,.06);"></canvas>
+      <div class="row-actions">
+        <button class="secondary" id="previewRefineBtn">预览精修</button>
+        <button class="secondary" id="saveRefineBtn">保存精修图</button>
+      </div>
+      <div class="status" id="refineStatus"></div>
+      <label for="material_notes">素材说明</label><textarea id="material_notes" placeholder="例如：客厅整墙柜实拍、PUR封边特写、安装现场短视频"></textarea>
 
       <div class="section-title">转化设置</div>
-      <label for="budget">预算/报价表达</label>
-      <input id="budget" value="按户型和柜体展开面积核算">
-      <label for="promotion">活动/引导</label>
-      <input id="promotion" value="到店领取户型收纳规划">
-      <label for="contact">联系方式</label>
-      <input id="contact" value="私信预约量尺">
-      <label for="quantity">生成数量</label>
-      <select id="quantity">
-        <option value="5">5条</option>
-        <option value="10" selected>10条</option>
-        <option value="15">15条</option>
-      </select>
+      <label for="budget">预算/报价表达</label><input id="budget" value="按户型和柜体展开面积核算">
+      <label for="promotion">活动/引导</label><input id="promotion" value="到店领取户型收纳规划">
+      <label for="address">门店地址</label><input id="address" value="苏州吴中门店">
+      <label for="contact">联系方式</label><input id="contact" value="私信预约量尺">
+      <label for="quantity">生成数量</label><select id="quantity"><option value="5">5条</option><option value="10" selected>10条</option><option value="15">15条</option></select>
 
-      <div class="section-title">AI 改写设置</div>
-      <label for="aiEndpoint">接口地址</label>
-      <input id="aiEndpoint" value="https://api.openai.com/v1/chat/completions">
-      <div class="grid-2">
-        <div>
-          <label for="aiModel">模型</label>
-          <input id="aiModel" value="gpt-4o-mini">
-        </div>
-        <div>
-          <label for="aiTemperature">温度</label>
-          <input id="aiTemperature" value="0.7">
-        </div>
-      </div>
-      <label for="aiKey">API Key</label>
-      <input id="aiKey" type="password" placeholder="仅保存到本机浏览器">
-      <div class="mini-actions">
-        <button class="secondary" id="saveAiSettingsBtn">保存AI设置</button>
-      </div>
-      <div class="rewrite-status" id="aiSettingsStatus"></div>
-
-      <div class="actions">
+      <div class="row-actions">
         <button id="generateBtn">生成内容包</button>
-        <button class="secondary" id="copyAllBtn" title="复制全部">复制</button>
+        <button class="secondary" id="copyAllBtn">复制全部</button>
       </div>
-
-      <div class="section-title">内容项目</div>
-      <label for="projectName">项目名称</label>
-      <input id="projectName" placeholder="如：湖畔花园118平案例">
-      <div class="mini-actions">
-        <button class="secondary" id="saveProjectBtn">保存项目</button>
-        <button class="secondary" id="loadProjectBtn">加载项目</button>
-        <button class="secondary" id="deleteProjectBtn">删除项目</button>
-      </div>
-      <label for="projectList">已保存项目</label>
-      <select id="projectList"></select>
-      <div class="rewrite-status" id="projectStatus"></div>
     </aside>
 
     <main>
+      <div class="topbar">
+        <div>
+          <h2>案例内容工作台</h2>
+          <p>先生成小红书图文和短视频脚本，再把选中的脚本提交到云主机生成语音或数字人口播。</p>
+        </div>
+      </div>
+
+      <div class="status-box" id="serverBadge">正在检测本地服务...</div>
+
+      <div class="status-box">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;">
+          <strong>界面模板</strong>
+          <span id="selectedTemplateLabel" style="color:var(--muted);font-size:12px;">未选择模板</span>
+        </div>
+        <div class="template-grid" id="templateGrid"></div>
+        <div class="status" id="templateStatus"></div>
+      </div>
+
+      <div class="project-strip">
+        <div><label for="projectName">项目名称</label><input id="projectName" value="湖畔花园118平案例"></div>
+        <div><label for="projectList">已保存项目</label><select id="projectList"></select></div>
+        <div class="row-actions">
+          <button class="ghost" id="saveProjectBtn">保存项目</button>
+          <button class="ghost" id="loadProjectBtn">加载</button>
+          <button class="ghost" id="deleteProjectBtn">删除</button>
+        </div>
+        <div class="status" id="projectStatus"></div>
+      </div>
+
       <div class="summary">
         <div class="metric"><b id="countMetric">0</b><span>脚本数量</span></div>
         <div class="metric"><b id="titleMetric">0</b><span>标题数量</span></div>
@@ -526,551 +218,560 @@
         <div class="metric"><b id="keywordMetric">0</b><span>私信关键词</span></div>
       </div>
 
-      <div class="toolbar">
-        <span class="pill">装修避坑</span>
-        <span class="pill">案例讲解</span>
-        <span class="pill">价格解释</span>
-        <span class="pill">工艺展示</span>
-        <span class="pill">本地信任</span>
-      </div>
-
       <section id="output" class="output-grid">
-        <div class="empty">
-          <div>
-            <strong>先填左侧案例，再生成内容包</strong>
-            <p>每条内容包含口播脚本、3个标题、封面文案、评论引导、私信关键词和合规提示。</p>
-          </div>
-        </div>
+        <div class="empty"><div><strong>填写左侧案例后生成内容包</strong><p>每条内容包含图文笔记、视频脚本、剪辑建议、TTS/数字人 API 提交按钮。</p></div></div>
       </section>
     </main>
   </div>
 
   <script>
-    const pillars = [
+    const inputIds = ["city", "district", "store_name", "community", "room_type", "area", "budget", "cabinet_type", "board", "hardware", "edge_banding", "style", "pain_points", "selling_points", "promotion", "address", "contact", "benchmark_copy", "material_notes", "quantity"];
+    let backendAvailable = false;
+    let selectedTemplateId = "";
+    const el = id => document.getElementById(id);
+    const value = (id, fallback = "") => (el(id).value || fallback).trim();
+    const escapeHtml = text => String(text ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[ch]));
+
+    const templates = [
       {
-        key: "avoid_pitfalls",
-        name: "装修避坑",
-        duration: "15-25秒",
-        hook: c => `${c.city}${c.district}准备做${c.cabinetType}的业主，先别急着交定金。`,
-        cta: c => `评论区打“避坑”，发你一份${c.cabinetType}验收清单。`,
-        keyword: "避坑"
+        id: "xhs_case_1",
+        name: "小红书案例图文风格1",
+        tag: "图文",
+        desc: "真实案例复盘，适合完工图和户型图。",
+        quantity: "5",
+        pain: "收纳不够、动线不好、空间浪费、担心效果翻车",
+        selling: "真实完工图、同小区案例、设计师讲解、透明报价",
+        material: "完工实拍、多角度空间图、柜门打开细节、户型图",
+        benchmark: "按小红书图文笔记结构输出：封面要有冲突点，正文先讲户型问题，再讲解决方案，最后引导评论小区名。"
       },
       {
-        key: "case_story",
-        name: "案例讲解",
-        duration: "25-45秒",
-        hook: c => `这套${c.community}${c.area}平的${c.style}案例，最值钱的不是柜子多。`,
-        cta: () => "私信“小区名”，帮你看同户型能不能这样做。",
-        keyword: "小区名"
+        id: "xhs_case_2",
+        name: "小红书案例图文风格2",
+        tag: "图文",
+        desc: "前后对比种草，适合施工前后对照素材。",
+        quantity: "5",
+        pain: "装修前空间乱、收纳没有规划、担心花钱没效果",
+        selling: "前后对比明显、设计落地、收纳动线优化、同城可到店看样",
+        material: "改造前照片、完工后照片、局部对比图、收纳打开图",
+        benchmark: "输出前后对比种草风格：开头用改造前痛点，正文强调变化和细节，语气像真实业主分享但不虚构业主身份。"
       },
       {
-        key: "price_explainer",
-        name: "价格解释",
-        duration: "15-25秒",
-        hook: c => `为什么同样是${c.cabinetType}，有的报价差出一大截？`,
-        cta: () => "评论区打“报价”，发你一份透明报价拆解表。",
-        keyword: "报价"
+        id: "xhs_case_3",
+        name: "小红书案例图文风格3",
+        tag: "图文",
+        desc: "设计师审美讲解，适合高颜值案例。",
+        quantity: "5",
+        pain: "想要好看但怕不实用、担心风格不统一、担心柜子显压抑",
+        selling: "设计师一对一规划、颜色材质搭配、收纳与颜值兼顾",
+        material: "整体空间图、色板材质图、灯光细节、设计师讲解照",
+        benchmark: "输出设计师审美讲解风格：突出颜色、比例、材质和生活动线，标题要有风格关键词和户型信息。"
       },
       {
-        key: "craft_showcase",
-        name: "工艺展示",
-        duration: "25-45秒",
-        hook: c => `看${c.cabinetType}别只看效果图，真正决定耐不耐用的是这些细节。`,
-        cta: () => "私信“工艺”，预约到店看样板和安装细节。",
-        keyword: "工艺"
+        id: "pitfall_list_1",
+        name: "装修避坑清单风格1",
+        tag: "清单",
+        desc: "合同验收清单，适合收藏转发。",
+        quantity: "10",
+        pain: "怕甲醛、怕报价不透明、怕五金缩水、怕安装收口差",
+        selling: "板材可看样、五金型号透明、合同写清楚、安装售后可追踪",
+        material: "板材样块、五金型号、封边切面、安装收口特写",
+        benchmark: "输出避坑清单风格：每条内容只讲一个坑，标题要具体，避免绝对化环保承诺。"
       },
       {
-        key: "local_trust",
-        name: "本地信任",
-        duration: "25-45秒",
-        hook: c => `如果你也在${c.city}${c.district}装修，建议先看完这个本地案例。`,
-        cta: () => "评论区留“小区”，我们帮你匹配附近案例。",
-        keyword: "小区"
+        id: "pitfall_list_2",
+        name: "装修避坑清单风格2",
+        tag: "清单",
+        desc: "材料工艺避坑，适合工厂和门店素材。",
+        quantity: "10",
+        pain: "不知道板材怎么选、看不懂封边、五金型号容易被忽略",
+        selling: "材料样块可对比、工艺细节可实拍、安装节点可验收",
+        material: "板材横截面、封边近景、铰链轨道、工厂加工视频",
+        benchmark: "输出材料工艺避坑风格：用实拍细节解释差异，不讲空泛口号，每条都给一个可检查动作。"
+      },
+      {
+        id: "pitfall_list_3",
+        name: "装修避坑清单风格3",
+        tag: "清单",
+        desc: "安装售后避坑，适合强调本地服务。",
+        quantity: "10",
+        pain: "担心安装拖延、担心收口粗糙、担心售后找不到人",
+        selling: "本地团队、现场复尺、安装节点验收、售后可追踪",
+        material: "量尺现场、安装现场、收口细节、售后回访截图",
+        benchmark: "输出安装售后避坑风格：强调本地服务流程、责任人和验收节点，避免承诺绝对结果。"
+      },
+      {
+        id: "price_explain_1",
+        name: "报价解释模板风格1",
+        tag: "转化",
+        desc: "报价拆解，适合私信转化。",
+        quantity: "10",
+        pain: "报价看不懂、只会比总价、担心后期增项、预算不知道怎么控",
+        selling: "报价拆解、材料透明、按户型规划预算、先方案后报价",
+        material: "报价单局部、板材样块、抽屉五金、见光面细节",
+        benchmark: "输出报价解释风格：先讲为什么价格差，再拆板材、五金、工艺、售后，最后引导评论报价。"
+      },
+      {
+        id: "price_explain_2",
+        name: "报价解释模板风格2",
+        tag: "转化",
+        desc: "预算规划，适合低决策门槛获客。",
+        quantity: "10",
+        pain: "不知道预算怎么分配、怕一开始说低后面加钱、想先知道大概范围",
+        selling: "先做需求拆解、按空间规划预算、报价项透明、到店可看样",
+        material: "空间清单、预算拆分表、样板间、材料对比",
+        benchmark: "输出预算规划风格：不要报死价格，用预算区间和影响因素解释，最后引导用户发户型。"
+      },
+      {
+        id: "price_explain_3",
+        name: "报价解释模板风格3",
+        tag: "转化",
+        desc: "同城门店对比，适合建立信任。",
+        quantity: "10",
+        pain: "不知道本地门店怎么选、担心报价口径不一样、怕低价陷阱",
+        selling: "本地案例、可到店看样、报价明细、安装售后同城响应",
+        material: "门店门头、样板间、报价单局部、本地案例图",
+        benchmark: "输出同城门店对比风格：教用户看报价口径和服务边界，不攻击同行，不做最低价承诺。"
+      },
+      {
+        id: "craft_detail_1",
+        name: "工艺细节展示风格1",
+        tag: "视频",
+        desc: "近景细节流，适合短视频展示。",
+        quantity: "10",
+        pain: "担心不好用、担心安装翻车、担心细节粗糙、担心售后没人管",
+        selling: "PUR封边、品牌五金、现场复尺、安装节点验收",
+        material: "封边近景、铰链轨道、柜体开合、安装现场视频",
+        benchmark: "输出工艺展示风格：多用镜头语言和字幕点，口播短句，适合 15-30 秒视频。"
+      },
+      {
+        id: "craft_detail_2",
+        name: "工艺细节展示风格2",
+        tag: "视频",
+        desc: "工厂流程流，适合展示加工实力。",
+        quantity: "10",
+        pain: "担心加工粗糙、担心尺寸不准、担心安装现场返工",
+        selling: "工厂直连、复尺下单、加工流程透明、安装节点验收",
+        material: "工厂设备、开料封边、打包发货、现场安装",
+        benchmark: "输出工厂流程展示风格：按流程讲清楚从量尺到安装，不夸大规模，用真实步骤建立信任。"
+      },
+      {
+        id: "craft_detail_3",
+        name: "工艺细节展示风格3",
+        tag: "视频",
+        desc: "体验测评流，适合柜门开合和五金展示。",
+        quantity: "10",
+        pain: "担心抽屉不好拉、柜门关不严、用几年就松动",
+        selling: "品牌缓冲五金、轨道顺滑、柜门开合稳定、售后可维护",
+        material: "柜门开合视频、抽屉推拉视频、铰链轨道特写",
+        benchmark: "输出体验测评风格：用用户能感知的动作讲工艺，比如开合、推拉、承重、收口。"
+      },
+      {
+        id: "avatar_script_1",
+        name: "数字人口播模板风格1",
+        tag: "数字人",
+        desc: "门店顾问口吻，适合数字人口播。",
+        quantity: "5",
+        pain: "不知道怎么选门店、担心踩坑、担心预算失控",
+        selling: "本地门店、真实案例、免费需求拆解、可预约量尺",
+        material: "门店门头、顾问形象照、案例完工图、量尺现场",
+        benchmark: "输出数字人口播风格：第一人称顾问口吻，句子短，适合 25-45 秒数字人口播。"
+      },
+      {
+        id: "avatar_script_2",
+        name: "数字人口播模板风格2",
+        tag: "数字人",
+        desc: "设计师讲方案，适合专业人设。",
+        quantity: "5",
+        pain: "户型不知道怎么改、空间比例不好、收纳和颜值难兼顾",
+        selling: "设计师方案拆解、真实户型复盘、材质搭配建议",
+        material: "设计师形象照、户型图、方案图、完工细节",
+        benchmark: "输出设计师数字人口播风格：像设计师在讲方案，逻辑是问题、判断、方案、提醒、引导。"
+      },
+      {
+        id: "avatar_script_3",
+        name: "数字人口播模板风格3",
+        tag: "数字人",
+        desc: "老板真诚提醒，适合建立信任。",
+        quantity: "5",
+        pain: "怕被套路、怕低价增项、怕售后没人管",
+        selling: "老板亲自把关、本地经营、报价透明、售后响应",
+        material: "老板形象照、门店环境、安装现场、本地案例",
+        benchmark: "输出老板提醒口播风格：语气真诚直接，少用营销词，多讲经验和底线。"
       }
     ];
 
-    const riskyClaims = ["0甲醛", "零甲醛", "绝对环保", "100%环保", "最低价", "全网最低", "保证成交", "稳赚", "省一半", "省50%", "免费送", "虚假房源"];
-
-    function value(id, fallback = "") {
-      return (document.getElementById(id).value || fallback).trim();
-    }
-
-    const inputIds = [
-      "city", "district", "storeName", "community", "roomType", "area", "cabinetType", "style",
-      "board", "hardware", "edgeBanding", "painPoints", "sellingPoints", "benchmarkCopy",
-      "budget", "promotion", "contact", "quantity"
-    ];
-
-    function collectFormValues() {
-      const values = {};
-      inputIds.forEach(id => {
-        values[id] = document.getElementById(id).value;
-      });
-      return values;
-    }
-
-    function applyFormValues(values) {
-      inputIds.forEach(id => {
-        if (Object.prototype.hasOwnProperty.call(values, id)) {
-          document.getElementById(id).value = values[id];
-        }
+    function renderTemplates() {
+      el("templateGrid").innerHTML = templates.map(t => `
+        <div class="template-card ${t.id === selectedTemplateId ? "active" : ""}" data-template="${t.id}">
+          <b>${escapeHtml(t.name)}</b>
+          <span>${escapeHtml(t.desc)}</span>
+          <small>${escapeHtml(t.tag)} · ${escapeHtml(t.id.split("_").pop())}</small>
+        </div>
+      `).join("");
+      document.querySelectorAll("[data-template]").forEach(card => {
+        card.addEventListener("click", () => applyTemplate(card.dataset.template));
       });
     }
 
-    function splitPoints(text) {
-      const points = text.replaceAll("，", ",").replaceAll("、", ",").replaceAll("；", ",").split(",").map(x => x.trim()).filter(Boolean);
-      return points.length ? points : ["收纳不够", "报价不透明", "售后没保障"];
+    function applyTemplate(id) {
+      const t = templates.find(item => item.id === id);
+      if (!t) return;
+      selectedTemplateId = id;
+      el("quantity").value = t.quantity;
+      el("pain_points").value = t.pain;
+      el("selling_points").value = t.selling;
+      el("material_notes").value = value("material_notes") ? `${value("material_notes")}、${t.material}` : t.material;
+      el("benchmark_copy").value = t.benchmark;
+      el("selectedTemplateLabel").textContent = t.name;
+      el("templateStatus").textContent = `已应用模板：${t.name}`;
+      renderTemplates();
     }
 
-    function getCase() {
-      const painPointsRaw = value("painPoints", "");
-      const sellingPointsRaw = value("sellingPoints", "");
-      return {
-        city: value("city", "本地"),
-        district: value("district", ""),
-        storeName: value("storeName", "本地定制家居门店"),
-        community: value("community", "同城小区"),
-        roomType: value("roomType", "三室两厅"),
-        area: value("area", "100"),
-        cabinetType: value("cabinetType", "全屋定制"),
-        style: value("style", "现代简约"),
-        board: value("board", "ENF级板材"),
-        hardware: value("hardware", "品牌五金"),
-        edgeBanding: value("edgeBanding", "PUR封边"),
-        painPointsRaw,
-        sellingPointsRaw,
-        painPoints: splitPoints(painPointsRaw),
-        sellingPoints: splitPoints(sellingPointsRaw),
-        budget: value("budget", ""),
-        promotion: value("promotion", ""),
-        contact: value("contact", ""),
-        benchmarkCopy: value("benchmarkCopy", ""),
-        quantity: Number(value("quantity", "10"))
-      };
-    }
-
-    function detailLine(key, c, pain, point) {
-      if (key === "avoid_pitfalls") return `重点看三件事：${c.board}是否写进合同，${c.hardware}是否有型号，${c.edgeBanding}和安装收口有没有样板可看。`;
-      if (key === "case_story") return `这套${c.area}平的核心处理，是围绕${pain}重新分配柜体比例，让${c.style}效果和日常收纳都能落地。`;
-      if (key === "price_explainer") return `报价差通常不只差在板材，还差在五金、封边、见光面、抽屉数量和售后标准。我们会把${point}拆开给你看。`;
-      if (key === "craft_showcase") return "你到店不要只看展厅成品，要看切面、封边、铰链、抽屉轨道和安装现场，这些才决定后面几年好不好用。";
-      return `${c.storeName}服务${c.city}${c.district}本地客户，量尺、复尺、安装、售后都能追踪，不是外地团队做完就走。`;
-    }
-
-    function titles(key, c) {
-      const city = `${c.city}${c.district}`;
-      if (key === "avoid_pitfalls") return [`${city}做${c.cabinetType}，这3个坑先避开`, `${c.cabinetType}别急着交定金，先看这些细节`, `业主最容易忽略的${c.cabinetType}验收点`];
-      if (key === "case_story") return [`${c.community}${c.area}平${c.style}定制案例`, `${c.roomType}收纳不够？这个案例可以参考`, `同城业主的${c.cabinetType}方案复盘`];
-      if (key === "price_explainer") return [`${c.cabinetType}报价为什么差这么多？`, "别只比总价，定制柜报价要看这些项", `${city}业主看报价前先懂这几个点`];
-      if (key === "craft_showcase") return [`${c.cabinetType}耐不耐用，看这几个工艺`, "别只看效果图，定制柜细节更重要", `${c.board}+${c.hardware}到底怎么选？`];
-      return [`${city}装修，先找同小区案例`, `本地${c.cabinetType}门店怎么选？`, "到店前先准备这份户型需求清单"];
-    }
-
-    function cover(key, c) {
-      if (key === "avoid_pitfalls") return `${c.cabinetType}避坑清单`;
-      if (key === "case_story") return `${c.community}真实案例`;
-      if (key === "price_explainer") return "报价差在哪里？";
-      if (key === "craft_showcase") return "细节决定耐用";
-      return `${c.city}本地案例参考`;
-    }
-
-    function compliance(text) {
-      const notes = riskyClaims.filter(claim => text.includes(claim)).map(claim => `包含高风险表达：${claim}`);
-      if (text.includes("最") && (text.includes("环保") || text.includes("便宜") || text.includes("好"))) {
-        notes.push("避免使用绝对化最高级表达，建议改成可验证事实。");
+    function collectCase() {
+      const data = {};
+      inputIds.forEach(id => data[id] = el(id).value);
+      data.quantity = Number(data.quantity || 10);
+      if (selectedTemplateId) {
+        const t = templates.find(item => item.id === selectedTemplateId);
+        if (t) data.benchmark_copy = `${data.benchmark_copy}\n\n当前界面模板：${t.name}。模板要求：${t.benchmark}`.trim();
       }
-      return notes;
+      return data;
     }
 
-    function storyboard(key, c, pain) {
-      const opening = `0-3秒：数字人口播或门店实拍开场，屏幕大字“${c.city}${c.district}${c.cabinetType}”。`;
-      const middle = {
-        avoid_pitfalls: `3-15秒：切板材、五金、封边、安装收口特写，字幕标出“合同写清楚 / 型号看得见 / 样板可验证”。`,
-        case_story: `3-25秒：展示${c.community}户型图、完工图、柜体打开细节，突出“${pain}”的解决前后对比。`,
-        price_explainer: "3-18秒：用报价单局部、板材样块、抽屉五金和见光面细节解释价格差异。",
-        craft_showcase: "3-28秒：连续展示切面、封边、铰链、轨道、安装现场和售后回访画面。",
-        local_trust: `3-25秒：插入同城小区外景、门店门头、量尺现场、安装现场，强化本地可信度。`
-      }[key];
-      const ending = `最后3秒：显示门店名“${c.storeName}”、引导语“${c.contact}”，保留评论关键词。`;
-      return [opening, middle, ending];
+    function applyCase(data) {
+      inputIds.forEach(id => { if (Object.prototype.hasOwnProperty.call(data || {}, id)) el(id).value = data[id]; });
     }
 
-    function buildPrompt(c, pillar, script, itemTitles, itemCover) {
-      const lines = [
-        "你是非标定制家居短视频编导。请在不虚构案例、不夸大环保和价格承诺的前提下，把下面内容改写成更像本地门店老板/设计师口吻的短视频脚本。",
-        "",
-        `行业：非标定制家居`,
-        `城市区域：${c.city}${c.district}`,
-        `门店：${c.storeName}`,
-        `案例：${c.community}，${c.roomType}，${c.area}平，${c.style}`,
-        `柜类：${c.cabinetType}`,
-        `板材/五金/工艺：${c.board}，${c.hardware}，${c.edgeBanding}`
-      ];
-      [
-        ["业主痛点", c.painPointsRaw],
-        ["门店卖点", c.sellingPointsRaw],
-        ["预算/报价表达", c.budget],
-        ["活动引导", c.promotion],
-        ["联系方式", c.contact],
-        ["对标参考文案", c.benchmarkCopy]
-      ].forEach(([label, fieldValue]) => {
-        if (String(fieldValue || "").trim()) {
-          lines.push(`${label}：${String(fieldValue).trim()}`);
-        }
-      });
-      return [
-        ...lines,
-        `内容栏目：${pillar}`,
-        `原脚本：${script}`,
-        `标题候选：${itemTitles.join(" / ")}`,
-        `封面文案：${itemCover}`,
-        "",
-        "输出 JSON，字段为 script、titles、cover、comment_prompt、dm_keyword、risk_notes。"
-      ].join("\n");
-    }
-
-    function score(script, itemTitles, cta, notes) {
-      let value = 60;
-      if (["本地", "同城", "小区", "量尺"].some(word => script.includes(word))) value += 10;
-      if (["避坑", "报价", "工艺", "收纳", "安装", "售后"].some(word => script.includes(word))) value += 10;
-      if (cta && ["评论区", "私信", "预约"].some(word => cta.includes(word))) value += 10;
-      if (itemTitles.length >= 3) value += 5;
-      value -= Math.min(25, notes.length * 8);
-      return Math.max(0, Math.min(100, value));
-    }
-
-    function rewriteScript(script, c, pillar) {
-      let text = script.trim();
-      const replacements = [
-        ["很多客户来店里第一句话就是：", "我们最近接待同城业主时，听到最多的问题是："],
-        ["这个案例我们先看户型和生活习惯", "这类非标定制不能先套模板，要先看户型、动线和一家人的生活习惯"],
-        ["不是一上来就堆柜子、压价格", "柜子不是越多越好，价格也不能只看一个总数"],
-        ["建议先做一次方案拆解", "建议先做一次免费的需求和报价拆解"]
-      ];
-      replacements.forEach(([from, to]) => {
-        text = text.replaceAll(from, to);
-      });
-      if (!text.startsWith("我是")) {
-        text = `我是${c.storeName}的定制顾问，今天用一个${c.city}${c.district}的真实场景讲清楚。\n${text}`;
-      }
-      if (pillar === "价格解释") {
-        text += "\n记住一句话：定制柜不要只比总价，要把板材、五金、封边、抽屉和售后逐项看明白。";
-      } else if (pillar === "工艺展示") {
-        text += "\n到店看样板时，别只看颜色和造型，一定要让门店把切面、封边和五金型号拿出来看。";
-      } else if (pillar === "本地信任") {
-        text += "\n同城门店最大的价值，是量尺、复尺、安装和售后都能找到人。";
-      }
-      return text;
-    }
-
-    function rewriteKey(c, item, script) {
-      const raw = `${c.storeName}|${c.community}|${item.pillar}|${item.index}|${script.slice(0, 64)}`;
-      let hash = 0;
-      for (let i = 0; i < raw.length; i++) {
-        hash = ((hash << 5) - hash) + raw.charCodeAt(i);
-        hash |= 0;
-      }
-      return `custom-home-rewrite:${hash}`;
-    }
-
-    function loadAiSettings() {
-      const settings = JSON.parse(localStorage.getItem("custom-home-ai-settings") || "{}");
-      if (settings.endpoint) document.getElementById("aiEndpoint").value = settings.endpoint;
-      if (settings.model) document.getElementById("aiModel").value = settings.model;
-      if (settings.temperature) document.getElementById("aiTemperature").value = settings.temperature;
-      if (settings.apiKey) document.getElementById("aiKey").value = settings.apiKey;
-    }
-
-    function getAiSettings() {
-      return {
-        endpoint: value("aiEndpoint", "https://api.openai.com/v1/chat/completions"),
-        model: value("aiModel", "gpt-4o-mini"),
-        temperature: Number(value("aiTemperature", "0.7")),
-        apiKey: value("aiKey", "")
-      };
-    }
-
-    function saveAiSettings() {
-      const settings = getAiSettings();
-      localStorage.setItem("custom-home-ai-settings", JSON.stringify(settings));
-      document.getElementById("aiSettingsStatus").textContent = "AI 设置已保存到本机浏览器";
-    }
-
-    function projectStorageKey(name) {
-      return `custom-home-project:${name}`;
-    }
-
-    function savedProjectNames() {
-      return JSON.parse(localStorage.getItem("custom-home-project-names") || "[]");
-    }
-
-    function setSavedProjectNames(names) {
-      localStorage.setItem("custom-home-project-names", JSON.stringify([...new Set(names)].sort()));
-    }
-
-    function refreshProjectList() {
-      const list = document.getElementById("projectList");
-      const names = savedProjectNames();
-      list.innerHTML = names.length
-        ? names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")
-        : `<option value="">暂无保存项目</option>`;
-    }
-
-    function currentProjectName() {
-      return value("projectName") || `${value("community", "同城案例")}-${new Date().toISOString().slice(0, 10)}`;
-    }
-
-    function saveProject() {
-      const name = currentProjectName();
-      const rows = window.generatedRows || [];
-      const rewrites = {};
-      rows.forEach(item => {
-        const textarea = document.getElementById(`rewrite-${item.index - 1}`);
-        rewrites[item.rewriteKey] = textarea ? textarea.value : item.rewritten || "";
-      });
-      const project = {
-        name,
-        savedAt: new Date().toISOString(),
-        form: collectFormValues(),
-        rows,
-        rewrites
-      };
-      localStorage.setItem(projectStorageKey(name), JSON.stringify(project));
-      setSavedProjectNames([...savedProjectNames(), name]);
-      document.getElementById("projectName").value = name;
-      document.getElementById("projectStatus").textContent = `已保存项目：${name}`;
-      refreshProjectList();
-    }
-
-    function loadProject() {
-      const name = value("projectList");
-      if (!name) return;
-      const project = JSON.parse(localStorage.getItem(projectStorageKey(name)) || "null");
-      if (!project) {
-        document.getElementById("projectStatus").textContent = "项目不存在";
-        return;
-      }
-      applyFormValues(project.form || {});
-      Object.entries(project.rewrites || {}).forEach(([key, text]) => {
-        localStorage.setItem(key, text);
-      });
-      document.getElementById("projectName").value = name;
-      generate();
-      document.getElementById("projectStatus").textContent = `已加载项目：${name}`;
-    }
-
-    function deleteProject() {
-      const name = value("projectList");
-      if (!name) return;
-      localStorage.removeItem(projectStorageKey(name));
-      setSavedProjectNames(savedProjectNames().filter(item => item !== name));
-      refreshProjectList();
-      document.getElementById("projectStatus").textContent = `已删除项目：${name}`;
-    }
-
-    function extractRewriteText(content) {
-      const trimmed = String(content || "").trim();
-      try {
-        const parsed = JSON.parse(trimmed.replace(/^```json\s*/i, "").replace(/```$/i, "").trim());
-        return parsed.script || parsed.rewritten_script || parsed.content || trimmed;
-      } catch {
-        return trimmed;
-      }
-    }
-
-    async function aiRewrite(row) {
-      const settings = getAiSettings();
-      if (!settings.apiKey) {
-        throw new Error("请先填写并保存 API Key，或使用本地“一键改写”。");
-      }
-      const response = await fetch(settings.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${settings.apiKey}`
-        },
-        body: JSON.stringify({
-          model: settings.model,
-          temperature: Number.isFinite(settings.temperature) ? settings.temperature : 0.7,
-          messages: [
-            {
-              role: "system",
-              content: "你是非标定制家居短视频编导，只输出适合短视频口播的改写稿。不要虚构小区案例、不要夸大环保和价格承诺。"
-            },
-            {
-              role: "user",
-              content: `${row.prompt}\n\n请只返回改写后的 script 文本，口吻像本地门店老板或设计师，保留同城转化引导。`
-            }
-          ]
-        })
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`AI 接口失败：${response.status} ${errorText.slice(0, 120)}`);
-      }
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || data.output_text || "";
-      return extractRewriteText(content);
+      if (!response.ok) throw new Error(data.error || response.statusText);
+      return data;
     }
 
-    function generate() {
-      const c = getCase();
-      const rows = [];
-      for (let i = 0; i < c.quantity; i++) {
-        const p = pillars[i % pillars.length];
-        const pain = c.painPoints[i % c.painPoints.length];
-        const point = c.sellingPoints[i % c.sellingPoints.length];
-        const script = `${p.hook(c)}\n很多客户来店里第一句话就是：${pain}。\n这个案例我们先看户型和生活习惯，再定${c.cabinetType}方案，不是一上来就堆柜子、压价格。\n${detailLine(p.key, c, pain, point)}\n如果你家也是${c.roomType}，预算是${c.budget}，建议先做一次方案拆解。${p.cta(c)}`;
-        const itemTitles = titles(p.key, c);
-        const itemCover = cover(p.key, c);
-        const notes = compliance([script, ...itemTitles, itemCover, p.cta(c)].join("\n"));
-        const shots = storyboard(p.key, c, pain);
-        const prompt = buildPrompt(c, p.name, script, itemTitles, itemCover);
-        const scoreValue = score(script, itemTitles, p.cta(c), notes);
-        const baseRow = { index: i + 1, pillar: p.name };
-        const key = rewriteKey(c, baseRow, script);
-        const savedRewrite = localStorage.getItem(key) || "";
-        rows.push({ index: i + 1, pillar: p.name, duration: p.duration, script, titles: itemTitles, cover: itemCover, cta: p.cta(c), keyword: p.keyword, notes, shots, prompt, score: scoreValue, rewriteKey: key, rewritten: savedRewrite, rewriteContext: c });
+    async function detectServer() {
+      try {
+        await api("/api/projects");
+        backendAvailable = true;
+        el("serverBadge").textContent = "本地项目服务已连接：项目、素材和云端能力配置都会保存到本机文件。";
+      } catch {
+        backendAvailable = false;
+        el("serverBadge").textContent = "未连接本地服务。请用 custom_home_server.py 启动工作台。";
       }
-      render(rows);
+    }
+
+    async function generate() {
+      const data = await api("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(collectCase()) });
+      render(data.rows || []);
     }
 
     function render(rows) {
-      const output = document.getElementById("output");
-      output.innerHTML = rows.map(item => `
+      window.generatedRows = rows;
+      el("output").innerHTML = rows.map((item, idx) => `
         <article class="card">
-          <div class="card-head">
-            <h2>${item.index}. ${item.pillar}</h2>
-            <span class="duration">${item.duration}</span>
-          </div>
+          <div class="card-head"><h3>${item.index}. ${escapeHtml(item.pillar)}</h3><span class="badge">${escapeHtml(item.duration)}</span></div>
           <div class="card-body">
             <p class="script">${escapeHtml(item.script)}</p>
-            <div class="label">标题</div>
-            <ul>${item.titles.map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+            <div class="label">标题</div><ul>${(item.titles || []).map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
             <div class="meta">
               <div><strong>封面：</strong>${escapeHtml(item.cover)}</div>
-              <div><strong>评论/私信：</strong>${escapeHtml(item.cta)}</div>
-              <div><strong>关键词：</strong>${escapeHtml(item.keyword)}</div>
-              <div class="${item.notes.length ? "warn" : ""}"><strong>合规：</strong>${item.notes.length ? item.notes.map(escapeHtml).join("；") : "未发现高风险表达"}</div>
+              <div><strong>评论/私信：</strong>${escapeHtml(item.comment_prompt)}</div>
+              <div><strong>关键词：</strong>${escapeHtml(item.dm_keyword)}</div>
+              <div class="${(item.compliance_notes || []).length ? "warn" : ""}"><strong>合规：</strong>${(item.compliance_notes || []).length ? item.compliance_notes.map(escapeHtml).join("；") : "未发现高风险表达"}</div>
             </div>
-            <div class="storyboard">
-              <strong>剪辑分镜</strong>
-              <ul>${item.shots.map(shot => `<li>${escapeHtml(shot)}</li>`).join("")}</ul>
+            <div class="panel"><strong>剪辑分镜</strong><ul>${(item.storyboard || []).map(shot => `<li>${escapeHtml(shot)}</li>`).join("")}</ul></div>
+            <div class="panel"><strong>小红书视频素材搭配</strong><ul>${(item.xiaohongshu_video_plan || []).map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ul></div>
+            <div class="label">小红书图文笔记</div>
+            <textarea id="xhs-${idx}">${escapeHtml(item.xiaohongshu_note || "")}</textarea>
+            <div class="label">数字人口播脚本</div>
+            <textarea id="rewrite-${idx}">${escapeHtml(loadRewrite(item) || item.rewritten_script || item.script || "")}</textarea>
+            <div class="row-actions">
+              <button data-rewrite="${idx}">一键改写</button>
+              <button data-ai-rewrite="${idx}">AI 改写</button>
+              <button class="ghost" data-save-rewrite="${idx}">保存改写</button>
+              <button class="ghost" data-copy-xhs="${idx}">复制图文</button>
+              <button class="ghost" data-copy-rewrite="${idx}">复制口播</button>
             </div>
-            <div class="score">评分 ${item.score}</div>
-            <div class="mini-actions">
-              <button data-prompt="${item.index - 1}">复制LLM提示词</button>
+            <div class="row-actions">
+              <button data-tts="${idx}">提交云端 TTS</button>
+              <button data-heygem="${idx}">提交数字人 API</button>
+              <button class="ghost" data-copy-prompt="${idx}">复制 LLM 提示词</button>
             </div>
-            <div class="rewrite-panel">
-              <strong>改写后文案</strong>
-              <textarea id="rewrite-${item.index - 1}" placeholder="点击“一键改写”生成更口语化的门店顾问文案；也可以直接编辑。">${escapeHtml(item.rewritten)}</textarea>
-              <div class="mini-actions">
-                <button data-rewrite="${item.index - 1}">一键改写</button>
-                <button data-ai-rewrite="${item.index - 1}">AI改写</button>
-                <button data-save-rewrite="${item.index - 1}">保存</button>
-                <button data-copy-rewrite="${item.index - 1}">复制改写稿</button>
-              </div>
-              <div class="rewrite-status" id="rewrite-status-${item.index - 1}">${item.rewritten ? "已加载已保存文案" : ""}</div>
-            </div>
+            <div class="status" id="row-status-${idx}"></div>
           </div>
-        </article>
-      `).join("");
-      output.querySelectorAll("[data-prompt]").forEach(button => {
-        button.addEventListener("click", async () => {
-          const row = rows[Number(button.dataset.prompt)];
-          await navigator.clipboard.writeText(row.prompt);
-          button.textContent = "已复制";
-          setTimeout(() => button.textContent = "复制LLM提示词", 1200);
-        });
+        </article>`).join("");
+      bindCardActions(rows);
+      el("countMetric").textContent = rows.length;
+      el("titleMetric").textContent = rows.length * 3;
+      el("safeMetric").textContent = rows.reduce((sum, item) => sum + (item.compliance_notes || []).length, 0);
+      el("keywordMetric").textContent = new Set(rows.map(item => item.dm_keyword)).size;
+    }
+
+    function rewriteKey(item) { return `custom-home-rewrite:${item.pillar}:${item.index}:${String(item.script || "").slice(0, 32)}`; }
+    function loadRewrite(item) { return localStorage.getItem(rewriteKey(item)); }
+    async function copyText(text, button, label = "已复制") {
+      await navigator.clipboard.writeText(text || "");
+      const old = button.textContent;
+      button.textContent = label;
+      setTimeout(() => button.textContent = old, 1200);
+    }
+
+    function bindCardActions(rows) {
+      document.querySelectorAll("[data-rewrite]").forEach(btn => btn.onclick = () => {
+        const idx = Number(btn.dataset.rewrite);
+        el(`rewrite-${idx}`).value = rows[idx].rewritten_script || rows[idx].script || "";
+        el(`row-status-${idx}`).textContent = "已生成本地改写稿，可继续编辑。";
       });
-      output.querySelectorAll("[data-rewrite]").forEach(button => {
-        button.addEventListener("click", () => {
-          const row = rows[Number(button.dataset.rewrite)];
-          const textarea = document.getElementById(`rewrite-${button.dataset.rewrite}`);
-          textarea.value = rewriteScript(row.script, row.rewriteContext, row.pillar);
-          document.getElementById(`rewrite-status-${button.dataset.rewrite}`).textContent = "已生成，可继续编辑后保存";
-        });
+      document.querySelectorAll("[data-save-rewrite]").forEach(btn => btn.onclick = () => {
+        const idx = Number(btn.dataset.saveRewrite);
+        localStorage.setItem(rewriteKey(rows[idx]), el(`rewrite-${idx}`).value.trim());
+        rows[idx].rewritten_script = el(`rewrite-${idx}`).value.trim();
+        el(`row-status-${idx}`).textContent = "改写稿已保存到浏览器。";
       });
-      output.querySelectorAll("[data-ai-rewrite]").forEach(button => {
-        button.addEventListener("click", async () => {
-          const index = Number(button.dataset.aiRewrite);
-          const row = rows[index];
-          const textarea = document.getElementById(`rewrite-${index}`);
-          const status = document.getElementById(`rewrite-status-${index}`);
-          const oldText = button.textContent;
-          button.textContent = "改写中...";
-          button.disabled = true;
-          status.textContent = "正在调用 AI 改写";
-          try {
-            const rewritten = await aiRewrite(row);
-            textarea.value = rewritten;
-            row.rewritten = rewritten;
-            status.textContent = "AI 改写完成，可继续编辑后保存";
-          } catch (error) {
-            status.textContent = error.message;
-          } finally {
-            button.textContent = oldText;
-            button.disabled = false;
+      document.querySelectorAll("[data-copy-xhs]").forEach(btn => btn.onclick = () => copyText(el(`xhs-${btn.dataset.copyXhs}`).value, btn));
+      document.querySelectorAll("[data-copy-rewrite]").forEach(btn => btn.onclick = () => copyText(el(`rewrite-${btn.dataset.copyRewrite}`).value, btn));
+      document.querySelectorAll("[data-copy-prompt]").forEach(btn => btn.onclick = () => copyText(rows[Number(btn.dataset.copyPrompt)].llm_prompt, btn));
+      document.querySelectorAll("[data-ai-rewrite]").forEach(btn => btn.onclick = () => aiRewrite(rows[Number(btn.dataset.aiRewrite)], Number(btn.dataset.aiRewrite), btn));
+      document.querySelectorAll("[data-tts]").forEach(btn => btn.onclick = () => submitTts(rows[Number(btn.dataset.tts)], Number(btn.dataset.tts), btn));
+      document.querySelectorAll("[data-heygem]").forEach(btn => btn.onclick = () => submitHeygem(rows[Number(btn.dataset.heygem)], Number(btn.dataset.heygem), btn));
+    }
+
+    async function aiRewrite(row, idx, button) {
+      const settings = JSON.parse(localStorage.getItem("custom-home-ai-settings") || "{}");
+      if (!settings.apiKey) { el(`row-status-${idx}`).textContent = "请先到设置页填写并保存 AI API Key。"; return; }
+      const old = button.textContent; button.textContent = "改写中..."; button.disabled = true;
+      try {
+        const res = await fetch(settings.endpoint || "https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${settings.apiKey}` },
+          body: JSON.stringify({ model: settings.model || "gpt-4o-mini", temperature: Number(settings.temperature || 0.7), messages: [{ role: "system", content: "你是非标定制家居短视频编导，只输出适合口播的改写稿。" }, { role: "user", content: `${row.llm_prompt}\n\n请只返回改写后的 script 文本。` }] })
+        });
+        const data = await res.json();
+        el(`rewrite-${idx}`).value = data.choices?.[0]?.message?.content || data.output_text || "";
+        row.rewritten_script = el(`rewrite-${idx}`).value;
+        el(`row-status-${idx}`).textContent = "AI 改写完成，可继续编辑或提交云端。";
+      } catch (error) {
+        el(`row-status-${idx}`).textContent = `AI 改写失败：${error.message}`;
+      } finally {
+        button.textContent = old; button.disabled = false;
+      }
+    }
+
+    async function submitTts(row, idx, button) {
+      const old = button.textContent; button.textContent = "提交中..."; button.disabled = true;
+      try {
+        const text = el(`rewrite-${idx}`).value || row.rewritten_script || row.script || "";
+        const result = await api("/api/cloud/tts/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+        el(`row-status-${idx}`).textContent = result.ok ? `TTS 已提交：${result.endpoint}` : `TTS 提交失败：${result.error || JSON.stringify(result.response)}`;
+      } catch (error) {
+        el(`row-status-${idx}`).textContent = `TTS 提交失败：${error.message}`;
+      } finally {
+        button.textContent = old; button.disabled = false;
+      }
+    }
+    async function submitHeygem(row, idx, button) {
+      const old = button.textContent; button.textContent = "提交中..."; button.disabled = true;
+      try {
+        const patched = { ...row, rewritten_script: el(`rewrite-${idx}`).value || row.rewritten_script || row.script || "" };
+        const result = await api("/api/cloud/heygem/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ row: patched }) });
+        row.cloud_heygem_result = result;
+        el(`row-status-${idx}`).textContent = result.ok ? `数字人 API 已提交：${result.endpoint}` : `数字人 API 提交失败：${result.error || JSON.stringify(result.response)}`;
+      } catch (error) {
+        el(`row-status-${idx}`).textContent = `数字人 API 提交失败：${error.message}`;
+      } finally {
+        button.textContent = old; button.disabled = false;
+      }
+    }
+
+    function localProjectNames() { return JSON.parse(localStorage.getItem("custom-home-project-names") || "[]"); }
+    function setLocalProjectNames(names) { localStorage.setItem("custom-home-project-names", JSON.stringify([...new Set(names)].sort())); }
+    function projectKey(name) { return `custom-home-project:${name}`; }
+    async function refreshProjects() {
+      const projects = await api("/api/projects");
+      el("projectList").innerHTML = projects.length ? projects.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}${p.count ? `（${p.count}条）` : ""}</option>`).join("") : `<option value="">暂无保存项目</option>`;
+    }
+    async function saveProject() {
+      const name = value("projectName") || `${value("community", "同城案例")}-${new Date().toISOString().slice(0, 10)}`;
+      const rows = window.generatedRows || [];
+      const rewrites = {};
+      const xhsNotes = {};
+      rows.forEach((row, idx) => {
+        rewrites[rewriteKey(row)] = el(`rewrite-${idx}`)?.value || "";
+        xhsNotes[rewriteKey(row)] = el(`xhs-${idx}`)?.value || row.xiaohongshu_note || "";
+      });
+      const project = { name, savedAt: new Date().toISOString(), form: collectCase(), rows, rewrites, xhsNotes };
+      await api("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project) });
+      el("projectName").value = name;
+      el("projectStatus").textContent = `已保存项目：${name}`;
+      await refreshProjects();
+    }
+    async function loadProject() {
+      const name = value("projectList");
+      if (!name) return;
+      const project = await api(`/api/projects/${encodeURIComponent(name)}`);
+      applyCase(project.form || {});
+      Object.entries(project.rewrites || {}).forEach(([key, text]) => localStorage.setItem(key, text));
+      if (project.xhsNotes) {
+        (project.rows || []).forEach(row => { const saved = project.xhsNotes[rewriteKey(row)]; if (saved) row.xiaohongshu_note = saved; });
+      }
+      el("projectName").value = project.name || name;
+      render(project.rows || []);
+      el("projectStatus").textContent = `已加载项目：${project.name || name}`;
+    }
+    async function deleteProject() {
+      const name = value("projectList");
+      if (!name) return;
+      await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: "DELETE" });
+      el("projectStatus").textContent = `已删除项目：${name}`;
+      await refreshProjects();
+    }
+    async function uploadMaterials() {
+      const files = Array.from(el("materialFiles").files || []);
+      if (!files.length) { el("materialStatus").textContent = "请先选择实拍图片或视频。"; return; }
+      const names = files.map(file => file.name).join("、");
+      el("material_notes").value = value("material_notes") ? `${value("material_notes")}、${names}` : names;
+      const form = new FormData();
+      form.append("project", value("projectName") || value("community", "同城案例"));
+      files.forEach(file => form.append("files", file));
+      const result = await (await fetch("/api/materials", { method: "POST", body: form })).json();
+      const savedNames = (result.files || []).map(file => file.name).join("、");
+      el("materialStatus").textContent = savedNames ? `已保存素材：${savedNames}` : "未保存到有效文件。";
+    }
+
+    function ratioSize(ratio) {
+      const [w, h] = ratio.split(":").map(Number);
+      const max = 1200;
+      if (h >= w) return { width: Math.round(max * w / h), height: max };
+      return { width: max, height: Math.round(max * h / w) };
+    }
+
+    function refinePreset(type, strength) {
+      const s = strength / 100;
+      if (type === "portrait") return { brightness: 1.04 + s * 0.12, contrast: 1.02 + s * 0.12, saturation: 1.02 + s * 0.08, warm: 5 + s * 8 };
+      if (type === "environment") return { brightness: 1.02 + s * 0.1, contrast: 1.06 + s * 0.18, saturation: 1.03 + s * 0.14, warm: 2 + s * 5 };
+      return { brightness: 1.03 + s * 0.11, contrast: 1.08 + s * 0.2, saturation: 1.06 + s * 0.16, warm: 1 + s * 4 };
+    }
+
+    function refineDefaults() {
+      return JSON.parse(localStorage.getItem("custom-home-refine-defaults") || "{}");
+    }
+
+    function refineSetting(key, fallback) {
+      const defaults = refineDefaults();
+      return defaults[key] || fallback;
+    }
+
+    function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
+    function sharpenCanvas(ctx, width, height, amount) {
+      if (amount <= 0) return;
+      const src = ctx.getImageData(0, 0, width, height);
+      const dst = ctx.createImageData(width, height);
+      const s = src.data;
+      const d = dst.data;
+      const a = amount / 100;
+      const kernel = [0, -a, 0, -a, 1 + 4 * a, -a, 0, -a, 0];
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const i = (y * width + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            let value = 0;
+            let k = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+              for (let kx = -1; kx <= 1; kx++) {
+                value += s[((y + ky) * width + (x + kx)) * 4 + c] * kernel[k++];
+              }
+            }
+            d[i + c] = Math.max(0, Math.min(255, value));
           }
-        });
-      });
-      output.querySelectorAll("[data-save-rewrite]").forEach(button => {
-        button.addEventListener("click", () => {
-          const row = rows[Number(button.dataset.saveRewrite)];
-          const textarea = document.getElementById(`rewrite-${button.dataset.saveRewrite}`);
-          localStorage.setItem(row.rewriteKey, textarea.value.trim());
-          row.rewritten = textarea.value.trim();
-          document.getElementById(`rewrite-status-${button.dataset.saveRewrite}`).textContent = "已保存到本地";
-        });
-      });
-      output.querySelectorAll("[data-copy-rewrite]").forEach(button => {
-        button.addEventListener("click", async () => {
-          const textarea = document.getElementById(`rewrite-${button.dataset.copyRewrite}`);
-          await navigator.clipboard.writeText(textarea.value);
-          button.textContent = "已复制";
-          setTimeout(() => button.textContent = "复制改写稿", 1200);
-        });
-      });
-      document.getElementById("countMetric").textContent = rows.length;
-      document.getElementById("titleMetric").textContent = rows.length * 3;
-      document.getElementById("safeMetric").textContent = rows.reduce((sum, item) => sum + item.notes.length, 0);
-      document.getElementById("keywordMetric").textContent = new Set(rows.map(item => item.keyword)).size;
-      window.generatedRows = rows;
+          d[i + 3] = s[i + 3];
+        }
+      }
+      ctx.putImageData(dst, 0, 0);
     }
 
-    function escapeHtml(text) {
-      return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[ch]));
+    async function renderRefinedImage() {
+      const file = el("refineFile").files?.[0];
+      if (!file) { el("refineStatus").textContent = "请先选择一张产品、人员或环境图片。"; return null; }
+      const img = await loadImageFromFile(file);
+      const canvas = el("refineCanvas");
+      const ratio = refineSetting("ratio", "3:4");
+      const type = refineSetting("type", "product");
+      const strength = Number(refineSetting("strength", "55"));
+      const zoomSetting = Number(refineSetting("zoom", "8"));
+      const size = ratioSize(ratio);
+      canvas.width = size.width;
+      canvas.height = size.height;
+      const ctx = canvas.getContext("2d");
+      const zoom = 1 + zoomSetting / 100;
+      const targetRatio = size.width / size.height;
+      const sourceRatio = img.width / img.height;
+      let sw = img.width;
+      let sh = img.height;
+      if (sourceRatio > targetRatio) sw = img.height * targetRatio;
+      else sh = img.width / targetRatio;
+      sw = sw / zoom;
+      sh = sh / zoom;
+      const sx = (img.width - sw) / 2;
+      const sy = (img.height - sh) / 2;
+      const preset = refinePreset(type, strength);
+      ctx.clearRect(0, 0, size.width, size.height);
+      ctx.filter = `brightness(${preset.brightness}) contrast(${preset.contrast}) saturate(${preset.saturation})`;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size.width, size.height);
+      ctx.filter = "none";
+      const image = ctx.getImageData(0, 0, size.width, size.height);
+      const data = image.data;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, data[i] + preset.warm);
+        data[i + 2] = Math.max(0, data[i + 2] - preset.warm / 2);
+      }
+      ctx.putImageData(image, 0, 0);
+      sharpenCanvas(ctx, size.width, size.height, 12 + strength * 0.12);
+      const label = { product: "产品精修", portrait: "人员精修", environment: "环境精修" }[type];
+      el("refineStatus").textContent = `${label}预览已生成：${size.width}x${size.height}`;
+      return canvas.toDataURL("image/png", 0.92);
     }
 
+    async function saveRefinedImage() {
+      const dataUrl = await renderRefinedImage();
+      if (!dataUrl) return;
+      const project = value("projectName") || value("community", "同城案例");
+      const file = el("refineFile").files?.[0];
+      const stem = (file?.name || "material").replace(/\.[^.]+$/, "");
+      const type = refineSetting("type", "product");
+      const ratio = refineSetting("ratio", "3:4");
+      const filename = `${stem}-${type}-${ratio.replace(":", "x")}.png`;
+      const result = await api("/api/refined-materials", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project, filename, dataUrl }) });
+      const existing = value("material_notes");
+      const note = `精修图：${result.file.name}`;
+      el("material_notes").value = existing ? `${existing}、${note}` : note;
+      el("refineStatus").textContent = `已保存精修图：${result.file.url}`;
+    }
     async function copyAll() {
       const rows = window.generatedRows || [];
-      if (!rows.length) return;
-      const text = rows.map(item => [
-        `${item.index}. ${item.pillar}（${item.duration}）`,
-        item.script,
-        `标题：${item.titles.join(" / ")}`,
-        `封面：${item.cover}`,
-        `引导：${item.cta}`,
-        `关键词：${item.keyword}`,
-        `合规：${item.notes.length ? item.notes.join("；") : "未发现高风险表达"}`,
-        `评分：${item.score}/100`,
-        `剪辑分镜：${item.shots.join(" | ")}`,
-        `改写稿：${document.getElementById(`rewrite-${item.index - 1}`)?.value || item.rewritten || ""}`
-      ].join("\n")).join("\n\n");
-      await navigator.clipboard.writeText(text);
-      document.getElementById("copyAllBtn").textContent = "已复制";
-      setTimeout(() => document.getElementById("copyAllBtn").textContent = "复制", 1200);
+      const text = rows.map((item, idx) => [`${item.index}. ${item.pillar}（${item.duration}）`, item.script, `标题：${(item.titles || []).join(" / ")}`, `封面：${item.cover}`, `引导：${item.comment_prompt}`, `关键词：${item.dm_keyword}`, `图文：${el(`xhs-${idx}`)?.value || item.xiaohongshu_note || ""}`, `口播：${el(`rewrite-${idx}`)?.value || item.rewritten_script || ""}`].join("\n")).join("\n\n");
+      await copyText(text, el("copyAllBtn"));
     }
 
-    document.getElementById("generateBtn").addEventListener("click", generate);
-    document.getElementById("copyAllBtn").addEventListener("click", copyAll);
-    document.getElementById("saveAiSettingsBtn").addEventListener("click", saveAiSettings);
-    document.getElementById("saveProjectBtn").addEventListener("click", saveProject);
-    document.getElementById("loadProjectBtn").addEventListener("click", loadProject);
-    document.getElementById("deleteProjectBtn").addEventListener("click", deleteProject);
-    loadAiSettings();
-    refreshProjectList();
-    generate();
+    el("generateBtn").addEventListener("click", generate);
+    el("copyAllBtn").addEventListener("click", copyAll);
+    el("saveProjectBtn").addEventListener("click", saveProject);
+    el("loadProjectBtn").addEventListener("click", loadProject);
+    el("deleteProjectBtn").addEventListener("click", deleteProject);
+    el("uploadMaterialsBtn").addEventListener("click", uploadMaterials);
+    el("previewRefineBtn").addEventListener("click", renderRefinedImage);
+    el("saveRefineBtn").addEventListener("click", saveRefinedImage);
+
+    renderTemplates();
+    detectServer().then(refreshProjects).then(generate);
   </script>
 </body>
 </html>

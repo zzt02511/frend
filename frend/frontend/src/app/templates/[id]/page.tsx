@@ -115,8 +115,8 @@ export default function TemplateEditorPage() {
                     }
                     style={{ width: "100%" }}
                   >
-                    {param.options.map((opt) => (
-                      <option key={opt} value={opt}>
+                    {param.options.map((opt, idx) => (
+                      <option key={`${opt}-${idx}`} value={opt}>
                         {opt}
                       </option>
                     ))}
