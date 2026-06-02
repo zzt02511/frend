@@ -8,3 +8,5 @@ server.err.log
 custom_home_cloud_settings.json
 custom_home_materials/
 content_pipeline_exports/
+digital_human_assets/
+digital_human_packages/

@@ -22,6 +22,7 @@ class FakeCloudHandler(BaseHTTPRequestHandler):
                 "payload": payload,
                 "authorization": self.headers.get("Authorization"),
                 "x_api_key": self.headers.get("X-Api-Key"),
+                "token": self.headers.get("token"),
             }
         )
         self._send(
@@ -139,6 +140,43 @@ class CloudRuntimeClientTests(unittest.TestCase):
         self.assertEqual(request["x_api_key"], "avatar-key")
         self.assertEqual(request["payload"]["video_inputs"][0]["voice"]["input_text"], "真实图片加避坑建议。")
 
+    def test_submit_avatar_task_generates_duix_token_from_app_credentials(self):
+        base = f"http://127.0.0.1:{self.port}"
+        client.save_settings(
+            CloudRuntimeSettings(
+                avatar_provider="duix_api",
+                avatar_submit_url=f"{base}/duix-openapi-v2/sdk/v2/createAvatar",
+                avatar_app_id="duix-app-id",
+                avatar_api_key="duix-app-key",
+                avatar_auth_header="token",
+                avatar_auth_scheme="",
+                avatar_response_task_path="data.video_id",
+                avatar_id="conversation-123",
+                voice_id="guina",
+                avatar_payload_template=json.dumps(
+                    {
+                        "ttsName": "{voice_id}",
+                        "conversationId": "{avatar_id}",
+                        "defaultSpeakingLanguage": "zh",
+                        "greetings": "{script}",
+                        "name": "{title}",
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+        )
+
+        result = client.submit_heygem_task({"titles": ["Duix 顾问"], "rewritten_script": "先讲真实痛点，再讲解决方案。"})
+
+        self.assertTrue(result["ok"])
+        request = FakeCloudHandler.requests[-1]
+        self.assertEqual(request["path"], "/duix-openapi-v2/sdk/v2/createAvatar")
+        self.assertEqual(request["payload"]["conversationId"], "conversation-123")
+        self.assertEqual(request["payload"]["ttsName"], "guina")
+        self.assertEqual(request["payload"]["greetings"], "先讲真实痛点，再讲解决方案。")
+        self.assertIsNone(request["authorization"])
+        self.assertEqual(request["token"].count("."), 2)
+
     def test_submit_voice_task_can_use_third_party_template(self):
         base = f"http://127.0.0.1:{self.port}"
         client.save_settings(
@@ -162,6 +200,39 @@ class CloudRuntimeClientTests(unittest.TestCase):
         self.assertEqual(request["path"], "/v1/audio/speech")
         self.assertEqual(request["authorization"], "Bearer voice-key")
         self.assertEqual(request["payload"]["input"], "生成一段小红书口播")
+
+    def test_avatar_payload_template_can_include_clone_assets_and_background(self):
+        settings = CloudRuntimeSettings(
+            avatar_id="avatar-existing",
+            voice_id="voice-existing",
+            avatar_payload_template=json.dumps(
+                {
+                    "script": "{script}",
+                    "background_url": "{background_url}",
+                    "avatar_asset_url": "{avatar_asset_url}",
+                    "voice_asset_url": "{voice_asset_url}",
+                    "aspect_ratio": "{aspect_ratio}",
+                },
+                ensure_ascii=False,
+            ),
+        )
+
+        payload = client.build_avatar_task_payload(
+            {
+                "titles": ["真实背景口播"],
+                "script": "用户文案生成数字人口播。",
+                "background_url": "/digital_human_assets/background/demo/bg.jpg",
+                "avatar_asset_url": "/digital_human_assets/avatar/demo/person.mp4",
+                "voice_asset_url": "/digital_human_assets/voice/demo/voice.wav",
+                "aspect_ratio": "9:16",
+            },
+            settings,
+        )
+
+        self.assertEqual(payload["background_url"], "/digital_human_assets/background/demo/bg.jpg")
+        self.assertEqual(payload["avatar_asset_url"], "/digital_human_assets/avatar/demo/person.mp4")
+        self.assertEqual(payload["voice_asset_url"], "/digital_human_assets/voice/demo/voice.wav")
+        self.assertEqual(payload["aspect_ratio"], "9:16")
 
 
 if __name__ == "__main__":

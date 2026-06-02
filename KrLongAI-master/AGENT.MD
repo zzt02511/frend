@@ -182,6 +182,69 @@ Frontend workbench features:
 - Use local JSON files when opened through `custom_home_server.py`.
 - Fall back to browser `localStorage` when opened directly as a file.
 
+## Implemented Add-On: Digital Human Talking-Video Studio
+
+New goal implemented:
+
+- Build a dedicated workflow for creating a digital-human talking video from user-provided copy.
+- Support user-owned clone materials:
+  - avatar/image clone material: portrait photo or front-facing video.
+  - voice clone material: audio or video with clear speech.
+  - real background material: user-uploaded store, jobsite, product, or customer-space photo/video.
+- Assemble these into a local production package that can be submitted to the configured digital-human API.
+
+New entry point:
+
+```text
+D:\AI\KrLongAI-master\digital_human_studio.html
+```
+
+Recommended URL after starting the local server:
+
+```text
+http://127.0.0.1:8765/digital_human_studio.html
+```
+
+New local server APIs:
+
+- `POST /api/digital-human/assets`
+  - Saves avatar, voice, and background assets under `digital_human_assets/`.
+- `GET /api/digital-human/packages`
+  - Lists saved digital-human production packages.
+- `POST /api/digital-human/packages`
+  - Saves a digital-human production package JSON under `digital_human_packages/`.
+- `GET /api/digital-human/packages/<name>`
+  - Loads a saved production package.
+- `DELETE /api/digital-human/packages/<name>`
+  - Deletes a saved production package.
+- `POST /api/cloud/avatar-video/submit`
+  - Converts the studio package into a digital-human task row and submits it through `cloud_runtime_client.submit_heygem_task`.
+
+Digital-human API adapter updates:
+
+- `cloud_runtime_client.py` now supports payload fields for:
+  - `background_url`
+  - `avatar_asset_url`
+  - `voice_asset_url`
+  - `clone_mode`
+  - `aspect_ratio`
+  - `visual_notes`
+- Duix support includes automatic JWT token generation from `appId` and `appKey`.
+- The provider template system can pass user-uploaded background/avatar/voice asset URLs into third-party API JSON templates.
+
+Privacy/runtime data:
+
+- `.gitignore` now excludes:
+  - `digital_human_assets/`
+  - `digital_human_packages/`
+  - existing local material/export/runtime folders.
+- Do not commit real user photos, voice samples, videos, API keys, or generated customer packages.
+
+Current limitation:
+
+- The studio completes local upload, preview, package save/load, and API task submission.
+- Actual finished video generation depends on the configured vendor endpoint. If Duix/Baidu/another provider gives a dedicated "script + avatar/voice/background -> finished 9:16 video" endpoint, put that endpoint and JSON schema into the settings page's digital-human API template.
+
 ## How To Use The MVP
 
 Recommended local server mode:
@@ -224,6 +287,22 @@ Local server API was also smoke-tested:
 - `POST /api/materials`
 
 Frontend inline script syntax was checked with Node's `vm.Script`.
+
+Latest digital-human studio verification:
+
+```bat
+D:\Python312\python.exe -m py_compile custom_home_server.py cloud_runtime_client.py custom_home_agent.py
+D:\Python312\python.exe -m unittest test_cloud_runtime_client.py test_custom_home_agent.py
+```
+
+Result:
+
+```text
+14 tests OK
+digital_human_studio.html inline script OK
+custom_home_settings.html inline script OK
+custom_home_agent.html inline script OK
+```
 
 ## Recommended Next Implementation Order
 

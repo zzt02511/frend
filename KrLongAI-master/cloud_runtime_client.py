@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Client helpers for remote/API content-production services.
-
-The browser workbench calls this local module instead of calling vendor APIs
-directly. That keeps keys out of front-end code and makes it easy to swap
-between self-hosted HeyGem/Duix services and third-party avatar/TTS APIs.
-"""
+"""Client helpers for remote/API content-production services."""
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import re
 import time
@@ -25,7 +23,6 @@ SETTINGS_PATH = Path(__file__).resolve().parent / "custom_home_cloud_settings.js
 
 @dataclass
 class CloudRuntimeSettings:
-    # Backward-compatible local/cloud service fields.
     heygem_base_url: str = "http://127.0.0.1:8383"
     tts_base_url: str = "http://127.0.0.1:18180"
     api_key: str = ""
@@ -33,7 +30,6 @@ class CloudRuntimeSettings:
     voice_id: str = ""
     timeout_seconds: int = 60
 
-    # Generic digital-human API adapter.
     avatar_provider: str = "heygem"
     avatar_app_id: str = ""
     avatar_submit_url: str = ""
@@ -45,7 +41,6 @@ class CloudRuntimeSettings:
     avatar_response_video_path: str = "video_url"
     avatar_payload_template: str = ""
 
-    # Generic voice/TTS API adapter.
     voice_provider: str = "duix"
     voice_app_id: str = ""
     voice_submit_url: str = ""
@@ -58,13 +53,36 @@ class CloudRuntimeSettings:
 
 AVATAR_PROVIDER_PRESETS: dict[str, dict[str, str]] = {
     "heygem": {
-        "name": "HeyGem / Duix 自建服务",
+        "name": "HeyGem / 自建服务",
         "submit_url": "",
         "auth_header": "Authorization",
         "auth_scheme": "Bearer",
         "task_path": "taskId",
         "video_path": "video_url",
         "template": "",
+    },
+    "duix_api": {
+        "name": "硅基智能 Duix 官方 API",
+        "submit_url": "https://api.duix.ai/duix-openapi-v2/sdk/v2/createAvatar",
+        "status_url": "https://app.duix.ai/duix-openapi-v2/sdk/v2/queryAvatar",
+        "auth_header": "token",
+        "auth_scheme": "",
+        "task_path": "data.taskId",
+        "video_path": "data.coverImage",
+        "template": json.dumps(
+            {
+                "ttsName": "{voice_id}",
+                "conversationId": "{avatar_id}",
+                "defaultSpeakingLanguage": "zh",
+                "greetings": "{script}",
+                "name": "{title}",
+                "profile": "门店顾问数字人，擅长讲解真实案例、业主痛点和装修避坑建议。",
+                "backgroundUrl": "{background_url}",
+                "aspectRatio": "{aspect_ratio}",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
     },
     "heygen": {
         "name": "HeyGen API",
@@ -80,8 +98,9 @@ AVATAR_PROVIDER_PRESETS: dict[str, dict[str, str]] = {
                 "script": "{script}",
                 "voice_id": "{voice_id}",
                 "title": "{title}",
-                "aspect_ratio": "9:16",
+                "aspect_ratio": "{aspect_ratio}",
                 "output_format": "mp4",
+                "background_url": "{background_url}",
             },
             ensure_ascii=False,
             indent=2,
@@ -103,6 +122,7 @@ AVATAR_PROVIDER_PRESETS: dict[str, dict[str, str]] = {
                     "provider": {"type": "microsoft", "voice_id": "{voice_id}"},
                 },
                 "name": "{title}",
+                "background_url": "{background_url}",
             },
             ensure_ascii=False,
             indent=2,
@@ -203,6 +223,25 @@ def _make_headers(
     return headers
 
 
+def _base64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def create_duix_token(app_id: str, app_key: str, sig_exp: int = 1800) -> str:
+    """Create a Duix JWT token from appId/appKey without extra dependencies."""
+    now = int(time.time())
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {"appId": app_id, "iat": now, "exp": now + int(sig_exp)}
+    signing_input = ".".join(
+        [
+            _base64url(json.dumps(header, separators=(",", ":"), ensure_ascii=False).encode("utf-8")),
+            _base64url(json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")),
+        ]
+    )
+    signature = hmac.new(app_key.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256).digest()
+    return f"{signing_input}.{_base64url(signature)}"
+
+
 def _request_json(
     method: str,
     url: str,
@@ -291,10 +330,19 @@ def build_heygem_task_payload(row: dict[str, Any], settings: CloudRuntimeSetting
         "script": script,
         "avatar_id": settings.avatar_id,
         "voice_id": settings.voice_id,
+        "background_url": row.get("background_url") or "",
+        "avatar_asset_url": row.get("avatar_asset_url") or "",
+        "voice_asset_url": row.get("voice_asset_url") or "",
+        "clone_mode": row.get("clone_mode") or "",
+        "aspect_ratio": row.get("aspect_ratio") or "9:16",
         "metadata": {
             "pillar": row.get("pillar"),
             "cover": row.get("cover"),
             "dm_keyword": row.get("dm_keyword"),
+            "background": row.get("background"),
+            "avatar_asset": row.get("avatar_asset"),
+            "voice_asset": row.get("voice_asset"),
+            "visual_notes": row.get("visual_notes"),
             "xiaohongshu_video_plan": row.get("xiaohongshu_video_plan") or [],
         },
     }
@@ -333,6 +381,12 @@ def _result_ok(result: dict[str, Any]) -> bool:
     return bool(result.get("ok", True)) if "error" not in result else False
 
 
+def _avatar_auth_value(settings: CloudRuntimeSettings) -> str:
+    if settings.avatar_provider == "duix_api" and settings.avatar_app_id and settings.avatar_api_key:
+        return create_duix_token(settings.avatar_app_id, settings.avatar_api_key)
+    return settings.avatar_api_key or settings.api_key
+
+
 def submit_heygem_task(row: dict[str, Any], payload_override: dict[str, Any] | None = None) -> dict[str, Any]:
     settings = load_settings()
     if settings.avatar_submit_url:
@@ -341,7 +395,7 @@ def submit_heygem_task(row: dict[str, Any], payload_override: dict[str, Any] | N
             "POST",
             settings.avatar_submit_url,
             payload=payload,
-            api_key=settings.avatar_api_key or settings.api_key,
+            api_key=_avatar_auth_value(settings),
             timeout=settings.timeout_seconds,
             auth_header=settings.avatar_auth_header,
             auth_scheme=settings.avatar_auth_scheme,

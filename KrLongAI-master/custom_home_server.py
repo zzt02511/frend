@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Local workbench server for the custom-home content pipeline."""
+"""Local workbench server for content and digital-human production."""
 
 from __future__ import annotations
 
@@ -30,6 +30,8 @@ from custom_home_agent import CaseInput, generate_outputs
 ROOT = Path(__file__).resolve().parent
 PROJECT_DIR = ROOT / "custom_home_projects"
 MATERIAL_DIR = ROOT / "custom_home_materials"
+AVATAR_DIR = ROOT / "digital_human_assets"
+PACKAGE_DIR = ROOT / "digital_human_packages"
 
 
 def _safe_name(name: str) -> str:
@@ -42,8 +44,16 @@ def _project_path(name: str) -> Path:
     return PROJECT_DIR / f"{_safe_name(name)}.json"
 
 
+def _package_path(name: str) -> Path:
+    return PACKAGE_DIR / f"{_safe_name(name)}.json"
+
+
+def _relative_url(path: Path) -> str:
+    return "/" + path.relative_to(ROOT).as_posix()
+
+
 class CustomHomeHandler(SimpleHTTPRequestHandler):
-    server_version = "CustomHomeAgent/1.2"
+    server_version = "CustomHomeAgent/1.3"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -55,6 +65,8 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return super().do_GET()
         if parsed.path == "/api/projects":
             return self._send_json(self._list_projects())
+        if parsed.path == "/api/digital-human/packages":
+            return self._send_json(self._list_digital_human_packages())
         if parsed.path == "/api/cloud/settings":
             return self._send_json(public_settings(load_settings()))
         if parsed.path == "/api/cloud/health":
@@ -64,6 +76,12 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             path = _project_path(name)
             if not path.exists():
                 return self._send_error(HTTPStatus.NOT_FOUND, "项目不存在")
+            return self._send_json(json.loads(path.read_text(encoding="utf-8")))
+        if parsed.path.startswith("/api/digital-human/packages/"):
+            name = unquote(parsed.path.removeprefix("/api/digital-human/packages/"))
+            path = _package_path(name)
+            if not path.exists():
+                return self._send_error(HTTPStatus.NOT_FOUND, "制作包不存在")
             return self._send_json(json.loads(path.read_text(encoding="utf-8")))
         return super().do_GET()
 
@@ -75,38 +93,28 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             rows = [asdict(item) for item in generate_outputs(case)]
             return self._send_json({"rows": rows})
         if parsed.path == "/api/projects":
-            payload = self._read_json()
-            name = _safe_name(str(payload.get("name") or ""))
-            PROJECT_DIR.mkdir(exist_ok=True)
-            payload["name"] = name
-            _project_path(name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            return self._send_json({"ok": True, "name": name, "projects": self._list_projects()})
+            return self._save_project(self._read_json())
         if parsed.path == "/api/materials":
             return self._handle_material_upload()
         if parsed.path == "/api/refined-materials":
             return self._handle_refined_material_save()
+        if parsed.path == "/api/digital-human/assets":
+            return self._handle_digital_human_asset_upload()
+        if parsed.path == "/api/digital-human/packages":
+            return self._save_digital_human_package(self._read_json())
         if parsed.path == "/api/cloud/settings":
-            payload = self._read_json()
-            current = load_settings()
-            for secret_key in ("api_key", "avatar_api_key", "voice_api_key"):
-                if payload.get(secret_key) in ("", "***", None):
-                    payload.pop(secret_key, None)
-            merged = {**current.__dict__, **payload}
-            settings = save_settings(
-                CloudRuntimeSettings(
-                    **{
-                        key: value
-                        for key, value in merged.items()
-                        if key in CloudRuntimeSettings.__dataclass_fields__
-                    }
-                )
-            )
-            return self._send_json({"ok": True, "settings": public_settings(settings)})
+            return self._save_cloud_settings(self._read_json())
         if parsed.path == "/api/cloud/heygem/submit":
             payload = self._read_json()
             row = payload.get("row") or payload
             override = payload.get("payload")
             return self._send_json(submit_heygem_task(row, override))
+        if parsed.path == "/api/cloud/avatar-video/submit":
+            payload = self._read_json()
+            row = self._build_avatar_video_row(payload)
+            override = payload.get("payload")
+            result = submit_heygem_task(row, override)
+            return self._send_json({"ok": result.get("ok", False), "row": row, "result": result})
         if parsed.path == "/api/cloud/tts/submit":
             payload = self._read_json()
             text = payload.get("text") or payload.get("script") or ""
@@ -122,12 +130,42 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             if path.exists():
                 path.unlink()
             return self._send_json({"ok": True, "projects": self._list_projects()})
+        if parsed.path.startswith("/api/digital-human/packages/"):
+            name = unquote(parsed.path.removeprefix("/api/digital-human/packages/"))
+            path = _package_path(name)
+            if path.exists():
+                path.unlink()
+            return self._send_json({"ok": True, "packages": self._list_digital_human_packages()})
         return self._send_error(HTTPStatus.NOT_FOUND, "接口不存在")
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length).decode("utf-8") if length else "{}"
         return json.loads(raw or "{}")
+
+    def _save_project(self, payload: dict) -> None:
+        name = _safe_name(str(payload.get("name") or ""))
+        PROJECT_DIR.mkdir(exist_ok=True)
+        payload["name"] = name
+        _project_path(name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return self._send_json({"ok": True, "name": name, "projects": self._list_projects()})
+
+    def _save_cloud_settings(self, payload: dict) -> None:
+        current = load_settings()
+        for secret_key in ("api_key", "avatar_api_key", "voice_api_key"):
+            if payload.get(secret_key) in ("", "***", None):
+                payload.pop(secret_key, None)
+        merged = {**current.__dict__, **payload}
+        settings = save_settings(
+            CloudRuntimeSettings(
+                **{
+                    key: value
+                    for key, value in merged.items()
+                    if key in CloudRuntimeSettings.__dataclass_fields__
+                }
+            )
+        )
+        return self._send_json({"ok": True, "settings": public_settings(settings)})
 
     def _list_projects(self) -> list[dict]:
         PROJECT_DIR.mkdir(exist_ok=True)
@@ -146,18 +184,26 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             )
         return projects
 
-    def _handle_material_upload(self) -> None:
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-                "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
-            },
-        )
-        project = _safe_name(form.getfirst("project", "未命名项目"))
-        target_dir = MATERIAL_DIR / project
+    def _list_digital_human_packages(self) -> list[dict]:
+        PACKAGE_DIR.mkdir(exist_ok=True)
+        packages = []
+        for path in sorted(PACKAGE_DIR.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            packages.append(
+                {
+                    "name": data.get("name") or path.stem,
+                    "savedAt": data.get("savedAt") or "",
+                    "scriptLength": len(data.get("script") or ""),
+                    "background": (data.get("background") or {}).get("name", ""),
+                }
+            )
+        return packages
+
+    def _save_uploaded_files(self, form: cgi.FieldStorage, base_dir: Path, project: str) -> list[dict]:
+        target_dir = base_dir / _safe_name(project)
         target_dir.mkdir(parents=True, exist_ok=True)
         files = form["files"] if "files" in form else []
         if not isinstance(files, list):
@@ -180,14 +226,68 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
                     if not chunk:
                         break
                     handle.write(chunk)
-            saved.append(
-                {
-                    "name": target.name,
-                    "url": f"/custom_home_materials/{project}/{target.name}",
-                    "size": target.stat().st_size,
-                }
-            )
+            saved.append({"name": target.name, "url": _relative_url(target), "size": target.stat().st_size})
+        return saved
+
+    def _read_multipart(self) -> cgi.FieldStorage:
+        return cgi.FieldStorage(
+            fp=self.rfile,
+            headers=self.headers,
+            environ={
+                "REQUEST_METHOD": "POST",
+                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
+                "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
+            },
+        )
+
+    def _handle_material_upload(self) -> None:
+        form = self._read_multipart()
+        project = _safe_name(form.getfirst("project", "未命名项目"))
+        saved = self._save_uploaded_files(form, MATERIAL_DIR, project)
         self._send_json({"ok": True, "project": project, "files": saved})
+
+    def _handle_digital_human_asset_upload(self) -> None:
+        form = self._read_multipart()
+        project = _safe_name(form.getfirst("project", "未命名数字人"))
+        role = _safe_name(form.getfirst("role", "assets"))
+        saved = self._save_uploaded_files(form, AVATAR_DIR / role, project)
+        self._send_json({"ok": True, "project": project, "role": role, "files": saved})
+
+    def _save_digital_human_package(self, payload: dict) -> None:
+        name = _safe_name(payload.get("name") or payload.get("title") or "数字人口播制作包")
+        PACKAGE_DIR.mkdir(exist_ok=True)
+        payload["name"] = name
+        _package_path(name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return self._send_json({"ok": True, "name": name, "packages": self._list_digital_human_packages()})
+
+    def _build_avatar_video_row(self, payload: dict) -> dict:
+        title = str(payload.get("title") or payload.get("name") or "数字人口播视频").strip()
+        script = str(payload.get("script") or "").strip()
+        avatar = payload.get("avatar") or {}
+        voice = payload.get("voice") or {}
+        background = payload.get("background") or {}
+        return {
+            "titles": [title],
+            "script": script,
+            "rewritten_script": script,
+            "pillar": "数字人口播",
+            "cover": payload.get("cover") or title,
+            "dm_keyword": payload.get("dm_keyword") or "案例",
+            "avatar_asset": avatar,
+            "voice_asset": voice,
+            "background": background,
+            "avatar_asset_url": avatar.get("url", ""),
+            "voice_asset_url": voice.get("url", ""),
+            "background_url": background.get("url", ""),
+            "clone_mode": payload.get("clone_mode") or "avatar_voice_background",
+            "aspect_ratio": payload.get("aspect_ratio") or "9:16",
+            "visual_notes": payload.get("visual_notes") or "",
+            "xiaohongshu_video_plan": [
+                "使用用户真实背景作为主画面或场景底图",
+                "数字人保持正脸口播，字幕使用小红书竖屏安全区",
+                "口播结尾引导评论关键词或私信咨询",
+            ],
+        }
 
     def _handle_refined_material_save(self) -> None:
         payload = self._read_json()
@@ -221,7 +321,7 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
                 "project": project,
                 "file": {
                     "name": target.name,
-                    "url": f"/custom_home_materials/{project}/refined/{target.name}",
+                    "url": _relative_url(target),
                     "size": target.stat().st_size,
                     "source": header,
                 },
@@ -242,15 +342,15 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the custom-home local workbench server.")
+    parser = argparse.ArgumentParser(description="Run the local content workbench server.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
     server = ThreadingHTTPServer((args.host, args.port), CustomHomeHandler)
     print(f"Custom home workbench: http://{args.host}:{args.port}/")
+    print(f"Digital human studio: http://{args.host}:{args.port}/digital_human_studio.html")
     print(f"Projects folder: {PROJECT_DIR}")
-    print("Cloud runtime API: /api/cloud/settings, /api/cloud/health, /api/cloud/heygem/submit")
     server.serve_forever()
 
 

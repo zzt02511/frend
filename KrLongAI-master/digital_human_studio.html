@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数字人口播视频制作台</title>
+  <style>
+    :root {
+      --ink: #171814;
+      --muted: #64665d;
+      --paper: #f3efe4;
+      --panel: #fffdf7;
+      --line: #d9cfbd;
+      --charcoal: #20211c;
+      --moss: #536a4b;
+      --brick: #a34d3c;
+      --blue: #2d6172;
+      --gold: #c6a15d;
+      --shadow: 0 20px 48px rgba(23, 24, 20, .14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(23,24,20,.05) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(23,24,20,.04) 1px, transparent 1px),
+        var(--paper);
+      background-size: 34px 34px;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    .shell { max-width: 1360px; margin: 0 auto; padding: 22px; }
+    .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: 30px; line-height: 1.15; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    p { margin: 6px 0 0; color: var(--muted); line-height: 1.65; font-size: 13px; }
+    a.button, button {
+      min-height: 39px;
+      border: 0;
+      border-radius: 6px;
+      padding: 9px 13px;
+      color: #fffdf7;
+      background: var(--brick);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.secondary, a.secondary { color: var(--ink); background: #f4ead8; border: 1px solid var(--line); }
+    button.ghost { color: var(--moss); background: rgba(83,106,75,.09); border: 1px solid rgba(83,106,75,.24); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .layout { display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .panel, .stage, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .panel { padding: 16px; }
+    label { display: block; margin: 10px 0 6px; color: var(--muted); font-size: 12px; font-weight: 900; }
+    input, textarea, select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fffdf8;
+      outline: none;
+      font: inherit;
+      font-size: 13px;
+    }
+    textarea { min-height: 170px; resize: vertical; line-height: 1.6; }
+    input:focus, textarea:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(198,161,93,.18); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .hint { padding: 10px 12px; background: rgba(83,106,75,.08); border-left: 3px solid var(--moss); color: var(--muted); line-height: 1.65; font-size: 13px; }
+    .status { min-height: 20px; margin-top: 8px; color: var(--moss); font-size: 13px; font-weight: 800; line-height: 1.55; }
+    .warn { color: var(--brick); }
+    .stage { overflow: hidden; }
+    .preview-wrap {
+      position: relative;
+      aspect-ratio: 9 / 16;
+      min-height: 560px;
+      background: #1f211d;
+      display: grid;
+      place-items: center;
+      color: rgba(255,253,247,.72);
+      isolation: isolate;
+    }
+    .preview-wrap img, .preview-wrap video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+    .avatar-ghost {
+      position: absolute;
+      left: 50%;
+      bottom: 7%;
+      transform: translateX(-50%);
+      width: 46%;
+      max-width: 330px;
+      aspect-ratio: 3 / 4;
+      border-radius: 46% 46% 8px 8px;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(255,238,210,.92) 0 16%, transparent 17%),
+        linear-gradient(180deg, rgba(255,253,247,.88), rgba(198,161,93,.6));
+      border: 1px solid rgba(255,253,247,.62);
+      box-shadow: 0 26px 60px rgba(0,0,0,.36);
+      z-index: 2;
+      opacity: .88;
+    }
+    .subtitle {
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      bottom: 3%;
+      z-index: 3;
+      min-height: 58px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: rgba(0,0,0,.62);
+      color: #fffdf7;
+      font-weight: 900;
+      line-height: 1.45;
+      text-align: center;
+    }
+    .stage-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+    .metric { padding: 13px; background: var(--panel); }
+    .metric b { display: block; font-size: 22px; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+    .card { padding: 13px; box-shadow: 0 12px 26px rgba(23,24,20,.08); }
+    .card b { display: block; margin-bottom: 6px; font-size: 14px; }
+    .asset-name { color: var(--blue); font-size: 12px; line-height: 1.5; word-break: break-all; }
+    .asset-preview { margin-top: 8px; width: 100%; max-height: 160px; border-radius: 6px; object-fit: cover; background: #eee7d8; }
+    audio.asset-preview { height: 42px; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    pre {
+      margin: 0;
+      min-height: 220px;
+      padding: 12px;
+      overflow: auto;
+      color: #f8f0df;
+      background: var(--charcoal);
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1080px) {
+      .layout, .split { grid-template-columns: 1fr; }
+      .preview-wrap { min-height: 520px; }
+      .cards { grid-template-columns: 1fr; }
+      .topbar { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div>
+        <h1>数字人口播视频制作台</h1>
+        <p>用用户提供的文案、本人形象素材、声音素材和真实背景，组装成可提交给 Duix/第三方 API 的口播视频任务。</p>
+      </div>
+      <div class="actions">
+        <a class="button secondary" href="custom_home_agent.html">内容工作台</a>
+        <a class="button secondary" href="custom_home_settings.html">API 设置</a>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>1. 文案与成片要求</h2>
+        <label for="projectName">制作包名称</label>
+        <input id="projectName" value="我的数字人口播视频">
+        <div class="grid-2">
+          <div>
+            <label for="ratio">画面比例</label>
+            <select id="ratio">
+              <option value="9:16">9:16 小红书竖屏</option>
+              <option value="1:1">1:1 图文封面</option>
+              <option value="16:9">16:9 横屏</option>
+            </select>
+          </div>
+          <div>
+            <label for="cloneMode">制作模式</label>
+            <select id="cloneMode">
+              <option value="avatar_voice_background">克隆形象 + 克隆声音 + 真实背景</option>
+              <option value="avatar_background">克隆形象 + 默认声音 + 真实背景</option>
+              <option value="voice_background">已有形象 + 克隆声音 + 真实背景</option>
+            </select>
+          </div>
+        </div>
+        <label for="script">用户文案 / 口播稿</label>
+        <textarea id="script">大家好，我是你的家居顾问。今天用一个真实案例，帮你看清定制家具里最容易踩坑的地方。真正要关注的不是单价有多低，而是板材、五金、封边、安装和售后有没有写清楚。</textarea>
+        <label for="visualNotes">背景与镜头说明</label>
+        <textarea id="visualNotes" style="min-height:88px;">背景使用用户上传的真实门店、工地或产品空间图；数字人居中偏下，字幕放在底部安全区。</textarea>
+        <div class="actions">
+          <button id="refreshPreviewBtn">刷新预览</button>
+          <button class="secondary" id="savePackageBtn">保存制作包</button>
+          <button class="secondary" id="copyPayloadBtn">复制任务 JSON</button>
+        </div>
+        <div class="status" id="packageStatus"></div>
+
+        <h2 style="margin-top:18px;">2. 上传克隆素材</h2>
+        <div class="hint">形象建议上传 10 秒到 1 分钟正脸视频；声音建议上传 30 秒以上清晰干声；背景上传真实门店、产品、工地或客户家场景。</div>
+
+        <label for="avatarFile">形象克隆素材</label>
+        <input id="avatarFile" type="file" accept="image/*,video/*">
+        <button class="secondary" id="uploadAvatarBtn" style="margin-top:8px;">上传形象素材</button>
+
+        <label for="voiceFile">声音克隆素材</label>
+        <input id="voiceFile" type="file" accept="audio/*,video/*">
+        <button class="secondary" id="uploadVoiceBtn" style="margin-top:8px;">上传声音素材</button>
+
+        <label for="backgroundFile">真实背景素材</label>
+        <input id="backgroundFile" type="file" accept="image/*,video/*">
+        <button class="secondary" id="uploadBackgroundBtn" style="margin-top:8px;">上传背景素材</button>
+        <div class="status" id="assetStatus"></div>
+
+        <h2 style="margin-top:18px;">3. 提交生成</h2>
+        <div class="hint">提交前先到 API 设置页套用硅基 Duix 或其它数字人供应商，并填好 AppID/AppKey、形象 ID、声音 ID。若供应商给了专门的视频合成接口，把 JSON 模板改成他们的字段即可。</div>
+        <div class="actions">
+          <button id="submitBtn">提交数字人视频任务</button>
+          <button class="ghost" id="loadPackagesBtn">刷新历史制作包</button>
+        </div>
+        <label for="packageList">历史制作包</label>
+        <select id="packageList"></select>
+        <button class="secondary" id="loadPackageBtn" style="margin-top:8px;">加载制作包</button>
+        <div class="status" id="submitStatus"></div>
+      </section>
+
+      <section>
+        <div class="stage">
+          <div class="preview-wrap" id="previewWrap">
+            <div>上传真实背景后自动预览</div>
+            <div class="avatar-ghost" title="数字人位置预览"></div>
+            <div class="subtitle" id="subtitlePreview">这里显示口播字幕安全区</div>
+          </div>
+          <div class="stage-footer">
+            <div class="metric"><b id="scriptMetric">0</b><span>文案字数</span></div>
+            <div class="metric"><b id="assetMetric">0/3</b><span>素材完成</span></div>
+            <div class="metric"><b id="ratioMetric">9:16</b><span>输出比例</span></div>
+          </div>
+        </div>
+
+        <div class="cards">
+          <div class="card">
+            <b>形象素材</b>
+            <div class="asset-name" id="avatarAssetName">未上传</div>
+            <div id="avatarPreview"></div>
+          </div>
+          <div class="card">
+            <b>声音素材</b>
+            <div class="asset-name" id="voiceAssetName">未上传</div>
+            <div id="voicePreview"></div>
+          </div>
+          <div class="card">
+            <b>真实背景</b>
+            <div class="asset-name" id="backgroundAssetName">未上传</div>
+            <div id="backgroundPreview"></div>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:12px;">
+          <div class="panel">
+            <h2>任务 JSON</h2>
+            <pre id="payloadPreview">{}</pre>
+          </div>
+          <div class="panel">
+            <h2>制作检查</h2>
+            <div class="hint" id="checklist"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+    const value = id => (el(id).value || "").trim();
+    const state = { avatar: null, voice: null, background: null };
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, options);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    function objectPreview(file, target, className = "asset-preview") {
+      const box = el(target);
+      box.innerHTML = "";
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      let node;
+      if (file.type.startsWith("image/")) {
+        node = new Image();
+        node.src = url;
+      } else if (file.type.startsWith("video/")) {
+        node = document.createElement("video");
+        node.src = url;
+        node.controls = true;
+        node.muted = true;
+      } else {
+        node = document.createElement("audio");
+        node.src = url;
+        node.controls = true;
+      }
+      node.className = className;
+      box.appendChild(node);
+      return url;
+    }
+
+    function setBackgroundPreview(file) {
+      const wrap = el("previewWrap");
+      wrap.querySelectorAll("img, video").forEach(node => node.remove());
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      let node;
+      if (file.type.startsWith("video/")) {
+        node = document.createElement("video");
+        node.src = url;
+        node.autoplay = true;
+        node.loop = true;
+        node.muted = true;
+        node.playsInline = true;
+      } else {
+        node = new Image();
+        node.src = url;
+      }
+      wrap.prepend(node);
+    }
+
+    function firstSentence(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
+      return clean.split(/[。！？!?]/)[0].slice(0, 44) || "这里显示口播字幕安全区";
+    }
+
+    function payload() {
+      return {
+        name: value("projectName") || "数字人口播制作包",
+        title: value("projectName") || "数字人口播视频",
+        script: value("script"),
+        clone_mode: value("cloneMode"),
+        aspect_ratio: value("ratio"),
+        visual_notes: value("visualNotes"),
+        avatar: state.avatar,
+        voice: state.voice,
+        background: state.background,
+        savedAt: new Date().toISOString()
+      };
+    }
+
+    function renderPreview() {
+      const data = payload();
+      const done = [state.avatar, state.voice, state.background].filter(Boolean).length;
+      el("scriptMetric").textContent = data.script.length;
+      el("assetMetric").textContent = `${done}/3`;
+      el("ratioMetric").textContent = data.aspect_ratio;
+      el("subtitlePreview").textContent = firstSentence(data.script);
+      el("payloadPreview").textContent = JSON.stringify(data, null, 2);
+      el("checklist").innerHTML = [
+        state.avatar ? "形象素材已上传，可用于克隆或绑定已有形象。" : "还没有上传形象素材。",
+        state.voice ? "声音素材已上传，可用于克隆或生成音色。" : "还没有上传声音素材。",
+        state.background ? "真实背景已上传，会进入数字人任务包。" : "还没有上传真实背景。",
+        data.script.length >= 30 ? "口播文案长度可用。" : "口播文案偏短，建议补到 30 字以上。",
+        "提交按钮会调用 /api/cloud/avatar-video/submit，并使用设置页中的数字人 API 模板。"
+      ].map(item => `<div>${item}</div>`).join("");
+    }
+
+    async function uploadAsset(role, inputId) {
+      const file = el(inputId).files?.[0];
+      if (!file) {
+        el("assetStatus").textContent = "请先选择文件。";
+        return;
+      }
+      const form = new FormData();
+      form.append("project", value("projectName") || "我的数字人");
+      form.append("role", role);
+      form.append("files", file);
+      const result = await api("/api/digital-human/assets", { method: "POST", body: form });
+      const saved = result.files?.[0];
+      state[role] = saved;
+      el(`${role}AssetName`).textContent = saved ? `${saved.name} (${Math.round(saved.size / 1024)} KB)` : "未保存";
+      objectPreview(file, `${role}Preview`);
+      if (role === "background") setBackgroundPreview(file);
+      el("assetStatus").textContent = saved ? `已上传 ${role}：${saved.name}` : "没有保存到有效文件。";
+      renderPreview();
+    }
+
+    async function savePackage() {
+      const data = payload();
+      const result = await api("/api/digital-human/packages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      el("packageStatus").textContent = `已保存制作包：${result.name}`;
+      await loadPackageList();
+    }
+
+    async function loadPackageList() {
+      const list = await api("/api/digital-human/packages");
+      el("packageList").innerHTML = list.length
+        ? list.map(item => `<option value="${item.name}">${item.name} · ${item.scriptLength}字</option>`).join("")
+        : `<option value="">暂无制作包</option>`;
+    }
+
+    async function loadPackage() {
+      const name = value("packageList");
+      if (!name) return;
+      const data = await api(`/api/digital-human/packages/${encodeURIComponent(name)}`);
+      el("projectName").value = data.name || "";
+      el("script").value = data.script || "";
+      el("cloneMode").value = data.clone_mode || "avatar_voice_background";
+      el("ratio").value = data.aspect_ratio || "9:16";
+      el("visualNotes").value = data.visual_notes || "";
+      state.avatar = data.avatar || null;
+      state.voice = data.voice || null;
+      state.background = data.background || null;
+      el("avatarAssetName").textContent = state.avatar?.name || "未上传";
+      el("voiceAssetName").textContent = state.voice?.name || "未上传";
+      el("backgroundAssetName").textContent = state.background?.name || "未上传";
+      renderPreview();
+      el("packageStatus").textContent = `已加载制作包：${data.name}`;
+    }
+
+    async function submitTask() {
+      const data = payload();
+      if (!data.script) {
+        el("submitStatus").textContent = "请先填写口播文案。";
+        return;
+      }
+      const button = el("submitBtn");
+      const old = button.textContent;
+      button.disabled = true;
+      button.textContent = "提交中...";
+      try {
+        const result = await api("/api/cloud/avatar-video/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        el("submitStatus").textContent = result.ok
+          ? `已提交：${result.result.endpoint || "数字人 API"}`
+          : `提交失败：${result.result?.error || JSON.stringify(result.result?.response || result)}`;
+      } catch (error) {
+        el("submitStatus").textContent = `提交失败：${error.message}`;
+      } finally {
+        button.disabled = false;
+        button.textContent = old;
+      }
+    }
+
+    async function copyPayload() {
+      await navigator.clipboard.writeText(JSON.stringify(payload(), null, 2));
+      el("packageStatus").textContent = "任务 JSON 已复制。";
+    }
+
+    el("refreshPreviewBtn").addEventListener("click", renderPreview);
+    el("savePackageBtn").addEventListener("click", savePackage);
+    el("copyPayloadBtn").addEventListener("click", copyPayload);
+    el("uploadAvatarBtn").addEventListener("click", () => uploadAsset("avatar", "avatarFile"));
+    el("uploadVoiceBtn").addEventListener("click", () => uploadAsset("voice", "voiceFile"));
+    el("uploadBackgroundBtn").addEventListener("click", () => uploadAsset("background", "backgroundFile"));
+    el("submitBtn").addEventListener("click", submitTask);
+    el("loadPackagesBtn").addEventListener("click", loadPackageList);
+    el("loadPackageBtn").addEventListener("click", loadPackage);
+    ["script", "projectName", "ratio", "cloneMode", "visualNotes"].forEach(id => el(id).addEventListener("input", renderPreview));
+    el("backgroundFile").addEventListener("change", () => setBackgroundPreview(el("backgroundFile").files?.[0]));
+    renderPreview();
+    loadPackageList().catch(() => {
+      el("submitStatus").textContent = "请通过本地服务打开页面：D:\\Python312\\python.exe custom_home_server.py --port 8765";
+    });
+  </script>
+</body>
+</html>

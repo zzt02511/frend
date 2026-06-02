@@ -91,7 +91,10 @@
         <h1>内容生产流水线设置</h1>
         <p>集中配置数字人 API、语音 API、AI 改写接口和素材精修默认值。工作台只负责案例、素材和内容产出。</p>
       </div>
-      <a class="button secondary" href="custom_home_agent.html">返回工作台</a>
+      <div class="row-actions" style="margin-top:0;">
+        <a class="button secondary" href="digital_human_studio.html">数字人口播制作台</a>
+        <a class="button secondary" href="custom_home_agent.html">返回工作台</a>
+      </div>
     </div>
 
     <div class="grid">
@@ -101,11 +104,13 @@
         <label for="avatarProvider">供应商</label>
         <select id="avatarProvider">
           <option value="heygem">HeyGem / Duix 自建</option>
+          <option value="duix_api">硅基智能 Duix 官方 API</option>
           <option value="heygen">HeyGen API</option>
           <option value="did">D-ID API</option>
           <option value="custom">自定义数字人 API</option>
         </select>
         <div class="row-actions">
+          <button class="ghost" data-avatar-preset="duix_api">套用硅基 Duix</button>
           <button class="ghost" data-avatar-preset="heygen">套用 HeyGen</button>
           <button class="ghost" data-avatar-preset="did">套用 D-ID</button>
           <button class="ghost" data-avatar-preset="heygem">套用自建 HeyGem</button>
@@ -115,17 +120,17 @@
         <label for="avatarStatusUrl">状态查询 URL</label>
         <input id="avatarStatusUrl" placeholder="可选，后续轮询任务时使用">
         <div class="grid-2">
-          <div><label for="avatarId">数字人/形象 ID</label><input id="avatarId" placeholder="avatar_id 或 source_url"></div>
-          <div><label for="avatarVoiceId">口播声音 ID</label><input id="avatarVoiceId" placeholder="数字人供应商内的 voice_id"></div>
+          <div><label for="avatarId">数字人/形象 ID</label><input id="avatarId" placeholder="Duix 填 Conversation ID；其它供应商填 avatar_id 或 source_url"></div>
+          <div><label for="avatarVoiceId">口播声音 ID</label><input id="avatarVoiceId" placeholder="Duix 填 ttsName；其它供应商填 voice_id"></div>
         </div>
-        <label for="avatarAppId">数字人 AppID / 附加应用 ID</label>
-        <input id="avatarAppId" placeholder="供应商要求时填写；不需要可留空">
+        <label for="avatarAppId">数字人 AppID / 应用 ID</label>
+        <input id="avatarAppId" placeholder="Duix 填 appId；不需要可留空">
         <div class="grid-2">
           <div><label for="avatarAuthHeader">鉴权 Header</label><input id="avatarAuthHeader" value="Authorization"></div>
           <div><label for="avatarAuthScheme">鉴权前缀</label><input id="avatarAuthScheme" value="Bearer" placeholder="Bearer / Basic / 留空"></div>
         </div>
-        <label for="avatarApiKey">数字人 API Key</label>
-        <input id="avatarApiKey" type="password" placeholder="保存到本地后端配置文件">
+        <label for="avatarApiKey">数字人 API Key / AppKey</label>
+        <input id="avatarApiKey" type="password" placeholder="Duix 填 appKey，后端会自动生成 token">
         <div class="grid-2">
           <div><label for="avatarTaskPath">任务 ID 响应路径</label><input id="avatarTaskPath" value="taskId"></div>
           <div><label for="avatarVideoPath">视频 URL 响应路径</label><input id="avatarVideoPath" value="video_url"></div>
@@ -274,6 +279,7 @@
       if (!p) return;
       el("avatarProvider").value = name;
       el("avatarSubmitUrl").value = p.submit_url || "";
+      el("avatarStatusUrl").value = p.status_url || "";
       el("avatarAuthHeader").value = p.auth_header || "Authorization";
       el("avatarAuthScheme").value = p.auth_scheme || "";
       el("avatarTaskPath").value = p.task_path || "taskId";
