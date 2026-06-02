@@ -26,6 +26,11 @@ Current usable MVP entry points:
 
 Latest work:
 
+- Added the digital-human studio three-task button split:
+  - `提交形象克隆` calls `POST /api/cloud/avatar-clone/submit`.
+  - `提交声音克隆` calls `POST /api/cloud/voice-clone/submit`.
+  - `生成口播视频` calls `POST /api/cloud/avatar-video/submit`.
+  - Cloud API templates can branch on `task_type`: `avatar_clone`, `voice_clone`, or `avatar_video`.
 - Fixed乱码 in the custom-home MVP generator, tests, sample JSON, docs, and workbench copy.
 - Improved generated Chinese copy quality for the first vertical.
 - Rebuilt the HTML workbench with a clearer product interface, project strip, metrics, content cards, rewrite panels, and server/localStorage status.
@@ -219,6 +224,10 @@ New local server APIs:
   - Deletes a saved production package.
 - `POST /api/cloud/avatar-video/submit`
   - Converts the studio package into a digital-human task row and submits it through `cloud_runtime_client.submit_heygem_task`.
+- `POST /api/cloud/avatar-clone/submit`
+  - Submits the image/avatar clone task row with `task_type=avatar_clone`.
+- `POST /api/cloud/voice-clone/submit`
+  - Submits the voice clone task row with `task_type=voice_clone`.
 
 Digital-human API adapter updates:
 

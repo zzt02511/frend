@@ -212,6 +212,7 @@ class CloudRuntimeClientTests(unittest.TestCase):
                     "avatar_asset_url": "{avatar_asset_url}",
                     "voice_asset_url": "{voice_asset_url}",
                     "aspect_ratio": "{aspect_ratio}",
+                    "task_type": "{task_type}",
                 },
                 ensure_ascii=False,
             ),
@@ -225,6 +226,7 @@ class CloudRuntimeClientTests(unittest.TestCase):
                 "avatar_asset_url": "/digital_human_assets/avatar/demo/person.mp4",
                 "voice_asset_url": "/digital_human_assets/voice/demo/voice.wav",
                 "aspect_ratio": "9:16",
+                "task_type": "avatar_video",
             },
             settings,
         )
@@ -233,6 +235,7 @@ class CloudRuntimeClientTests(unittest.TestCase):
         self.assertEqual(payload["avatar_asset_url"], "/digital_human_assets/avatar/demo/person.mp4")
         self.assertEqual(payload["voice_asset_url"], "/digital_human_assets/voice/demo/voice.wav")
         self.assertEqual(payload["aspect_ratio"], "9:16")
+        self.assertEqual(payload["task_type"], "avatar_video")
 
 
 if __name__ == "__main__":

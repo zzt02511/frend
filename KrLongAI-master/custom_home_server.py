@@ -109,9 +109,21 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             row = payload.get("row") or payload
             override = payload.get("payload")
             return self._send_json(submit_heygem_task(row, override))
+        if parsed.path == "/api/cloud/avatar-clone/submit":
+            payload = self._read_json()
+            row = self._build_avatar_video_row(payload, task_type="avatar_clone")
+            override = payload.get("payload")
+            result = submit_heygem_task(row, override)
+            return self._send_json({"ok": result.get("ok", False), "row": row, "result": result})
+        if parsed.path == "/api/cloud/voice-clone/submit":
+            payload = self._read_json()
+            row = self._build_avatar_video_row(payload, task_type="voice_clone")
+            override = payload.get("payload")
+            result = submit_heygem_task(row, override)
+            return self._send_json({"ok": result.get("ok", False), "row": row, "result": result})
         if parsed.path == "/api/cloud/avatar-video/submit":
             payload = self._read_json()
-            row = self._build_avatar_video_row(payload)
+            row = self._build_avatar_video_row(payload, task_type="avatar_video")
             override = payload.get("payload")
             result = submit_heygem_task(row, override)
             return self._send_json({"ok": result.get("ok", False), "row": row, "result": result})
@@ -260,18 +272,23 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
         _package_path(name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return self._send_json({"ok": True, "name": name, "packages": self._list_digital_human_packages()})
 
-    def _build_avatar_video_row(self, payload: dict) -> dict:
+    def _build_avatar_video_row(self, payload: dict, task_type: str = "avatar_video") -> dict:
         title = str(payload.get("title") or payload.get("name") or "数字人口播视频").strip()
         script = str(payload.get("script") or "").strip()
         avatar = payload.get("avatar") or {}
         voice = payload.get("voice") or {}
         background = payload.get("background") or {}
+        task_titles = {
+            "avatar_clone": "克隆数字人形象",
+            "voice_clone": "克隆数字人声音",
+            "avatar_video": title,
+        }
         return {
-            "titles": [title],
+            "titles": [task_titles.get(task_type, title)],
             "script": script,
             "rewritten_script": script,
-            "pillar": "数字人口播",
-            "cover": payload.get("cover") or title,
+            "pillar": task_type,
+            "cover": payload.get("cover") or task_titles.get(task_type, title),
             "dm_keyword": payload.get("dm_keyword") or "案例",
             "avatar_asset": avatar,
             "voice_asset": voice,
@@ -279,6 +296,7 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             "avatar_asset_url": avatar.get("url", ""),
             "voice_asset_url": voice.get("url", ""),
             "background_url": background.get("url", ""),
+            "task_type": task_type,
             "clone_mode": payload.get("clone_mode") or "avatar_voice_background",
             "aspect_ratio": payload.get("aspect_ratio") or "9:16",
             "visual_notes": payload.get("visual_notes") or "",

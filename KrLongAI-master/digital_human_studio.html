@@ -226,12 +226,16 @@
         <button class="secondary" id="uploadBackgroundBtn" style="margin-top:8px;">上传背景素材</button>
         <div class="status" id="assetStatus"></div>
 
-        <h2 style="margin-top:18px;">3. 提交生成</h2>
-        <div class="hint">提交前先到 API 设置页套用硅基 Duix 或其它数字人供应商，并填好 AppID/AppKey、形象 ID、声音 ID。若供应商给了专门的视频合成接口，把 JSON 模板改成他们的字段即可。</div>
+        <h2 style="margin-top:18px;">3. 三步任务</h2>
+        <div class="hint">先克隆形象，再克隆声音，最后生成口播视频。不同供应商接口字段不一样，设置页的 JSON 模板可以用 task_type 区分 avatar_clone、voice_clone、avatar_video。</div>
         <div class="actions">
-          <button id="submitBtn">提交数字人视频任务</button>
+          <button id="cloneAvatarBtn">提交形象克隆</button>
+          <button id="cloneVoiceBtn">提交声音克隆</button>
+          <button id="generateVideoBtn">生成口播视频</button>
           <button class="ghost" id="loadPackagesBtn">刷新历史制作包</button>
         </div>
+        <div class="status" id="avatarCloneStatus"></div>
+        <div class="status" id="voiceCloneStatus"></div>
         <label for="packageList">历史制作包</label>
         <select id="packageList"></select>
         <button class="secondary" id="loadPackageBtn" style="margin-top:8px;">加载制作包</button>
@@ -373,7 +377,7 @@
         state.voice ? "声音素材已上传，可用于克隆或生成音色。" : "还没有上传声音素材。",
         state.background ? "真实背景已上传，会进入数字人任务包。" : "还没有上传真实背景。",
         data.script.length >= 30 ? "口播文案长度可用。" : "口播文案偏短，建议补到 30 字以上。",
-        "提交按钮会调用 /api/cloud/avatar-video/submit，并使用设置页中的数字人 API 模板。"
+        "形象克隆调用 /api/cloud/avatar-clone/submit，声音克隆调用 /api/cloud/voice-clone/submit，视频生成调用 /api/cloud/avatar-video/submit。"
       ].map(item => `<div>${item}</div>`).join("");
     }
 
@@ -434,27 +438,54 @@
       el("packageStatus").textContent = `已加载制作包：${data.name}`;
     }
 
-    async function submitTask() {
+    async function submitTask(kind) {
       const data = payload();
       if (!data.script) {
         el("submitStatus").textContent = "请先填写口播文案。";
         return;
       }
-      const button = el("submitBtn");
+      const config = {
+        avatar: {
+          button: el("cloneAvatarBtn"),
+          status: el("avatarCloneStatus"),
+          endpoint: "/api/cloud/avatar-clone/submit",
+          missing: !state.avatar,
+          missingText: "请先上传形象克隆素材。"
+        },
+        voice: {
+          button: el("cloneVoiceBtn"),
+          status: el("voiceCloneStatus"),
+          endpoint: "/api/cloud/voice-clone/submit",
+          missing: !state.voice,
+          missingText: "请先上传声音克隆素材。"
+        },
+        video: {
+          button: el("generateVideoBtn"),
+          status: el("submitStatus"),
+          endpoint: "/api/cloud/avatar-video/submit",
+          missing: !state.background,
+          missingText: "建议先上传真实背景素材。"
+        }
+      }[kind];
+      if (config.missing) {
+        config.status.textContent = config.missingText;
+        return;
+      }
+      const button = config.button;
       const old = button.textContent;
       button.disabled = true;
       button.textContent = "提交中...";
       try {
-        const result = await api("/api/cloud/avatar-video/submit", {
+        const result = await api(config.endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
         });
-        el("submitStatus").textContent = result.ok
+        config.status.textContent = result.ok
           ? `已提交：${result.result.endpoint || "数字人 API"}`
           : `提交失败：${result.result?.error || JSON.stringify(result.result?.response || result)}`;
       } catch (error) {
-        el("submitStatus").textContent = `提交失败：${error.message}`;
+        config.status.textContent = `提交失败：${error.message}`;
       } finally {
         button.disabled = false;
         button.textContent = old;
@@ -472,7 +503,9 @@
     el("uploadAvatarBtn").addEventListener("click", () => uploadAsset("avatar", "avatarFile"));
     el("uploadVoiceBtn").addEventListener("click", () => uploadAsset("voice", "voiceFile"));
     el("uploadBackgroundBtn").addEventListener("click", () => uploadAsset("background", "backgroundFile"));
-    el("submitBtn").addEventListener("click", submitTask);
+    el("cloneAvatarBtn").addEventListener("click", () => submitTask("avatar"));
+    el("cloneVoiceBtn").addEventListener("click", () => submitTask("voice"));
+    el("generateVideoBtn").addEventListener("click", () => submitTask("video"));
     el("loadPackagesBtn").addEventListener("click", loadPackageList);
     el("loadPackageBtn").addEventListener("click", loadPackage);
     ["script", "projectName", "ratio", "cloneMode", "visualNotes"].forEach(id => el(id).addEventListener("input", renderPreview));
