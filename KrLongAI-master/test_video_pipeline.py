@@ -2,9 +2,13 @@ import base64
 import json
 import subprocess
 import tempfile
+import threading
 import unittest
+import urllib.request
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
+import custom_home_server
 import video_pipeline
 from cloud_runtime_client import CloudRuntimeSettings
 from video_pipeline import DoubaoTTSRequest
@@ -140,6 +144,74 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertTrue(result["ok"], result.get("error"))
         self.assertGreater(result["file"]["size"], 0)
         self.assertEqual(result["file"]["url"].split("/")[-1].split(".")[-1], "mp4")
+
+
+class VideoPipelineHttpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        class QuietHandler(custom_home_server.CustomHomeHandler):
+            def log_message(self, *args):
+                return
+
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), QuietHandler)
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.thread.join(timeout=2)
+
+    def _post_json(self, path, payload):
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}{path}",
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={"Content-Type": "application/json; charset=utf-8"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def test_pipeline_tts_endpoint_returns_generated_audio_metadata(self):
+        old_generate = custom_home_server.generate_doubao_tts_audio
+
+        def fake_generate(payload, settings):
+            return {
+                "ok": True,
+                "provider": "doubao_tts_v3",
+                "file": {"name": "voice.mp3", "url": "/digital_human_assets/voice/generated/demo/voice.mp3", "size": 123},
+                "text": payload.get("text"),
+            }
+
+        custom_home_server.generate_doubao_tts_audio = fake_generate
+        try:
+            result = self._post_json("/api/pipeline/tts", {"text": "HTTP TTS smoke"})
+        finally:
+            custom_home_server.generate_doubao_tts_audio = old_generate
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["provider"], "doubao_tts_v3")
+        self.assertEqual(result["file"]["name"], "voice.mp3")
+
+    def test_pipeline_compose_endpoint_returns_final_video_metadata(self):
+        old_compose = custom_home_server.compose_with_ffmpeg
+
+        def fake_compose(payload):
+            return {
+                "ok": True,
+                "file": {"name": "final.mp4", "url": "/digital_human_outputs/demo/final.mp4", "size": 456},
+                "name": payload.get("name"),
+            }
+
+        custom_home_server.compose_with_ffmpeg = fake_compose
+        try:
+            result = self._post_json("/api/pipeline/compose", {"name": "HTTP compose smoke"})
+        finally:
+            custom_home_server.compose_with_ffmpeg = old_compose
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["file"]["name"], "final.mp4")
 
 
 if __name__ == "__main__":
