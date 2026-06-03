@@ -1,5 +1,6 @@
 import base64
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -77,6 +78,68 @@ class VideoPipelineTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertIn("FFmpeg", result["error"])
+
+    def test_compose_with_ffmpeg_creates_playable_mp4_when_runtime_exists(self):
+        ffmpeg = video_pipeline.ffmpeg_path()
+        if not ffmpeg:
+            self.skipTest("FFmpeg runtime is not installed")
+
+        old_output_dir = video_pipeline.OUTPUT_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            temp = Path(temp_dir)
+            video_pipeline.OUTPUT_DIR = temp / "outputs"
+            background = temp / "bg.png"
+            avatar = temp / "avatar.mp4"
+            voice = temp / "voice.mp3"
+
+            subprocess.run(
+                [ffmpeg, "-y", "-f", "lavfi", "-i", "color=c=0x4b6b57:s=360x640:d=2", "-frames:v", "1", str(background)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=0xd9b58a:s=180x320:d=2",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    str(avatar),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                [ffmpeg, "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libmp3lame", str(voice)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            try:
+                result = video_pipeline.compose_with_ffmpeg(
+                    {
+                        "name": "compose-smoke",
+                        "script": "这是一次真实 FFmpeg 合成验证。",
+                        "aspect_ratio": "9:16",
+                        "background": {"url": "/" + background.relative_to(video_pipeline.ROOT).as_posix()},
+                        "avatar_video": {"url": "/" + avatar.relative_to(video_pipeline.ROOT).as_posix()},
+                        "voice": {"url": "/" + voice.relative_to(video_pipeline.ROOT).as_posix()},
+                    }
+                )
+            finally:
+                video_pipeline.OUTPUT_DIR = old_output_dir
+
+        self.assertTrue(result["ok"], result.get("error"))
+        self.assertGreater(result["file"]["size"], 0)
+        self.assertEqual(result["file"]["url"].split("/")[-1].split(".")[-1], "mp4")
 
 
 if __name__ == "__main__":

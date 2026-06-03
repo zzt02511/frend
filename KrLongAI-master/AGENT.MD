@@ -329,6 +329,20 @@ custom_home_settings.html inline script OK
 custom_home_agent.html inline script OK
 ```
 
+Latest video pipeline verification:
+
+```bat
+D:\Python312\python.exe -m unittest test_cloud_runtime_client.py test_custom_home_agent.py test_video_pipeline.py
+D:\Python312\python.exe -m py_compile cloud_runtime_client.py custom_home_server.py video_pipeline.py
+```
+
+Result:
+
+```text
+19 tests OK
+FFmpeg compose smoke test generated a playable 1080x1920 MP4 with video and audio streams.
+```
+
 ## Recommended Next Implementation Order
 
 1. Add editable industry template library.
