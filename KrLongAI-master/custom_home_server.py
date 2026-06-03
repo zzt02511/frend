@@ -25,6 +25,7 @@ from cloud_runtime_client import (
     submit_tts_task,
 )
 from custom_home_agent import CaseInput, generate_outputs
+from video_pipeline import compose_with_ffmpeg, generate_doubao_tts_audio, submit_avatar_or_lipsync_video
 
 
 ROOT = Path(__file__).resolve().parent
@@ -132,6 +133,12 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             text = payload.get("text") or payload.get("script") or ""
             override = payload.get("payload")
             return self._send_json(submit_tts_task(text, override))
+        if parsed.path == "/api/pipeline/tts":
+            return self._send_json(generate_doubao_tts_audio(self._read_json(), load_settings()))
+        if parsed.path == "/api/pipeline/avatar-video":
+            return self._send_json(submit_avatar_or_lipsync_video(self._read_json()))
+        if parsed.path == "/api/pipeline/compose":
+            return self._send_json(compose_with_ffmpeg(self._read_json()))
         return self._send_error(HTTPStatus.NOT_FOUND, "接口不存在")
 
     def do_DELETE(self) -> None:
@@ -368,6 +375,7 @@ def main() -> None:
     server = ThreadingHTTPServer((args.host, args.port), CustomHomeHandler)
     print(f"Custom home workbench: http://{args.host}:{args.port}/")
     print(f"Digital human studio: http://{args.host}:{args.port}/digital_human_studio.html")
+    print(f"Video pipeline studio: http://{args.host}:{args.port}/video_pipeline_studio.html")
     print(f"Projects folder: {PROJECT_DIR}")
     server.serve_forever()
 

@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数字人成片流水线</title>
+  <style>
+    :root {
+      --ink: #191b17;
+      --muted: #62665e;
+      --paper: #efe9dc;
+      --panel: #fffdf7;
+      --line: #d7c9b4;
+      --moss: #496c55;
+      --brick: #a34a39;
+      --steel: #315e6d;
+      --gold: #be9852;
+      --night: #1f231d;
+      --shadow: 0 18px 44px rgba(25, 27, 23, .14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(25,27,23,.045) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(25,27,23,.04) 1px, transparent 1px),
+        var(--paper);
+      background-size: 30px 30px;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    .shell { max-width: 1420px; margin: 0 auto; padding: 22px; }
+    .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: start; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: 31px; line-height: 1.15; letter-spacing: 0; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    h3 { margin: 0 0 8px; font-size: 15px; }
+    p { margin: 6px 0 0; color: var(--muted); line-height: 1.65; font-size: 13px; }
+    a.button, button {
+      min-height: 38px;
+      border: 0;
+      border-radius: 6px;
+      padding: 9px 13px;
+      color: #fffdf7;
+      background: var(--brick);
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.secondary, a.secondary { color: var(--ink); background: #f6ecd9; border: 1px solid var(--line); }
+    button.ghost { color: var(--moss); background: rgba(73,108,85,.09); border: 1px solid rgba(73,108,85,.24); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .layout { display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .panel, .step, .preview {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .panel { padding: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { display: block; margin: 10px 0 6px; color: var(--muted); font-size: 12px; font-weight: 900; }
+    input, textarea, select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fffdf8;
+      outline: none;
+      font: inherit;
+      font-size: 13px;
+    }
+    textarea { min-height: 150px; resize: vertical; line-height: 1.6; }
+    input:focus, textarea:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(190,152,82,.18); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .hint { padding: 10px 12px; background: rgba(73,108,85,.08); border-left: 3px solid var(--moss); color: var(--muted); line-height: 1.65; font-size: 13px; }
+    .status { min-height: 20px; margin-top: 8px; color: var(--moss); font-size: 13px; font-weight: 800; line-height: 1.55; word-break: break-word; }
+    .warn { color: var(--brick); }
+    .steps { display: grid; gap: 12px; }
+    .step { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 14px; }
+    .badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      color: #fffdf7;
+      background: var(--steel);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+    }
+    .step.done .badge { background: var(--moss); }
+    .step.error .badge { background: var(--brick); }
+    .asset-line { color: var(--steel); font-size: 12px; line-height: 1.55; word-break: break-all; }
+    .preview { margin-top: 12px; overflow: hidden; }
+    .canvas {
+      position: relative;
+      aspect-ratio: 9 / 16;
+      min-height: 560px;
+      background: var(--night);
+      display: grid;
+      place-items: center;
+      color: rgba(255,253,247,.72);
+      isolation: isolate;
+    }
+    .canvas img, .canvas video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+    .person {
+      position: absolute;
+      left: 50%;
+      bottom: 7%;
+      transform: translateX(-50%);
+      width: 48%;
+      max-width: 330px;
+      aspect-ratio: 3 / 4;
+      border-radius: 44% 44% 7px 7px;
+      background:
+        radial-gradient(circle at 50% 19%, rgba(255,239,214,.94) 0 16%, transparent 17%),
+        linear-gradient(180deg, rgba(255,253,247,.9), rgba(190,152,82,.62));
+      border: 1px solid rgba(255,253,247,.62);
+      box-shadow: 0 24px 58px rgba(0,0,0,.34);
+      z-index: 2;
+    }
+    .subtitle {
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      bottom: 3%;
+      z-index: 3;
+      min-height: 58px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: rgba(0,0,0,.64);
+      color: #fffdf7;
+      font-weight: 900;
+      line-height: 1.45;
+      text-align: center;
+    }
+    .output video, .output audio {
+      width: 100%;
+      margin-top: 8px;
+      border-radius: 6px;
+      background: #ede4d3;
+    }
+    pre {
+      margin: 10px 0 0;
+      max-height: 230px;
+      overflow: auto;
+      padding: 12px;
+      color: #f8f0df;
+      background: var(--night);
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1080px) {
+      .layout, .grid-2 { grid-template-columns: 1fr; }
+      .topbar { display: block; }
+      .canvas { min-height: 500px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div>
+        <h1>数字人成片流水线</h1>
+        <p>从文案开始，先用豆包语音大模型生成配音，再提交数字人/唇形任务，最后用 FFmpeg 合成背景、字幕、音频和 MP4 成片。</p>
+      </div>
+      <div class="actions">
+        <a class="button secondary" href="digital_human_studio.html">旧版数字人工作室</a>
+        <a class="button secondary" href="custom_home_settings.html">API 设置</a>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>制作输入</h2>
+        <label for="projectName">项目名称</label>
+        <input id="projectName" value="定制家居数字人口播">
+
+        <div class="grid-2">
+          <div>
+            <label for="aspectRatio">成片比例</label>
+            <select id="aspectRatio">
+              <option value="9:16">9:16 竖屏</option>
+              <option value="1:1">1:1 方屏</option>
+              <option value="16:9">16:9 横屏</option>
+            </select>
+          </div>
+          <div>
+            <label for="speedRatio">语速</label>
+            <input id="speedRatio" value="1.0">
+          </div>
+        </div>
+
+        <label for="script">口播文案</label>
+        <textarea id="script">大家好，我是你的家居顾问。今天用一个真实案例，帮你看清定制家具里最容易踩坑的地方。真正要关注的不是单价有多低，而是板材、五金、封边、安装和售后有没有写清楚。</textarea>
+
+        <h2 style="margin-top:18px;">豆包语音配置</h2>
+        <div class="hint">API Key 只保存到本地配置文件 `custom_home_cloud_settings.json`，不要提交。Resource ID 可填 `seed-tts-2.0`。</div>
+        <label for="doubaoApiKey">X-Api-Key</label>
+        <input id="doubaoApiKey" type="password" placeholder="火山引擎/豆包语音 API Key">
+        <div class="grid-2">
+          <div><label for="resourceId">X-Api-Resource-Id</label><input id="resourceId" value="seed-tts-2.0"></div>
+          <div><label for="voiceType">voice_type</label><input id="voiceType" placeholder="例如 zh_female_xiaohe_uranus_bigtts"></div>
+        </div>
+        <label for="ttsEndpoint">TTS Endpoint</label>
+        <input id="ttsEndpoint" value="https://openspeech.bytedance.com/api/v3/tts/unidirectional">
+        <div class="actions">
+          <button class="secondary" id="saveSettingsBtn">保存豆包设置</button>
+          <button id="generateVoiceBtn">生成豆包配音</button>
+        </div>
+        <div class="status" id="ttsStatus"></div>
+
+        <h2 style="margin-top:18px;">素材</h2>
+        <label for="backgroundFile">背景图/背景视频</label>
+        <input id="backgroundFile" type="file" accept="image/*,video/*">
+        <button class="secondary" id="uploadBackgroundBtn" style="margin-top:8px;">上传背景</button>
+        <div class="asset-line" id="backgroundLine">未上传</div>
+
+        <label for="avatarFile">形象/唇形服务输入素材</label>
+        <input id="avatarFile" type="file" accept="image/*,video/*">
+        <button class="secondary" id="uploadAvatarBtn" style="margin-top:8px;">上传形象素材</button>
+        <div class="asset-line" id="avatarLine">未上传</div>
+
+        <label for="avatarVideoFile">数字人口播/唇形结果视频</label>
+        <input id="avatarVideoFile" type="file" accept="video/*">
+        <button class="secondary" id="uploadAvatarVideoBtn" style="margin-top:8px;">上传口播人像视频</button>
+        <div class="asset-line" id="avatarVideoLine">未上传。若供应商返回 MP4，先下载后上传到这里用于 FFmpeg 合成。</div>
+
+        <div class="actions">
+          <button class="ghost" id="submitAvatarVideoBtn">提交数字人/唇形任务</button>
+          <button id="composeBtn">FFmpeg 合成最终 MP4</button>
+        </div>
+        <div class="status" id="composeStatus"></div>
+      </section>
+
+      <section>
+        <div class="steps">
+          <div class="step" id="stepScript"><div class="badge">1</div><div><h3>文案就绪</h3><p id="scriptSummary">等待文案</p></div></div>
+          <div class="step" id="stepVoice"><div class="badge">2</div><div><h3>豆包语音</h3><p id="voiceSummary">等待生成音频</p><div class="output" id="voiceOutput"></div></div></div>
+          <div class="step" id="stepAvatar"><div class="badge">3</div><div><h3>数字人/唇形视频</h3><p id="avatarSummary">等待提交或上传结果视频</p><pre id="avatarResult">{}</pre></div></div>
+          <div class="step" id="stepFinal"><div class="badge">4</div><div><h3>FFmpeg 成片</h3><p id="finalSummary">等待合成</p><div class="output" id="finalOutput"></div></div></div>
+        </div>
+
+        <div class="preview">
+          <div class="canvas" id="previewCanvas">
+            <div>上传背景后显示成片画面预览</div>
+            <div class="person"></div>
+            <div class="subtitle" id="subtitlePreview">字幕安全区</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <h2>当前任务 JSON</h2>
+          <pre id="payloadPreview">{}</pre>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+    const value = id => (el(id).value || "").trim();
+    const state = { background: null, avatar: null, voice: null, avatar_video: null, avatar_result: null, final: null };
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || response.statusText);
+      return data;
+    }
+
+    function payload() {
+      return {
+        name: value("projectName") || "数字人成片",
+        title: value("projectName") || "数字人成片",
+        script: value("script"),
+        aspect_ratio: value("aspectRatio"),
+        speed_ratio: Number(value("speedRatio") || "1"),
+        background: state.background,
+        avatar: state.avatar,
+        voice: state.voice,
+        avatar_video: state.avatar_video,
+        visual_notes: "豆包 TTS + 数字人/唇形服务 + FFmpeg 本地合成"
+      };
+    }
+
+    function firstSentence(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
+      return clean.split(/[。！？!?]/)[0].slice(0, 46) || "字幕安全区";
+    }
+
+    function setStep(id, done, error = false) {
+      const node = el(id);
+      node.classList.toggle("done", Boolean(done));
+      node.classList.toggle("error", Boolean(error));
+    }
+
+    function render() {
+      const data = payload();
+      el("scriptSummary").textContent = data.script ? `${data.script.length} 字，比例 ${data.aspect_ratio}` : "等待文案";
+      el("subtitlePreview").textContent = firstSentence(data.script);
+      el("payloadPreview").textContent = JSON.stringify(data, null, 2);
+      setStep("stepScript", data.script.length >= 10);
+      setStep("stepVoice", Boolean(state.voice));
+      setStep("stepAvatar", Boolean(state.avatar_video || state.avatar_result));
+      setStep("stepFinal", Boolean(state.final));
+    }
+
+    function previewBackground(file) {
+      const canvas = el("previewCanvas");
+      canvas.querySelectorAll("img, video").forEach(node => node.remove());
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const node = file.type.startsWith("video/") ? document.createElement("video") : new Image();
+      node.src = url;
+      if (node.tagName === "VIDEO") {
+        node.autoplay = true;
+        node.loop = true;
+        node.muted = true;
+        node.playsInline = true;
+      }
+      canvas.prepend(node);
+    }
+
+    async function saveSettings() {
+      const body = {
+        voice_provider: "volcengine_tts",
+        voice_submit_url: value("ttsEndpoint"),
+        voice_api_key: value("doubaoApiKey"),
+        voice_app_id: value("resourceId"),
+        voice_id: value("voiceType"),
+        voice_auth_header: "X-Api-Key",
+        voice_auth_scheme: "",
+        voice_response_audio_path: "data.audio"
+      };
+      await api("/api/cloud/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      el("ttsStatus").textContent = "豆包语音设置已保存。";
+    }
+
+    async function loadSettings() {
+      try {
+        const s = await api("/api/cloud/settings");
+        if (s.voice_submit_url) el("ttsEndpoint").value = s.voice_submit_url;
+        if (s.voice_app_id) el("resourceId").value = s.voice_app_id;
+        if (s.voice_id) el("voiceType").value = s.voice_id;
+      } catch {
+        el("ttsStatus").textContent = "请通过本地服务打开页面：D:\\Python312\\python.exe custom_home_server.py --port 8765";
+      }
+    }
+
+    async function upload(role, inputId, lineId) {
+      const file = el(inputId).files?.[0];
+      if (!file) throw new Error("请先选择文件");
+      const form = new FormData();
+      form.append("project", value("projectName") || "数字人成片");
+      form.append("role", role);
+      form.append("files", file);
+      const result = await api("/api/digital-human/assets", { method: "POST", body: form });
+      const saved = result.files?.[0];
+      state[role] = saved;
+      el(lineId).textContent = saved ? `${saved.name} (${Math.round(saved.size / 1024)} KB)` : "上传失败";
+      if (role === "background") previewBackground(file);
+      render();
+      return saved;
+    }
+
+    async function generateVoice() {
+      const button = el("generateVoiceBtn");
+      const old = button.textContent;
+      button.disabled = true;
+      button.textContent = "生成中...";
+      try {
+        await saveSettings();
+        const result = await api("/api/pipeline/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload(),
+            text: value("script"),
+            api_key: value("doubaoApiKey"),
+            resource_id: value("resourceId"),
+            voice_type: value("voiceType"),
+            endpoint: value("ttsEndpoint")
+          })
+        });
+        if (!result.ok) throw new Error(result.error || "生成失败");
+        state.voice = result.file;
+        el("voiceSummary").textContent = `${result.file.name} (${Math.round(result.file.size / 1024)} KB)`;
+        el("voiceOutput").innerHTML = `<audio controls src="${result.file.url}"></audio>`;
+        el("ttsStatus").textContent = "豆包配音已生成并保存到本地素材目录。";
+      } catch (error) {
+        el("ttsStatus").innerHTML = `<span class="warn">${error.message}</span>`;
+        setStep("stepVoice", false, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = old;
+        render();
+      }
+    }
+
+    async function submitAvatarVideo() {
+      const button = el("submitAvatarVideoBtn");
+      const old = button.textContent;
+      button.disabled = true;
+      button.textContent = "提交中...";
+      try {
+        const result = await api("/api/pipeline/avatar-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload())
+        });
+        state.avatar_result = result;
+        el("avatarResult").textContent = JSON.stringify(result, null, 2);
+        el("avatarSummary").textContent = result.ok
+          ? `任务已提交：${result.result?.task_id || result.result?.endpoint || "等待供应商返回"}`
+          : `提交失败：${result.result?.error || result.error || "未知错误"}`;
+      } catch (error) {
+        el("avatarSummary").textContent = `提交失败：${error.message}`;
+        setStep("stepAvatar", false, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = old;
+        render();
+      }
+    }
+
+    async function compose() {
+      const button = el("composeBtn");
+      const old = button.textContent;
+      button.disabled = true;
+      button.textContent = "合成中...";
+      try {
+        const result = await api("/api/pipeline/compose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload())
+        });
+        if (!result.ok) throw new Error(result.error || "FFmpeg 合成失败");
+        state.final = result.file;
+        el("finalSummary").textContent = `${result.file.name} (${Math.round(result.file.size / 1024)} KB)`;
+        el("finalOutput").innerHTML = `<video controls src="${result.file.url}"></video>`;
+        el("composeStatus").textContent = "最终 MP4 已生成。";
+      } catch (error) {
+        el("composeStatus").innerHTML = `<span class="warn">${error.message}</span>`;
+        setStep("stepFinal", false, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = old;
+        render();
+      }
+    }
+
+    el("saveSettingsBtn").addEventListener("click", saveSettings);
+    el("generateVoiceBtn").addEventListener("click", generateVoice);
+    el("uploadBackgroundBtn").addEventListener("click", () => upload("background", "backgroundFile", "backgroundLine").catch(err => el("backgroundLine").textContent = err.message));
+    el("uploadAvatarBtn").addEventListener("click", () => upload("avatar", "avatarFile", "avatarLine").catch(err => el("avatarLine").textContent = err.message));
+    el("uploadAvatarVideoBtn").addEventListener("click", () => upload("avatar_video", "avatarVideoFile", "avatarVideoLine").catch(err => el("avatarVideoLine").textContent = err.message));
+    el("backgroundFile").addEventListener("change", () => previewBackground(el("backgroundFile").files?.[0]));
+    el("submitAvatarVideoBtn").addEventListener("click", submitAvatarVideo);
+    el("composeBtn").addEventListener("click", compose);
+    ["projectName", "aspectRatio", "speedRatio", "script"].forEach(id => el(id).addEventListener("input", render));
+    loadSettings();
+    render();
+  </script>
+</body>
+</html>

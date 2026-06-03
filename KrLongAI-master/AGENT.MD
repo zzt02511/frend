@@ -204,6 +204,12 @@ New entry point:
 D:\AI\KrLongAI-master\digital_human_studio.html
 ```
 
+Additional one-stop production pipeline entry point:
+
+```text
+D:\AI\KrLongAI-master\video_pipeline_studio.html
+```
+
 Recommended URL after starting the local server:
 
 ```text
@@ -228,6 +234,12 @@ New local server APIs:
   - Submits the image/avatar clone task row with `task_type=avatar_clone`.
 - `POST /api/cloud/voice-clone/submit`
   - Submits the voice clone task row with `task_type=voice_clone`.
+- `POST /api/pipeline/tts`
+  - Uses Doubao/Volcengine Seed TTS V3 settings to synthesize narration audio and save it under `digital_human_assets/voice/generated/`.
+- `POST /api/pipeline/avatar-video`
+  - Submits the current package to the configured avatar/lip-sync provider.
+- `POST /api/pipeline/compose`
+  - Uses local FFmpeg to combine background media, local avatar/lip-sync video, generated narration audio, and generated SRT subtitles into `digital_human_outputs/`.
 
 Digital-human API adapter updates:
 
@@ -239,13 +251,17 @@ Digital-human API adapter updates:
   - `aspect_ratio`
   - `visual_notes`
 - Duix support includes automatic JWT token generation from `appId` and `appKey`.
+- Duix official API docs currently expose `POST /duix-openapi-v2/sdk/v2/createAvatar` for avatar creation and `GET /duix-openapi-v2/sdk/v2/queryAvatar?taskId=...` for creation status. Treat this as avatar/conversation creation, not a confirmed one-call "script + avatar + voice -> finished MP4" endpoint.
+- Doubao/Volcengine Seed TTS V3 is supported through `video_pipeline.py`; use `X-Api-Key`, `X-Api-Resource-Id` (for example `seed-tts-2.0`), and `voice_type`.
 - The provider template system can pass user-uploaded background/avatar/voice asset URLs into third-party API JSON templates.
+- FFmpeg Windows prebuilt runtime is installed at `ffmpeg/bin/ffmpeg.exe` from gyan.dev essentials build. Do not commit the `ffmpeg/` runtime directory.
 
 Privacy/runtime data:
 
 - `.gitignore` now excludes:
   - `digital_human_assets/`
   - `digital_human_packages/`
+  - `digital_human_outputs/`
   - existing local material/export/runtime folders.
 - Do not commit real user photos, voice samples, videos, API keys, or generated customer packages.
 
