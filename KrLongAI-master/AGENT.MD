@@ -339,9 +339,10 @@ D:\Python312\python.exe -m py_compile cloud_runtime_client.py custom_home_server
 Result:
 
 ```text
-21 tests OK
+22 tests OK
 FFmpeg compose smoke test generated a playable 1080x1920 MP4 with video and audio streams.
 Pipeline HTTP endpoints `/api/pipeline/tts` and `/api/pipeline/compose` are covered by smoke tests.
+`/api/pipeline/compose` is also covered by a real HTTP-to-FFmpeg compose smoke test.
 ```
 
 ## Recommended Next Implementation Order

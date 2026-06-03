@@ -14,6 +14,43 @@ from cloud_runtime_client import CloudRuntimeSettings
 from video_pipeline import DoubaoTTSRequest
 
 
+def create_ffmpeg_smoke_assets(ffmpeg: str, temp: Path) -> tuple[Path, Path, Path]:
+    background = temp / "bg.png"
+    avatar = temp / "avatar.mp4"
+    voice = temp / "voice.mp3"
+    subprocess.run(
+        [ffmpeg, "-y", "-f", "lavfi", "-i", "color=c=0x4b6b57:s=360x640:d=2", "-frames:v", "1", str(background)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        [
+            ffmpeg,
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=0xd9b58a:s=180x320:d=2",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(avatar),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        [ffmpeg, "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libmp3lame", str(voice)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return background, avatar, voice
+
+
 class VideoPipelineTests(unittest.TestCase):
     def test_build_doubao_tts_payload_uses_voice_and_text(self):
         request = DoubaoTTSRequest(
@@ -92,40 +129,7 @@ class VideoPipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
             temp = Path(temp_dir)
             video_pipeline.OUTPUT_DIR = temp / "outputs"
-            background = temp / "bg.png"
-            avatar = temp / "avatar.mp4"
-            voice = temp / "voice.mp3"
-
-            subprocess.run(
-                [ffmpeg, "-y", "-f", "lavfi", "-i", "color=c=0x4b6b57:s=360x640:d=2", "-frames:v", "1", str(background)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            subprocess.run(
-                [
-                    ffmpeg,
-                    "-y",
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    "color=c=0xd9b58a:s=180x320:d=2",
-                    "-c:v",
-                    "libx264",
-                    "-pix_fmt",
-                    "yuv420p",
-                    str(avatar),
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            subprocess.run(
-                [ffmpeg, "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libmp3lame", str(voice)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            background, avatar, voice = create_ffmpeg_smoke_assets(ffmpeg, temp)
 
             try:
                 result = video_pipeline.compose_with_ffmpeg(
@@ -212,6 +216,35 @@ class VideoPipelineHttpTests(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["file"]["name"], "final.mp4")
+
+    def test_pipeline_compose_endpoint_runs_real_ffmpeg_when_runtime_exists(self):
+        ffmpeg = video_pipeline.ffmpeg_path()
+        if not ffmpeg:
+            self.skipTest("FFmpeg runtime is not installed")
+
+        old_output_dir = video_pipeline.OUTPUT_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            temp = Path(temp_dir)
+            video_pipeline.OUTPUT_DIR = temp / "http-outputs"
+            background, avatar, voice = create_ffmpeg_smoke_assets(ffmpeg, temp)
+            try:
+                result = self._post_json(
+                    "/api/pipeline/compose",
+                    {
+                        "name": "http-compose-smoke",
+                        "script": "HTTP compose endpoint real FFmpeg smoke.",
+                        "aspect_ratio": "9:16",
+                        "background": {"url": "/" + background.relative_to(video_pipeline.ROOT).as_posix()},
+                        "avatar_video": {"url": "/" + avatar.relative_to(video_pipeline.ROOT).as_posix()},
+                        "voice": {"url": "/" + voice.relative_to(video_pipeline.ROOT).as_posix()},
+                    },
+                )
+            finally:
+                video_pipeline.OUTPUT_DIR = old_output_dir
+
+        self.assertTrue(result["ok"], result.get("error"))
+        self.assertGreater(result["file"]["size"], 0)
+        self.assertTrue(result["file"]["url"].endswith(".mp4"))
 
 
 if __name__ == "__main__":
