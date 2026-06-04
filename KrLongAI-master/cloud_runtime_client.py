@@ -15,7 +15,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 
 
 SETTINGS_PATH = Path(__file__).resolve().parent / "custom_home_cloud_settings.json"
@@ -38,6 +38,7 @@ class CloudRuntimeSettings:
     avatar_auth_header: str = "Authorization"
     avatar_auth_scheme: str = "Bearer"
     avatar_response_task_path: str = "taskId"
+    avatar_response_status_path: str = "status"
     avatar_response_video_path: str = "video_url"
     avatar_payload_template: str = ""
 
@@ -459,6 +460,48 @@ def submit_tts_task(text: str, payload_override: dict[str, Any] | None = None) -
         "provider": "duix",
         "endpoint": endpoint,
         "audio_url": _deep_get(result, "audio_url"),
+        "payload": payload,
+        "response": result,
+    }
+
+
+def query_avatar_task_status(task_id: str, payload_override: dict[str, Any] | None = None) -> dict[str, Any]:
+    settings = load_settings()
+    task_id = str(task_id or "").strip()
+    if not task_id:
+        return {"ok": False, "error": "缂哄皯 task_id"}
+    if not settings.avatar_status_url:
+        return {"ok": False, "error": "鏈厤缃暟瀛椾汉浠诲姟 status URL"}
+
+    if "{task_id}" in settings.avatar_status_url:
+        endpoint = settings.avatar_status_url.replace("{task_id}", task_id)
+        payload = None
+        method = "GET"
+    elif settings.avatar_provider == "duix_api" or "queryAvatar" in settings.avatar_status_url:
+        separator = "&" if "?" in settings.avatar_status_url else "?"
+        endpoint = f"{settings.avatar_status_url}{separator}{urlencode({'taskId': task_id})}"
+        payload = None
+        method = "GET"
+    else:
+        endpoint = settings.avatar_status_url
+        payload = payload_override or {"taskId": task_id, "task_id": task_id}
+        method = "POST"
+    result = _request_json(
+        method,
+        endpoint,
+        payload=payload,
+        api_key=_avatar_auth_value(settings),
+        timeout=settings.timeout_seconds,
+        auth_header=settings.avatar_auth_header,
+        auth_scheme=settings.avatar_auth_scheme,
+    )
+    return {
+        "ok": _result_ok(result),
+        "provider": settings.avatar_provider,
+        "endpoint": endpoint,
+        "task_id": task_id,
+        "status": _deep_get(result, settings.avatar_response_status_path) or _deep_get(result, "data.status"),
+        "video_url": _deep_get(result, settings.avatar_response_video_path),
         "payload": payload,
         "response": result,
     }

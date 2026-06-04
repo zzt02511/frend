@@ -298,6 +298,64 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertEqual(manifest["bgm"]["url"], "/" + bgm.relative_to(video_pipeline.ROOT).as_posix())
         self.assertEqual(manifest["bgm_volume"], 0.12)
 
+    def test_avatar_pipeline_task_records_submit_result(self):
+        old_task_dir = video_pipeline.TASK_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            video_pipeline.TASK_DIR = Path(temp_dir)
+            try:
+                record = video_pipeline.record_avatar_pipeline_task(
+                    {"name": "demo", "script": "hello"},
+                    {
+                        "ok": True,
+                        "provider": "duix_api",
+                        "endpoint": "https://example.test/submit",
+                        "task_id": "task-123",
+                        "video_url": "",
+                        "response": {"code": 0},
+                    },
+                )
+                rows = video_pipeline.list_avatar_pipeline_tasks()
+            finally:
+                video_pipeline.TASK_DIR = old_task_dir
+
+        self.assertEqual(record["task_id"], "task-123")
+        self.assertEqual(record["status"], "submitted")
+        self.assertEqual(rows[0]["task_id"], "task-123")
+        self.assertEqual(rows[0]["project"], "demo")
+
+    def test_refresh_avatar_pipeline_task_updates_status_and_video_url(self):
+        old_task_dir = video_pipeline.TASK_DIR
+        old_query = video_pipeline.query_avatar_pipeline_task
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            video_pipeline.TASK_DIR = Path(temp_dir)
+
+            def fake_query(task_id, settings=None):
+                self.assertEqual(task_id, "task-123")
+                return {
+                    "ok": True,
+                    "task_id": "task-123",
+                    "status": "completed",
+                    "video_url": "https://cdn.example.test/final.mp4",
+                    "response": {"data": {"status": "completed"}},
+                }
+
+            video_pipeline.query_avatar_pipeline_task = fake_query
+            try:
+                video_pipeline.record_avatar_pipeline_task(
+                    {"name": "demo", "script": "hello"},
+                    {"ok": True, "provider": "duix_api", "task_id": "task-123", "video_url": ""},
+                )
+                refreshed = video_pipeline.refresh_avatar_pipeline_task("task-123")
+                rows = video_pipeline.list_avatar_pipeline_tasks()
+            finally:
+                video_pipeline.query_avatar_pipeline_task = old_query
+                video_pipeline.TASK_DIR = old_task_dir
+
+        self.assertTrue(refreshed["ok"])
+        self.assertEqual(refreshed["task"]["status"], "completed")
+        self.assertEqual(refreshed["task"]["video_url"], "https://cdn.example.test/final.mp4")
+        self.assertEqual(rows[0]["status"], "completed")
+
 
 class VideoPipelineHttpTests(unittest.TestCase):
     @classmethod
@@ -418,6 +476,38 @@ class VideoPipelineHttpTests(unittest.TestCase):
 
         self.assertEqual(rows[0]["name"], "demo")
         self.assertEqual(rows[0]["video"]["name"], "demo.mp4")
+
+    def test_pipeline_avatar_tasks_endpoint_lists_tasks(self):
+        old_tasks = custom_home_server.list_avatar_pipeline_tasks
+
+        def fake_tasks():
+            return [{"task_id": "task-123", "status": "submitted", "project": "demo"}]
+
+        custom_home_server.list_avatar_pipeline_tasks = fake_tasks
+        try:
+            result = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/pipeline/avatar-tasks", timeout=10)
+            rows = json.loads(result.read().decode("utf-8"))
+        finally:
+            custom_home_server.list_avatar_pipeline_tasks = old_tasks
+
+        self.assertEqual(rows[0]["task_id"], "task-123")
+        self.assertEqual(rows[0]["status"], "submitted")
+
+    def test_pipeline_avatar_task_refresh_endpoint_updates_task(self):
+        old_refresh = custom_home_server.refresh_avatar_pipeline_task
+
+        def fake_refresh(task_id):
+            return {"ok": True, "task": {"task_id": task_id, "status": "completed", "video_url": "https://example.test/final.mp4"}}
+
+        custom_home_server.refresh_avatar_pipeline_task = fake_refresh
+        try:
+            result = self._post_json("/api/pipeline/avatar-tasks/task-123/refresh", {})
+        finally:
+            custom_home_server.refresh_avatar_pipeline_task = old_refresh
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["task"]["task_id"], "task-123")
+        self.assertEqual(result["task"]["status"], "completed")
 
     def test_pipeline_output_delete_endpoint_deletes_named_output(self):
         old_delete = custom_home_server.delete_pipeline_output

@@ -30,7 +30,9 @@ from video_pipeline import (
     compose_with_ffmpeg,
     delete_pipeline_output,
     generate_doubao_tts_audio,
+    list_avatar_pipeline_tasks,
     list_pipeline_outputs,
+    refresh_avatar_pipeline_task,
     submit_avatar_or_lipsync_video,
 )
 
@@ -81,6 +83,8 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return self._send_json(health_check(load_settings()))
         if parsed.path == "/api/pipeline/outputs":
             return self._send_json(list_pipeline_outputs())
+        if parsed.path == "/api/pipeline/avatar-tasks":
+            return self._send_json(list_avatar_pipeline_tasks())
         if parsed.path.startswith("/api/pipeline/outputs/") and parsed.path.endswith("/zip"):
             name = unquote(parsed.path.removeprefix("/api/pipeline/outputs/").removesuffix("/zip"))
             return self._send_file_download(*build_pipeline_output_zip(name))
@@ -149,6 +153,9 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return self._send_json(generate_doubao_tts_audio(self._read_json(), load_settings()))
         if parsed.path == "/api/pipeline/avatar-video":
             return self._send_json(submit_avatar_or_lipsync_video(self._read_json()))
+        if parsed.path.startswith("/api/pipeline/avatar-tasks/") and parsed.path.endswith("/refresh"):
+            task_id = unquote(parsed.path.removeprefix("/api/pipeline/avatar-tasks/").removesuffix("/refresh"))
+            return self._send_json(refresh_avatar_pipeline_task(task_id))
         if parsed.path == "/api/pipeline/compose":
             return self._send_json(compose_with_ffmpeg(self._read_json()))
         return self._send_error(HTTPStatus.NOT_FOUND, "接口不存在")

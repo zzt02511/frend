@@ -187,6 +187,19 @@
       font-weight: 900;
       text-decoration: none;
     }
+    .task-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      color: #fffdf7;
+      background: var(--steel);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .task-pill.completed { background: var(--moss); }
+    .task-pill.failed { background: var(--brick); }
     pre {
       margin: 10px 0 0;
       max-height: 230px;
@@ -288,6 +301,13 @@
         </div>
         <div class="status" id="composeStatus"></div>
 
+        <h2 style="margin-top:18px;">供应商任务</h2>
+        <div class="hint">提交数字人/唇形任务后会保存在本地。刷新状态拿到视频地址后，可把结果接入当前合成任务；远程 MP4 建议下载后上传到“口播人像视频”。</div>
+        <div class="actions">
+          <button class="secondary" id="refreshAvatarTasksBtn">刷新供应商任务</button>
+        </div>
+        <div class="history-list" id="avatarTaskHistory"></div>
+
         <h2 style="margin-top:18px;">历史成片</h2>
         <div class="hint">这里列出 `digital_human_outputs/` 中最近生成的 MP4，方便回看、下载和继续交付。</div>
         <div class="actions">
@@ -323,7 +343,7 @@
   <script>
     const el = id => document.getElementById(id);
     const value = id => (el(id).value || "").trim();
-    const state = { background: null, avatar: null, voice: null, avatar_video: null, bgm: null, avatar_result: null, final: null };
+    const state = { background: null, avatar: null, voice: null, avatar_video: null, bgm: null, avatar_result: null, avatar_tasks: [], final: null };
 
     async function api(path, options = {}) {
       const response = await fetch(path, options);
@@ -393,6 +413,23 @@
       return `${size} · ${formatDuration(media.duration)} · ${audio}`;
     }
 
+    function escapeHtml(text) {
+      return String(text || "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function taskStatusClass(status) {
+      const clean = String(status || "").toLowerCase();
+      if (clean === "completed") return "completed";
+      if (clean === "failed") return "failed";
+      return "";
+    }
+
     function loadOutput(item) {
       state.final = item.video;
       el("finalSummary").textContent = `${item.video.name} (${formatSize(item.video.size)})`;
@@ -437,6 +474,66 @@
       const result = await api(`/api/pipeline/outputs/${encodeURIComponent(name)}`, { method: "DELETE" });
       el("composeStatus").textContent = result.deleted ? `已删除：${name}` : `未找到：${name}`;
       await loadOutputs();
+    }
+
+    function useTaskVideo(task) {
+      if (!task.video_url) {
+        el("avatarSummary").textContent = "这个供应商任务还没有返回视频地址。";
+        return;
+      }
+      if (!task.video_url.startsWith("/")) {
+        el("avatarSummary").textContent = "供应商返回的是远程视频地址，请先下载 MP4 后上传到口播人像视频。";
+        return;
+      }
+      state.avatar_video = { name: task.video_url.split("/").pop(), url: task.video_url, size: 0, source_task_id: task.task_id };
+      el("avatarVideoLine").textContent = `已接入供应商结果：${state.avatar_video.name}`;
+      el("avatarSummary").textContent = `已接入口播人像视频：${task.task_id}`;
+      render();
+    }
+
+    async function refreshAvatarTask(taskId) {
+      const result = await api(`/api/pipeline/avatar-tasks/${encodeURIComponent(taskId)}/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      if (!result.ok) throw new Error(result.error || "刷新任务失败");
+      state.avatar_result = result;
+      el("avatarResult").textContent = JSON.stringify(result, null, 2);
+      await loadAvatarTasks();
+    }
+
+    async function loadAvatarTasks() {
+      const list = await api("/api/pipeline/avatar-tasks");
+      state.avatar_tasks = list;
+      const box = el("avatarTaskHistory");
+      if (!list.length) {
+        box.innerHTML = `<div class="asset-line">还没有供应商任务。</div>`;
+        return;
+      }
+      box.innerHTML = "";
+      list.forEach(task => {
+        const card = document.createElement("div");
+        card.className = "history-card";
+        const videoLink = task.video_url
+          ? `<a href="${escapeHtml(task.video_url)}" target="_blank" rel="noopener">打开视频</a>`
+          : `<span class="asset-line">等待视频地址</span>`;
+        card.innerHTML = `
+          <b>${escapeHtml(task.title || task.project || task.task_id)}</b>
+          <div class="asset-line"><span class="task-pill ${taskStatusClass(task.status)}">${escapeHtml(task.status || "submitted")}</span> ${escapeHtml(task.provider || "")}</div>
+          <div class="asset-line">${escapeHtml(task.task_id || "")}</div>
+          <div class="actions">
+            <button class="secondary" type="button" data-action="refresh">刷新状态</button>
+            <button class="ghost" type="button" data-action="use">接入合成</button>
+            ${videoLink}
+          </div>
+        `;
+        card.querySelector('[data-action="refresh"]').addEventListener("click", () => {
+          refreshAvatarTask(task.task_id).catch(error => el("avatarSummary").textContent = error.message);
+        });
+        card.querySelector('[data-action="use"]').addEventListener("click", () => useTaskVideo(task));
+        box.appendChild(card);
+      });
     }
 
     function previewBackground(file) {
@@ -547,6 +644,7 @@
         el("avatarSummary").textContent = result.ok
           ? `任务已提交：${result.result?.task_id || result.result?.endpoint || "等待供应商返回"}`
           : `提交失败：${result.result?.error || result.error || "未知错误"}`;
+        await loadAvatarTasks();
       } catch (error) {
         el("avatarSummary").textContent = `提交失败：${error.message}`;
         setStep("stepAvatar", false, true);
@@ -593,9 +691,11 @@
     el("backgroundFile").addEventListener("change", () => previewBackground(el("backgroundFile").files?.[0]));
     el("submitAvatarVideoBtn").addEventListener("click", submitAvatarVideo);
     el("composeBtn").addEventListener("click", compose);
+    el("refreshAvatarTasksBtn").addEventListener("click", () => loadAvatarTasks().catch(error => el("avatarSummary").textContent = error.message));
     el("refreshOutputsBtn").addEventListener("click", () => loadOutputs().catch(error => el("composeStatus").textContent = error.message));
     ["projectName", "aspectRatio", "speedRatio", "bgmVolume", "script"].forEach(id => el(id).addEventListener("input", render));
     loadSettings();
+    loadAvatarTasks().catch(() => {});
     loadOutputs().catch(() => {});
     render();
   </script>

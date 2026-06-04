@@ -11,6 +11,15 @@ class FakeCloudHandler(BaseHTTPRequestHandler):
     requests = []
 
     def do_GET(self):
+        self.__class__.requests.append(
+            {
+                "path": self.path,
+                "payload": None,
+                "authorization": self.headers.get("Authorization"),
+                "x_api_key": self.headers.get("X-Api-Key"),
+                "token": self.headers.get("token"),
+            }
+        )
         self._send({"ok": True, "path": self.path})
 
     def do_POST(self):
@@ -175,6 +184,28 @@ class CloudRuntimeClientTests(unittest.TestCase):
         self.assertEqual(request["payload"]["ttsName"], "guina")
         self.assertEqual(request["payload"]["greetings"], "先讲真实痛点，再讲解决方案。")
         self.assertIsNone(request["authorization"])
+        self.assertEqual(request["token"].count("."), 2)
+
+    def test_query_duix_avatar_task_status_uses_get_task_id_query(self):
+        base = f"http://127.0.0.1:{self.port}"
+        client.save_settings(
+            CloudRuntimeSettings(
+                avatar_provider="duix_api",
+                avatar_status_url=f"{base}/duix-openapi-v2/sdk/v2/queryAvatar",
+                avatar_app_id="duix-app-id",
+                avatar_api_key="duix-app-key",
+                avatar_auth_header="token",
+                avatar_auth_scheme="",
+                avatar_response_video_path="path",
+            )
+        )
+
+        result = client.query_avatar_task_status("task-123")
+
+        self.assertTrue(result["ok"])
+        request = FakeCloudHandler.requests[-1]
+        self.assertEqual(request["path"], "/duix-openapi-v2/sdk/v2/queryAvatar?taskId=task-123")
+        self.assertIsNone(request["payload"])
         self.assertEqual(request["token"].count("."), 2)
 
     def test_submit_voice_task_can_use_third_party_template(self):

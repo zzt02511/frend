@@ -19,12 +19,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cloud_runtime_client import CloudRuntimeSettings, build_heygem_task_payload, load_settings, submit_heygem_task
+from cloud_runtime_client import (
+    CloudRuntimeSettings,
+    build_heygem_task_payload,
+    load_settings,
+    query_avatar_task_status,
+    submit_heygem_task,
+)
 
 
 ROOT = Path(__file__).resolve().parent
 ASSET_DIR = ROOT / "digital_human_assets"
 OUTPUT_DIR = ROOT / "digital_human_outputs"
+TASK_DIR = ROOT / "digital_human_tasks"
 
 
 def safe_name(name: str) -> str:
@@ -201,6 +208,98 @@ def build_pipeline_output_zip(name: str) -> tuple[Path | None, str]:
     return zip_path, ""
 
 
+def _task_file_name(task_id: str) -> str:
+    return f"{safe_name(task_id)}.json"
+
+
+def _task_path(task_id: str) -> Path:
+    return TASK_DIR / _task_file_name(task_id)
+
+
+def _read_task(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _write_task(task: dict[str, Any]) -> dict[str, Any]:
+    TASK_DIR.mkdir(parents=True, exist_ok=True)
+    task_id = str(task.get("task_id") or "").strip()
+    if not task_id:
+        task_id = f"local-task-{int(time.time() * 1000)}"
+        task["task_id"] = task_id
+    task["updatedAt"] = time.time()
+    _task_path(task_id).write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+    return task
+
+
+def _normalize_avatar_status(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if text in {"success", "succeeded", "done", "finish", "finished", "complete", "completed"}:
+        return "completed"
+    if text in {"fail", "failed", "error", "cancel", "canceled", "cancelled"}:
+        return "failed"
+    if text in {"running", "processing", "progress", "queued", "pending", "submitted"}:
+        return text
+    return text or "submitted"
+
+
+def record_avatar_pipeline_task(payload: dict[str, Any], submit_result: dict[str, Any]) -> dict[str, Any]:
+    task_id = str(submit_result.get("task_id") or "").strip() or f"local-task-{int(time.time() * 1000)}"
+    video_url = str(submit_result.get("video_url") or "").strip()
+    task = {
+        "task_id": task_id,
+        "project": payload.get("name") or payload.get("title") or task_id,
+        "title": payload.get("title") or payload.get("name") or task_id,
+        "script": payload.get("script") or "",
+        "aspect_ratio": payload.get("aspect_ratio") or "9:16",
+        "status": "completed" if video_url else ("submitted" if submit_result.get("ok") else "failed"),
+        "provider": submit_result.get("provider") or "",
+        "endpoint": submit_result.get("endpoint") or "",
+        "video_url": video_url,
+        "row": submit_result.get("row") or {},
+        "submit_result": submit_result,
+        "createdAt": time.time(),
+    }
+    return _write_task(task)
+
+
+def list_avatar_pipeline_tasks(limit: int = 50) -> list[dict[str, Any]]:
+    if not TASK_DIR.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for path in sorted(TASK_DIR.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+        data = _read_task(path)
+        if not data:
+            continue
+        rows.append(data)
+    return rows[: max(1, int(limit or 50))]
+
+
+def query_avatar_pipeline_task(task_id: str, settings: CloudRuntimeSettings | None = None) -> dict[str, Any]:
+    _ = settings
+    return query_avatar_task_status(task_id)
+
+
+def refresh_avatar_pipeline_task(task_id: str) -> dict[str, Any]:
+    task = _read_task(_task_path(task_id))
+    if not task:
+        return {"ok": False, "error": "task not found"}
+    result = query_avatar_pipeline_task(task_id)
+    if not result.get("ok"):
+        task["last_error"] = result.get("error") or result.get("response") or "status query failed"
+        _write_task(task)
+        return {"ok": False, "error": task["last_error"], "task": task, "result": result}
+    task["status"] = _normalize_avatar_status(result.get("status") or task.get("status"))
+    if result.get("video_url"):
+        task["video_url"] = result["video_url"]
+    task["status_result"] = result
+    task.pop("last_error", None)
+    _write_task(task)
+    return {"ok": True, "task": task, "result": result}
+
 def _json_objects_from_bytes(raw: bytes) -> list[dict[str, Any]]:
     text = raw.decode("utf-8", errors="ignore")
     objects: list[dict[str, Any]] = []
@@ -374,7 +473,9 @@ def submit_avatar_or_lipsync_video(payload: dict[str, Any]) -> dict[str, Any]:
         }
     )
     result = submit_heygem_task(row, payload.get("payload"))
-    return {"ok": result.get("ok", False), "row": row, "result": result}
+    response = {"ok": result.get("ok", False), "row": row, "result": result}
+    response["task"] = record_avatar_pipeline_task(payload, {**result, "row": row})
+    return response
 
 
 def ffmpeg_path() -> str | None:

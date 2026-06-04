@@ -26,6 +26,9 @@ Current usable MVP entry points:
 
 Latest work:
 
+- 2026-06-04 progress check: the project is now at a local digital-human short-video pipeline MVP stage, not just a script generator.
+- The one-stop pipeline workbench can drive this flow: upload/select assets -> generate TTS -> submit avatar/lip-sync supplier task -> refresh returned task status -> attach returned local video -> compose final MP4 with FFmpeg -> list/delete outputs -> download ZIP delivery package.
+- Current open engineering issue: the real HTTP-to-FFmpeg compose smoke test can exceed the 10 second HTTP test timeout in this sandbox; when the test tears down its temporary output directory, the server thread may then raise `FileNotFoundError` while recording the MP4 manifest. Local direct FFmpeg compose has previously generated a playable verification MP4 under `digital_human_outputs/verification-compose/`.
 - Added the digital-human studio three-task button split:
   - `提交形象克隆` calls `POST /api/cloud/avatar-clone/submit`.
   - `提交声音克隆` calls `POST /api/cloud/voice-clone/submit`.
@@ -261,6 +264,12 @@ Digital-human API adapter updates:
 - Doubao/Volcengine Seed TTS V3 is supported through `video_pipeline.py`; use `X-Api-Key`, `X-Api-Resource-Id` (for example `seed-tts-2.0`), and `voice_type`.
 - The provider template system can pass user-uploaded background/avatar/voice asset URLs into third-party API JSON templates.
 - FFmpeg Windows prebuilt runtime is installed at `ffmpeg/bin/ffmpeg.exe` from gyan.dev essentials build. Do not commit the `ffmpeg/` runtime directory.
+- The one-stop video pipeline now records submitted avatar/lip-sync vendor tasks under ignored local `digital_human_tasks/`.
+- New task APIs:
+  - `GET /api/pipeline/avatar-tasks`
+  - `POST /api/pipeline/avatar-tasks/<task_id>/refresh`
+- Avatar status refresh uses configured `avatar_status_url`, `avatar_response_status_path`, and `avatar_response_video_path`.
+- `video_pipeline_studio.html` includes a supplier task panel for listing tasks, refreshing status, opening returned video URLs, and attaching local returned videos to the FFmpeg compose payload.
 
 Privacy/runtime data:
 
@@ -268,6 +277,7 @@ Privacy/runtime data:
   - `digital_human_assets/`
   - `digital_human_packages/`
   - `digital_human_outputs/`
+  - `digital_human_tasks/`
   - existing local material/export/runtime folders.
 - Do not commit real user photos, voice samples, videos, API keys, or generated customer packages.
 
@@ -345,15 +355,26 @@ D:\Python312\python.exe -m py_compile cloud_runtime_client.py custom_home_server
 Result:
 
 ```text
-30 tests OK
-FFmpeg compose smoke test generated a playable 1080x1920 MP4 with video and audio streams.
+2026-06-04 fresh Codex run:
+- `D:\Python312\python.exe -m py_compile cloud_runtime_client.py custom_home_server.py video_pipeline.py custom_home_agent.py` passed.
+- `D:\Python312\python.exe -m unittest test_cloud_runtime_client.py test_custom_home_agent.py test_video_pipeline.py` ran 35 tests: 34 passed, 1 error.
+- Error: `test_pipeline_compose_endpoint_runs_real_ffmpeg_when_runtime_exists` timed out after 10 seconds; after test teardown removed the temporary output directory, the server thread raised `FileNotFoundError` while calling `file_record(output)`.
+- Existing local verification asset: `digital_human_outputs/verification-compose/verification-compose-1780530265.mp4`.
+
+Previous verification notes:
+FFmpeg compose smoke test generated a playable 1080x1920 MP4 with video and audio streams in a prior run.
 Pipeline HTTP endpoints `/api/pipeline/tts` and `/api/pipeline/compose` are covered by smoke tests.
 `/api/pipeline/compose` is also covered by a real HTTP-to-FFmpeg compose smoke test.
 Pipeline output history, manifest files, and output deletion are covered by unit and HTTP endpoint smoke tests.
 FFprobe media probing is covered and adds duration, resolution, and audio-presence metadata to output history.
 Delivery ZIP packaging and HTTP download are covered by unit and endpoint smoke tests.
 Optional BGM upload/mixing is covered by a real FFmpeg compose smoke test and recorded in manifest JSON.
+Supplier avatar/lip-sync task recording, listing, and status refresh are covered by unit and HTTP endpoint tests.
 ```
+
+Frontend note:
+
+- On 2026-06-04, Node-based inline script syntax verification could not run in Codex because `node.exe` was denied by the sandbox and the escalation request was blocked by the app usage limit. Python tests and `py_compile` passed; rerun the Node inline script check when execution credits are available.
 
 ## Recommended Next Implementation Order
 
