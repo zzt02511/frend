@@ -1,4 +1,5 @@
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from talking_video_editor import (
     build_edit_plan,
     normalize_materials,
     safe_project_id,
+    save_edit_plan,
     segment_script,
 )
 
@@ -101,6 +103,58 @@ class TalkingVideoEditorTests(unittest.TestCase):
         self.assertEqual(plan["overlays"]["title"], "苏州门店选门避坑")
         self.assertEqual(plan["cover"]["text"], "苏州门店选门避坑")
 
+    def test_broll_slots_fit_inside_their_segments(self):
+        plan = build_edit_plan(
+            project_id="短段落测试",
+            talking_video="/videos/talking.mp4",
+            script="工厂质检很严格。",
+            materials=[
+                {
+                    "id": "asset-factory",
+                    "name": "工厂质检.mp4",
+                    "url": "/custom_home_materials/demo/工厂质检.mp4",
+                    "notes": "工厂 质检",
+                }
+            ],
+            duration=2.0,
+        )
+
+        self.assertTrue(plan["segments"][0]["brollSlots"])
+        for segment in plan["segments"]:
+            segment_length = segment["end"] - segment["start"]
+            for slot in segment["brollSlots"]:
+                self.assertLessEqual(slot["startOffset"] + slot["duration"], segment_length)
+
+    def test_broll_slots_are_skipped_when_segment_is_too_short(self):
+        plan = build_edit_plan(
+            project_id="过短段落测试",
+            talking_video="/videos/talking.mp4",
+            script="工厂质检。",
+            materials=[
+                {
+                    "id": "asset-factory",
+                    "name": "工厂质检.mp4",
+                    "url": "/custom_home_materials/demo/工厂质检.mp4",
+                    "notes": "工厂 质检",
+                }
+            ],
+            duration=1.5,
+        )
+
+        self.assertEqual(plan["segments"][0]["brollSlots"], [])
+
+    def test_build_edit_plan_preserves_fractional_duration_target(self):
+        plan = build_edit_plan(
+            project_id="小数时长测试",
+            talking_video="/videos/talking.mp4",
+            script="先看门套。再看锁具。",
+            materials=[],
+            duration=7.5,
+        )
+
+        self.assertEqual(plan["durationTarget"], 7.5)
+        self.assertEqual(plan["segments"][-1]["end"], 7.5)
+
     def test_build_edit_plan_degrades_when_materials_are_missing(self):
         plan = build_edit_plan(
             project_id="缺素材测试",
@@ -151,7 +205,27 @@ class TalkingVideoEditorTests(unittest.TestCase):
         self.assertIn("入户门要看门套", encoded)
         decoded = json.loads(encoded)
         self.assertIn("锁具细节", decoded["segments"][1]["text"])
-        self.assertIsInstance(Path(decoded["render"]["output"]), Path)
+        self.assertIsInstance(decoded["render"]["output"], str)
+        self.assertEqual(decoded["render"]["output"], "renders/final.mp4")
+
+    def test_save_edit_plan_creates_parent_directory_and_preserves_chinese_json(self):
+        plan = build_edit_plan(
+            project_id="保存测试",
+            talking_video="/videos/talking.mp4",
+            script="保存方案要保留中文。",
+            materials=[],
+            duration=6,
+            title="中文保存标题",
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "nested" / "plans" / "edit-plan.json"
+            save_edit_plan(plan, output_path)
+
+            self.assertTrue(output_path.exists())
+            decoded = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(decoded["overlays"]["title"], "中文保存标题")
+            self.assertIn("保存方案要保留中文", decoded["segments"][0]["text"])
 
 
 if __name__ == "__main__":

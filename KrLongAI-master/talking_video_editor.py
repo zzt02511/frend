@@ -207,11 +207,17 @@ def match_materials_for_segment(segment: dict[str, Any], materials: list[Materia
     if not best_asset:
         return []
 
-    duration = round(max(1.0, min(2.0, float(segment.get("end", 0)) - float(segment.get("start", 0)) - 0.5)), 2)
+    start_offset = 1.0
+    segment_length = round(float(segment.get("end", 0)) - float(segment.get("start", 0)), 2)
+    max_slot_duration = round(segment_length - start_offset, 2)
+    if max_slot_duration < 1.0:
+        return []
+
+    duration = round(min(2.0, max_slot_duration), 2)
     reason_keywords = "、".join(best_matches[:3])
     return [
         {
-            "startOffset": 1.0,
+            "startOffset": start_offset,
             "duration": duration,
             "assetId": best_asset.id,
             "reason": f"匹配关键词：{reason_keywords}",
@@ -238,6 +244,11 @@ def infer_title(script: str) -> str:
     return "口播剪辑方案"
 
 
+def _duration_target_value(value: float) -> int | float:
+    number = float(value)
+    return int(number) if number.is_integer() else number
+
+
 def build_edit_plan(
     project_id: str = "",
     talking_video: str = "",
@@ -250,7 +261,11 @@ def build_edit_plan(
 ) -> dict[str, Any]:
     warnings: list[str] = []
     script_text = str(script or "").strip()
-    duration_target = int(round(float(duration))) if duration and duration > 0 else 0
+    duration_target: int | float = 0
+    if duration:
+        duration_number = float(duration)
+        if duration_number > 0:
+            duration_target = _duration_target_value(duration_number)
 
     assets = normalize_materials(list(materials or []))
     if not assets:
@@ -259,7 +274,7 @@ def build_edit_plan(
     if script_text:
         segments = segment_script(script_text, float(duration_target) if duration_target else None)
         if not duration_target and segments:
-            duration_target = int(round(float(segments[-1]["end"])))
+            duration_target = _duration_target_value(float(segments[-1]["end"]))
         script_source = "user-script"
     else:
         warnings.append("缺少口播脚本，已生成占位剪辑方案。")
@@ -293,7 +308,7 @@ def build_edit_plan(
         "projectId": safe_project_id(project_id),
         "sourceTalkingVideo": talking_video,
         "aspectRatio": aspect_ratio,
-        "durationTarget": int(duration_target),
+        "durationTarget": duration_target,
         "scriptSource": script_source,
         "materials": [asdict(asset) for asset in assets],
         "segments": segments,
