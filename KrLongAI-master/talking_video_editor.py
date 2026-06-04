@@ -146,7 +146,7 @@ def segment_script(script: str, duration: float | None = None) -> list[dict[str,
 
     for index, sentence in enumerate(sentences):
         start = round(index * segment_duration, 2)
-        end = round(total_duration if index == len(sentences) - 1 else (index + 1) * segment_duration, 2)
+        end = total_duration if index == len(sentences) - 1 else round((index + 1) * segment_duration, 2)
         segments.append(
             {
                 "id": f"seg-{index + 1:03d}",

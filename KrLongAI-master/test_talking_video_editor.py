@@ -149,11 +149,11 @@ class TalkingVideoEditorTests(unittest.TestCase):
             talking_video="/videos/talking.mp4",
             script="先看门套。再看锁具。",
             materials=[],
-            duration=7.5,
+            duration=7.555,
         )
 
-        self.assertEqual(plan["durationTarget"], 7.5)
-        self.assertEqual(plan["segments"][-1]["end"], 7.5)
+        self.assertEqual(plan["durationTarget"], 7.555)
+        self.assertEqual(plan["segments"][-1]["end"], 7.555)
 
     def test_build_edit_plan_degrades_when_materials_are_missing(self):
         plan = build_edit_plan(
