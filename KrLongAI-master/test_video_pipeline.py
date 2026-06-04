@@ -128,16 +128,37 @@ class VideoPipelineTests(unittest.TestCase):
             project.mkdir()
             video = project / "demo.mp4"
             subtitle = project / "subtitles.srt"
+            manifest = project / "manifest.json"
             video.write_bytes(b"fake-video")
             subtitle.write_text("1\n00:00:00,000 --> 00:00:01,000\nhello\n", encoding="utf-8")
+            manifest.write_text(json.dumps({"title": "Demo title", "script": "hello", "aspect_ratio": "9:16"}), encoding="utf-8")
             try:
                 rows = video_pipeline.list_pipeline_outputs()
             finally:
                 video_pipeline.OUTPUT_DIR = old_output_dir
 
         self.assertEqual(rows[0]["name"], "demo-output")
+        self.assertEqual(rows[0]["title"], "Demo title")
+        self.assertEqual(rows[0]["aspectRatio"], "9:16")
         self.assertEqual(rows[0]["video"]["name"], "demo.mp4")
         self.assertEqual(rows[0]["subtitle"]["name"], "subtitles.srt")
+        self.assertEqual(rows[0]["manifest"]["name"], "manifest.json")
+
+    def test_delete_pipeline_output_removes_only_named_output_dir(self):
+        old_output_dir = video_pipeline.OUTPUT_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            video_pipeline.OUTPUT_DIR = Path(temp_dir)
+            project = video_pipeline.OUTPUT_DIR / "delete-me"
+            project.mkdir()
+            (project / "demo.mp4").write_bytes(b"fake-video")
+            try:
+                result = video_pipeline.delete_pipeline_output("delete-me")
+            finally:
+                video_pipeline.OUTPUT_DIR = old_output_dir
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["deleted"])
+        self.assertFalse(project.exists())
 
     def test_compose_with_ffmpeg_creates_playable_mp4_when_runtime_exists(self):
         ffmpeg = video_pipeline.ffmpeg_path()
@@ -167,6 +188,7 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertTrue(result["ok"], result.get("error"))
         self.assertGreater(result["file"]["size"], 0)
         self.assertEqual(result["file"]["url"].split("/")[-1].split(".")[-1], "mp4")
+        self.assertEqual(result["manifest"]["name"], "manifest.json")
 
 
 class VideoPipelineHttpTests(unittest.TestCase):
@@ -287,6 +309,27 @@ class VideoPipelineHttpTests(unittest.TestCase):
 
         self.assertEqual(rows[0]["name"], "demo")
         self.assertEqual(rows[0]["video"]["name"], "demo.mp4")
+
+    def test_pipeline_output_delete_endpoint_deletes_named_output(self):
+        old_delete = custom_home_server.delete_pipeline_output
+
+        def fake_delete(name):
+            return {"ok": True, "deleted": True, "name": name, "outputs": []}
+
+        custom_home_server.delete_pipeline_output = fake_delete
+        try:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{self.port}/api/pipeline/outputs/demo-output",
+                method="DELETE",
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        finally:
+            custom_home_server.delete_pipeline_output = old_delete
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["deleted"])
+        self.assertEqual(result["name"], "demo-output")
 
 
 if __name__ == "__main__":

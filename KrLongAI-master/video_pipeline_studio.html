@@ -173,6 +173,20 @@
       font-size: 12px;
       font-weight: 700;
     }
+    .history-card {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fffaf0;
+    }
+    .history-card b { display: block; font-size: 13px; }
+    .history-card .actions { margin-top: 8px; }
+    .history-card a {
+      color: var(--steel);
+      font-size: 12px;
+      font-weight: 900;
+      text-decoration: none;
+    }
     pre {
       margin: 10px 0 0;
       max-height: 230px;
@@ -372,13 +386,31 @@
       }
       box.innerHTML = "";
       list.forEach(item => {
-        const button = document.createElement("button");
-        button.className = "history-item";
-        button.type = "button";
-        button.innerHTML = `<b>${item.name}</b><span>${formatSize(item.video?.size)} · ${item.video?.name || ""}</span>`;
-        button.addEventListener("click", () => loadOutput(item));
-        box.appendChild(button);
+        const card = document.createElement("div");
+        card.className = "history-card";
+        const detail = `${item.aspectRatio || "未知比例"} · ${item.scriptLength || 0}字 · ${formatSize(item.video?.size)}`;
+        card.innerHTML = `
+          <b>${item.title || item.name}</b>
+          <div class="asset-line">${detail}</div>
+          <div class="asset-line">${item.video?.name || ""}</div>
+          <div class="actions">
+            <button class="secondary" type="button" data-action="load">预览</button>
+            <a href="${item.video?.url || "#"}" download>下载 MP4</a>
+            ${item.manifest ? `<a href="${item.manifest.url}" download>下载 JSON</a>` : ""}
+            <button class="ghost" type="button" data-action="delete">删除</button>
+          </div>
+        `;
+        card.querySelector('[data-action="load"]').addEventListener("click", () => loadOutput(item));
+        card.querySelector('[data-action="delete"]').addEventListener("click", () => deleteOutput(item.name));
+        box.appendChild(card);
       });
+    }
+
+    async function deleteOutput(name) {
+      if (!confirm(`删除本地成片目录：${name}？`)) return;
+      const result = await api(`/api/pipeline/outputs/${encodeURIComponent(name)}`, { method: "DELETE" });
+      el("composeStatus").textContent = result.deleted ? `已删除：${name}` : `未找到：${name}`;
+      await loadOutputs();
     }
 
     function previewBackground(file) {

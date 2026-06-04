@@ -242,6 +242,8 @@ New local server APIs:
   - Uses local FFmpeg to combine background media, local avatar/lip-sync video, generated narration audio, and generated SRT subtitles into `digital_human_outputs/`.
 - `GET /api/pipeline/outputs`
   - Lists recent local MP4 outputs and subtitle files from `digital_human_outputs/`.
+- `DELETE /api/pipeline/outputs/<name>`
+  - Deletes one local output folder from `digital_human_outputs/`.
 
 Digital-human API adapter updates:
 
@@ -341,11 +343,11 @@ D:\Python312\python.exe -m py_compile cloud_runtime_client.py custom_home_server
 Result:
 
 ```text
-24 tests OK
+26 tests OK
 FFmpeg compose smoke test generated a playable 1080x1920 MP4 with video and audio streams.
 Pipeline HTTP endpoints `/api/pipeline/tts` and `/api/pipeline/compose` are covered by smoke tests.
 `/api/pipeline/compose` is also covered by a real HTTP-to-FFmpeg compose smoke test.
-Pipeline output history is covered by unit and HTTP endpoint smoke tests.
+Pipeline output history, manifest files, and output deletion are covered by unit and HTTP endpoint smoke tests.
 ```
 
 ## Recommended Next Implementation Order

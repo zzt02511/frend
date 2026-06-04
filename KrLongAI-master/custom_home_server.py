@@ -25,7 +25,13 @@ from cloud_runtime_client import (
     submit_tts_task,
 )
 from custom_home_agent import CaseInput, generate_outputs
-from video_pipeline import compose_with_ffmpeg, generate_doubao_tts_audio, list_pipeline_outputs, submit_avatar_or_lipsync_video
+from video_pipeline import (
+    compose_with_ffmpeg,
+    delete_pipeline_output,
+    generate_doubao_tts_audio,
+    list_pipeline_outputs,
+    submit_avatar_or_lipsync_video,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -157,6 +163,9 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             if path.exists():
                 path.unlink()
             return self._send_json({"ok": True, "packages": self._list_digital_human_packages()})
+        if parsed.path.startswith("/api/pipeline/outputs/"):
+            name = unquote(parsed.path.removeprefix("/api/pipeline/outputs/"))
+            return self._send_json(delete_pipeline_output(name))
         return self._send_error(HTTPStatus.NOT_FOUND, "接口不存在")
 
     def _read_json(self) -> dict:

@@ -87,18 +87,43 @@ def list_pipeline_outputs(limit: int = 50) -> list[dict[str, Any]]:
         if not videos:
             continue
         subtitle = project_dir / "subtitles.srt"
+        manifest = project_dir / "manifest.json"
         latest = videos[0]
+        manifest_data = {}
+        if manifest.exists():
+            try:
+                manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                manifest_data = {}
         rows.append(
             {
                 "name": project_dir.name,
                 "updatedAt": latest.stat().st_mtime,
                 "video": file_record(latest),
                 "subtitle": file_record(subtitle) if subtitle.exists() else None,
+                "manifest": file_record(manifest) if manifest.exists() else None,
+                "title": manifest_data.get("title") or manifest_data.get("name") or project_dir.name,
+                "scriptLength": len(manifest_data.get("script") or ""),
+                "aspectRatio": manifest_data.get("aspect_ratio") or "",
                 "videos": [file_record(item) for item in videos[:5]],
             }
         )
     rows.sort(key=lambda item: item["updatedAt"], reverse=True)
     return rows[: max(1, int(limit or 50))]
+
+
+def delete_pipeline_output(name: str) -> dict[str, Any]:
+    target = (OUTPUT_DIR / safe_name(name)).resolve()
+    try:
+        target.relative_to(OUTPUT_DIR.resolve())
+    except ValueError:
+        return {"ok": False, "error": "输出目录不合法"}
+    if not target.exists():
+        return {"ok": True, "deleted": False, "outputs": list_pipeline_outputs()}
+    if not target.is_dir():
+        return {"ok": False, "error": "输出目标不是目录"}
+    shutil.rmtree(target)
+    return {"ok": True, "deleted": True, "outputs": list_pipeline_outputs()}
 
 
 def _json_objects_from_bytes(raw: bytes) -> list[dict[str, Any]]:
@@ -374,9 +399,30 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
     completed = subprocess.run(command, cwd=str(ROOT), capture_output=True, text=True, timeout=600)
     if completed.returncode != 0:
         return {"ok": False, "error": completed.stderr[-4000:], "command": command}
+    manifest = project_dir / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "name": name,
+                "title": payload.get("title") or payload.get("name") or name,
+                "script": payload.get("script") or "",
+                "aspect_ratio": aspect_ratio,
+                "background": payload.get("background") or payload.get("background_url") or {},
+                "avatar_video": payload.get("avatar_video") or payload.get("avatar_video_url") or {},
+                "voice": payload.get("voice") or payload.get("voice_url") or {},
+                "output": file_record(output),
+                "subtitle": file_record(srt),
+                "createdAt": time.time(),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return {
         "ok": True,
         "file": {"name": output.name, "url": relative_url(output), "size": output.stat().st_size},
         "subtitle": {"name": srt.name, "url": relative_url(srt), "size": srt.stat().st_size},
+        "manifest": {"name": manifest.name, "url": relative_url(manifest), "size": manifest.stat().st_size},
         "command": command,
     }
