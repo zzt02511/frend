@@ -419,14 +419,21 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
     background = local_path_from_url((payload.get("background") or {}).get("url") or payload.get("background_url"))
     avatar_video = local_path_from_url((payload.get("avatar_video") or {}).get("url") or payload.get("avatar_video_url"))
     audio = local_path_from_url((payload.get("voice") or {}).get("url") or payload.get("voice_url"))
+    bgm = local_path_from_url((payload.get("bgm") or {}).get("url") or payload.get("bgm_url"))
     if not background or not background.exists():
         return {"ok": False, "error": "缺少可访问的本地背景素材"}
     if not avatar_video or not avatar_video.exists():
         return {"ok": False, "error": "缺少可访问的本地数字人口播/唇形视频"}
     if not audio or not audio.exists():
         return {"ok": False, "error": "缺少可访问的本地配音音频"}
+    if bgm and not bgm.exists():
+        return {"ok": False, "error": "BGM 文件不可访问"}
 
     aspect_ratio = str(payload.get("aspect_ratio") or "9:16")
+    try:
+        bgm_volume = max(0.0, min(1.0, float(payload.get("bgm_volume") or 0.16)))
+    except (TypeError, ValueError):
+        bgm_volume = 0.16
     width, height = {"16:9": (1920, 1080), "1:1": (1080, 1080)}.get(aspect_ratio, (1080, 1920))
     project_dir = OUTPUT_DIR / name
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -440,6 +447,8 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         inputs.extend(["-stream_loop", "-1", "-i", str(background)])
     inputs.extend(["-i", str(avatar_video), "-i", str(audio)])
+    if bgm:
+        inputs.extend(["-stream_loop", "-1", "-i", str(bgm)])
 
     subtitle_path = str(srt).replace("\\", "/").replace(":", "\\:")
     filter_complex = (
@@ -450,6 +459,10 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
         f"subtitles='{subtitle_path}':force_style='FontName=Microsoft YaHei,FontSize=38,"
         f"PrimaryColour=&H00FFFFFF,OutlineColour=&H8A000000,BorderStyle=1,Outline=2,Shadow=1'[v]"
     )
+    audio_map = "2:a:0"
+    if bgm:
+        filter_complex += f";[3:a]volume={bgm_volume}[bgm];[2:a][bgm]amix=inputs=2:duration=first:dropout_transition=0[a]"
+        audio_map = "[a]"
     command = [
         *inputs,
         "-filter_complex",
@@ -457,7 +470,7 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
         "-map",
         "[v]",
         "-map",
-        "2:a:0",
+        audio_map,
         "-shortest",
         "-r",
         "30",
@@ -486,6 +499,8 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
                 "background": payload.get("background") or payload.get("background_url") or {},
                 "avatar_video": payload.get("avatar_video") or payload.get("avatar_video_url") or {},
                 "voice": payload.get("voice") or payload.get("voice_url") or {},
+                "bgm": payload.get("bgm") or payload.get("bgm_url") or {},
+                "bgm_volume": bgm_volume if bgm else None,
                 "output": file_record(output),
                 "subtitle": file_record(srt),
                 "media": media,

@@ -239,6 +239,8 @@
             <input id="speedRatio" value="1.0">
           </div>
         </div>
+        <label for="bgmVolume">BGM 音量</label>
+        <input id="bgmVolume" type="range" min="0" max="1" step="0.01" value="0.16">
 
         <label for="script">口播文案</label>
         <textarea id="script">大家好，我是你的家居顾问。今天用一个真实案例，帮你看清定制家具里最容易踩坑的地方。真正要关注的不是单价有多低，而是板材、五金、封边、安装和售后有没有写清楚。</textarea>
@@ -274,6 +276,11 @@
         <input id="avatarVideoFile" type="file" accept="video/*">
         <button class="secondary" id="uploadAvatarVideoBtn" style="margin-top:8px;">上传口播人像视频</button>
         <div class="asset-line" id="avatarVideoLine">未上传。若供应商返回 MP4，先下载后上传到这里用于 FFmpeg 合成。</div>
+
+        <label for="bgmFile">背景音乐</label>
+        <input id="bgmFile" type="file" accept="audio/*">
+        <button class="secondary" id="uploadBgmBtn" style="margin-top:8px;">上传 BGM</button>
+        <div class="asset-line" id="bgmLine">可选。上传后会按上方音量混入口播音频。</div>
 
         <div class="actions">
           <button class="ghost" id="submitAvatarVideoBtn">提交数字人/唇形任务</button>
@@ -316,7 +323,7 @@
   <script>
     const el = id => document.getElementById(id);
     const value = id => (el(id).value || "").trim();
-    const state = { background: null, avatar: null, voice: null, avatar_video: null, avatar_result: null, final: null };
+    const state = { background: null, avatar: null, voice: null, avatar_video: null, bgm: null, avatar_result: null, final: null };
 
     async function api(path, options = {}) {
       const response = await fetch(path, options);
@@ -336,6 +343,8 @@
         avatar: state.avatar,
         voice: state.voice,
         avatar_video: state.avatar_video,
+        bgm: state.bgm,
+        bgm_volume: Number(value("bgmVolume") || "0.16"),
         visual_notes: "豆包 TTS + 数字人/唇形服务 + FFmpeg 本地合成"
       };
     }
@@ -580,11 +589,12 @@
     el("uploadBackgroundBtn").addEventListener("click", () => upload("background", "backgroundFile", "backgroundLine").catch(err => el("backgroundLine").textContent = err.message));
     el("uploadAvatarBtn").addEventListener("click", () => upload("avatar", "avatarFile", "avatarLine").catch(err => el("avatarLine").textContent = err.message));
     el("uploadAvatarVideoBtn").addEventListener("click", () => upload("avatar_video", "avatarVideoFile", "avatarVideoLine").catch(err => el("avatarVideoLine").textContent = err.message));
+    el("uploadBgmBtn").addEventListener("click", () => upload("bgm", "bgmFile", "bgmLine").catch(err => el("bgmLine").textContent = err.message));
     el("backgroundFile").addEventListener("change", () => previewBackground(el("backgroundFile").files?.[0]));
     el("submitAvatarVideoBtn").addEventListener("click", submitAvatarVideo);
     el("composeBtn").addEventListener("click", compose);
     el("refreshOutputsBtn").addEventListener("click", () => loadOutputs().catch(error => el("composeStatus").textContent = error.message));
-    ["projectName", "aspectRatio", "speedRatio", "script"].forEach(id => el(id).addEventListener("input", render));
+    ["projectName", "aspectRatio", "speedRatio", "bgmVolume", "script"].forEach(id => el(id).addEventListener("input", render));
     loadSettings();
     loadOutputs().catch(() => {});
     render();

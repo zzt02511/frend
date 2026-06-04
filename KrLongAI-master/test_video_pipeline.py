@@ -52,6 +52,17 @@ def create_ffmpeg_smoke_assets(ffmpeg: str, temp: Path) -> tuple[Path, Path, Pat
     return background, avatar, voice
 
 
+def create_bgm_asset(ffmpeg: str, temp: Path) -> Path:
+    bgm = temp / "bgm.mp3"
+    subprocess.run(
+        [ffmpeg, "-y", "-f", "lavfi", "-i", "sine=frequency=880:duration=2", "-c:a", "libmp3lame", str(bgm)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return bgm
+
+
 class VideoPipelineTests(unittest.TestCase):
     def test_build_doubao_tts_payload_uses_voice_and_text(self):
         request = DoubaoTTSRequest(
@@ -253,6 +264,39 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertEqual(result["media"]["width"], 1080)
         self.assertEqual(result["media"]["height"], 1920)
         self.assertTrue(result["media"]["hasAudio"])
+
+    def test_compose_with_ffmpeg_can_mix_optional_bgm(self):
+        ffmpeg = video_pipeline.ffmpeg_path()
+        if not ffmpeg:
+            self.skipTest("FFmpeg runtime is not installed")
+
+        old_output_dir = video_pipeline.OUTPUT_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            temp = Path(temp_dir)
+            video_pipeline.OUTPUT_DIR = temp / "outputs"
+            background, avatar, voice = create_ffmpeg_smoke_assets(ffmpeg, temp)
+            bgm = create_bgm_asset(ffmpeg, temp)
+            try:
+                result = video_pipeline.compose_with_ffmpeg(
+                    {
+                        "name": "compose-bgm-smoke",
+                        "script": "BGM mix smoke.",
+                        "aspect_ratio": "9:16",
+                        "background": {"url": "/" + background.relative_to(video_pipeline.ROOT).as_posix()},
+                        "avatar_video": {"url": "/" + avatar.relative_to(video_pipeline.ROOT).as_posix()},
+                        "voice": {"url": "/" + voice.relative_to(video_pipeline.ROOT).as_posix()},
+                        "bgm": {"url": "/" + bgm.relative_to(video_pipeline.ROOT).as_posix()},
+                        "bgm_volume": 0.12,
+                    }
+                )
+                manifest = json.loads((video_pipeline.OUTPUT_DIR / "compose-bgm-smoke" / "manifest.json").read_text(encoding="utf-8"))
+            finally:
+                video_pipeline.OUTPUT_DIR = old_output_dir
+
+        self.assertTrue(result["ok"], result.get("error"))
+        self.assertTrue(result["media"]["hasAudio"])
+        self.assertEqual(manifest["bgm"]["url"], "/" + bgm.relative_to(video_pipeline.ROOT).as_posix())
+        self.assertEqual(manifest["bgm_volume"], 0.12)
 
 
 class VideoPipelineHttpTests(unittest.TestCase):
