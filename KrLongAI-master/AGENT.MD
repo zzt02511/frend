@@ -4,6 +4,112 @@ This file records the working context, environment fixes, and implementation not
 
 ## Current Status Snapshot
 
+## 2026-06-05 Handoff Snapshot: Talking Video AI Auto Edit
+
+Current active workspace:
+
+- Worktree: `D:\AI\3D\.worktrees\ai-content-pack-tool`
+- Project: `D:\AI\3D\.worktrees\ai-content-pack-tool\KrLongAI-master`
+- Branch: `codex/ai-content-pack-tool`
+- Python: `D:\Python312\python.exe`
+- Use Git with `git -c safe.directory=D:/AI/3D/.worktrees/ai-content-pack-tool ...` because the sandbox user reports dubious ownership.
+- Git status usually prints `C:\Users\78575/.config/git/ignore` permission warnings. Treat them as non-blocking unless changed paths are listed.
+
+User goal now:
+
+- Add AI automatic editing for user-uploaded talking-head videos.
+- Workflow: talking video + optional user script/transcript + tagged real materials -> editable `edit_plan.json` -> user confirmation -> FFmpeg-rendered MP4 draft.
+- First implementation target is local Windows runtime inside `KrLongAI-master`; cloud deployment comes later.
+
+Confirmed product decisions:
+
+- User uploads a talking-head video plus product/factory/case/store materials.
+- Script/transcript supports both modes; prefer user-provided script, fallback to speech-to-text later.
+- Two-stage workflow: generate editable edit plan first, render MP4 after confirmation.
+- Default output is vertical `9:16`, with selectable aspect ratios.
+- FFmpeg is the first render engine; Jianying draft export is deferred.
+- Precision draft should support silence trimming, vertical crop, subtitles, title, CTA, B-roll, transitions, BGM, sound effects, keyword highlights, cover, and progress bar over time.
+- Material matching uses manual tags plus AI suggestions.
+
+Design and plan docs already committed:
+
+- `3D/docs/superpowers/specs/2026-06-04-talking-video-ai-auto-edit-design.md`
+  - Commit: `1814323 docs: specify talking video auto edit workflow`
+- `3D/docs/superpowers/plans/2026-06-04-talking-video-ai-auto-edit-implementation.md`
+  - Commit: `9f2aa6d docs: plan talking video auto edit implementation`
+
+Implementation progress:
+
+- Task 1 is complete and approved by spec and code-quality review.
+  - Files:
+    - `talking_video_editor.py`
+    - `test_talking_video_editor.py`
+  - Current behavior:
+    - `MaterialAsset`
+    - `safe_project_id`
+    - `infer_material_type`
+    - `normalize_materials`
+    - `segment_script`
+    - keyword extraction and intent inference
+    - B-roll matching with non-overflowing slot timing
+    - `build_edit_plan(..., title=None, cta=None)`
+    - `save_edit_plan`
+  - Tests: `D:\Python312\python.exe -m unittest test_talking_video_editor.py`
+  - Latest result: `Ran 14 tests ... OK`
+  - Final Task 1 commit: `971f88f fix: avoid broll timing overflow`
+  - Important fixes already made:
+    - Added explicit `title` parameter support.
+    - Preserved fractional `durationTarget` and final segment end precision.
+    - Prevented B-roll slots from exceeding segment duration, including `1.999s` edge case.
+    - Added `save_edit_plan` UTF-8 persistence coverage.
+
+- Task 2 implementation is committed but NOT quality-approved yet.
+  - Files:
+    - `ffmpeg_video_renderer.py`
+    - `test_ffmpeg_video_renderer.py`
+  - Commit: `bf12af2 feat: add ffmpeg render command generation`
+  - Tests: `D:\Python312\python.exe -m unittest test_ffmpeg_video_renderer.py`
+  - Latest result: `Ran 4 tests ... OK`
+  - Spec review passed.
+  - Code-quality review returned `With fixes`; fix these before starting Task 3:
+    - `render_edit_plan()` does not catch `OSError` from `subprocess.run()` when `ffmpeg_path` exists but is not executable. It should return JSON `{ok: False, status: "failed", ...}` and write a log instead of crashing.
+    - Root-style or URL-style media paths such as `/videos/talking.mp4` can be mis-resolved on Windows. Define the contract and normalize leading-slash project-relative paths or reject unsupported URL paths explicitly.
+    - `render_edit_plan()` itself is under-tested. Add focused tests for missing FFmpeg log writing, `execute=False`, subprocess failure/success payloads, and launch-error behavior using temp dirs and `unittest.mock.patch`.
+    - Optional cleanup: extract repeated source/captions/output path resolution before Task 3 grows this module.
+
+Next implementation order from the active plan:
+
+1. Finish Task 2 quality fixes, then re-run spec and code-quality review for Task 2.
+2. Task 3: add precision render layers to `ffmpeg_video_renderer.py`:
+   - B-roll inputs and overlays
+   - title and CTA `drawtext`
+   - progress bar
+   - BGM command planning
+   - cover command generation
+3. Task 4: add talking-video persistence and API endpoints in `custom_home_server.py`.
+4. Task 5: add `talking_video_editor.html` workbench page.
+5. Task 6: add runtime ignores and `content_pipeline.py` metadata.
+6. Task 7: run full verification and browser smoke test.
+
+Review/process notes:
+
+- User chose option `1`: Subagent-Driven Development.
+- Continue task-by-task with implementation, spec review, then code-quality review.
+- Do not proceed to the next task while spec or quality review has open Important/Critical issues.
+- Use `test-driven-development` for code changes.
+- Use `verification-before-completion` before claiming final completion.
+- Use `apply_patch` for manual file edits.
+- Do not commit real videos, customer assets, API keys, or runtime output folders.
+- Do not repeat any server password shared in chat.
+
+Related earlier deployment note:
+
+- A lightweight `ai-ip-content-pack-tool` static app was deployed to `http://218.78.135.21:8090/`.
+- Remote app path: `/opt/ai-ip-content-pack-tool/site`
+- Container: `ai-ip-content-pack-tool`
+- Port mapping: `8090:80`
+- Existing `80/443` Caddy deployment was intentionally not touched.
+
 Current working direction:
 
 - Build a software product similar in spirit to KrLongAI / 轻语AI / 旗博士, but not as a generic all-industry digital-human tool.
