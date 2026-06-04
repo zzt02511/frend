@@ -25,7 +25,7 @@ from cloud_runtime_client import (
     submit_tts_task,
 )
 from custom_home_agent import CaseInput, generate_outputs
-from video_pipeline import compose_with_ffmpeg, generate_doubao_tts_audio, submit_avatar_or_lipsync_video
+from video_pipeline import compose_with_ffmpeg, generate_doubao_tts_audio, list_pipeline_outputs, submit_avatar_or_lipsync_video
 
 
 ROOT = Path(__file__).resolve().parent
@@ -72,6 +72,8 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return self._send_json(public_settings(load_settings()))
         if parsed.path == "/api/cloud/health":
             return self._send_json(health_check(load_settings()))
+        if parsed.path == "/api/pipeline/outputs":
+            return self._send_json(list_pipeline_outputs())
         if parsed.path.startswith("/api/projects/"):
             name = unquote(parsed.path.removeprefix("/api/projects/"))
             path = _project_path(name)

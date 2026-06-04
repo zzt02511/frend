@@ -153,6 +153,26 @@
       border-radius: 6px;
       background: #ede4d3;
     }
+    .history-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .history-item {
+      width: 100%;
+      min-height: 0;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      background: #f6ecd9;
+      border: 1px solid var(--line);
+      text-align: left;
+    }
+    .history-item span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
     pre {
       margin: 10px 0 0;
       max-height: 230px;
@@ -246,6 +266,13 @@
           <button id="composeBtn">FFmpeg 合成最终 MP4</button>
         </div>
         <div class="status" id="composeStatus"></div>
+
+        <h2 style="margin-top:18px;">历史成片</h2>
+        <div class="hint">这里列出 `digital_human_outputs/` 中最近生成的 MP4，方便回看、下载和继续交付。</div>
+        <div class="actions">
+          <button class="secondary" id="refreshOutputsBtn">刷新历史成片</button>
+        </div>
+        <div class="history-list" id="outputHistory"></div>
       </section>
 
       <section>
@@ -319,6 +346,39 @@
       setStep("stepVoice", Boolean(state.voice));
       setStep("stepAvatar", Boolean(state.avatar_video || state.avatar_result));
       setStep("stepFinal", Boolean(state.final));
+    }
+
+    function formatSize(size) {
+      const bytes = Number(size || 0);
+      if (bytes > 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      if (bytes > 1024) return `${Math.round(bytes / 1024)} KB`;
+      return `${bytes} B`;
+    }
+
+    function loadOutput(item) {
+      state.final = item.video;
+      el("finalSummary").textContent = `${item.video.name} (${formatSize(item.video.size)})`;
+      el("finalOutput").innerHTML = `<video controls src="${item.video.url}"></video>`;
+      el("composeStatus").textContent = `已加载历史成片：${item.name}`;
+      render();
+    }
+
+    async function loadOutputs() {
+      const list = await api("/api/pipeline/outputs");
+      const box = el("outputHistory");
+      if (!list.length) {
+        box.innerHTML = `<div class="asset-line">还没有本地成片。</div>`;
+        return;
+      }
+      box.innerHTML = "";
+      list.forEach(item => {
+        const button = document.createElement("button");
+        button.className = "history-item";
+        button.type = "button";
+        button.innerHTML = `<b>${item.name}</b><span>${formatSize(item.video?.size)} · ${item.video?.name || ""}</span>`;
+        button.addEventListener("click", () => loadOutput(item));
+        box.appendChild(button);
+      });
     }
 
     function previewBackground(file) {
@@ -455,6 +515,7 @@
         el("finalSummary").textContent = `${result.file.name} (${Math.round(result.file.size / 1024)} KB)`;
         el("finalOutput").innerHTML = `<video controls src="${result.file.url}"></video>`;
         el("composeStatus").textContent = "最终 MP4 已生成。";
+        await loadOutputs();
       } catch (error) {
         el("composeStatus").innerHTML = `<span class="warn">${error.message}</span>`;
         setStep("stepFinal", false, true);
@@ -473,8 +534,10 @@
     el("backgroundFile").addEventListener("change", () => previewBackground(el("backgroundFile").files?.[0]));
     el("submitAvatarVideoBtn").addEventListener("click", submitAvatarVideo);
     el("composeBtn").addEventListener("click", compose);
+    el("refreshOutputsBtn").addEventListener("click", () => loadOutputs().catch(error => el("composeStatus").textContent = error.message));
     ["projectName", "aspectRatio", "speedRatio", "script"].forEach(id => el(id).addEventListener("input", render));
     loadSettings();
+    loadOutputs().catch(() => {});
     render();
   </script>
 </body>

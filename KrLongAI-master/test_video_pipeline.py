@@ -120,6 +120,25 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("FFmpeg", result["error"])
 
+    def test_list_pipeline_outputs_returns_recent_videos(self):
+        old_output_dir = video_pipeline.OUTPUT_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            video_pipeline.OUTPUT_DIR = Path(temp_dir)
+            project = video_pipeline.OUTPUT_DIR / "demo-output"
+            project.mkdir()
+            video = project / "demo.mp4"
+            subtitle = project / "subtitles.srt"
+            video.write_bytes(b"fake-video")
+            subtitle.write_text("1\n00:00:00,000 --> 00:00:01,000\nhello\n", encoding="utf-8")
+            try:
+                rows = video_pipeline.list_pipeline_outputs()
+            finally:
+                video_pipeline.OUTPUT_DIR = old_output_dir
+
+        self.assertEqual(rows[0]["name"], "demo-output")
+        self.assertEqual(rows[0]["video"]["name"], "demo.mp4")
+        self.assertEqual(rows[0]["subtitle"]["name"], "subtitles.srt")
+
     def test_compose_with_ffmpeg_creates_playable_mp4_when_runtime_exists(self):
         ffmpeg = video_pipeline.ffmpeg_path()
         if not ffmpeg:
@@ -245,6 +264,29 @@ class VideoPipelineHttpTests(unittest.TestCase):
         self.assertTrue(result["ok"], result.get("error"))
         self.assertGreater(result["file"]["size"], 0)
         self.assertTrue(result["file"]["url"].endswith(".mp4"))
+
+    def test_pipeline_outputs_endpoint_lists_local_outputs(self):
+        old_outputs = custom_home_server.list_pipeline_outputs
+
+        def fake_outputs():
+            return [
+                {
+                    "name": "demo",
+                    "video": {"name": "demo.mp4", "url": "/digital_human_outputs/demo/demo.mp4", "size": 100},
+                    "subtitle": None,
+                    "videos": [],
+                }
+            ]
+
+        custom_home_server.list_pipeline_outputs = fake_outputs
+        try:
+            result = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/pipeline/outputs", timeout=10)
+            rows = json.loads(result.read().decode("utf-8"))
+        finally:
+            custom_home_server.list_pipeline_outputs = old_outputs
+
+        self.assertEqual(rows[0]["name"], "demo")
+        self.assertEqual(rows[0]["video"]["name"], "demo.mp4")
 
 
 if __name__ == "__main__":

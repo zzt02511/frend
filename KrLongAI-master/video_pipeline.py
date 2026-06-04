@@ -36,6 +36,16 @@ def relative_url(path: Path) -> str:
     return "/" + path.resolve().relative_to(ROOT).as_posix()
 
 
+def file_record(path: Path) -> dict[str, Any]:
+    stat = path.stat()
+    return {
+        "name": path.name,
+        "url": relative_url(path),
+        "size": stat.st_size,
+        "mtime": stat.st_mtime,
+    }
+
+
 def local_path_from_url(url: str | None) -> Path | None:
     text = str(url or "").strip()
     if not text:
@@ -64,6 +74,31 @@ def guess_audio_ext(content_type: str, fallback: str = ".mp3") -> str:
     if "aac" in lowered:
         return ".aac"
     return fallback
+
+
+def list_pipeline_outputs(limit: int = 50) -> list[dict[str, Any]]:
+    if not OUTPUT_DIR.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for project_dir in OUTPUT_DIR.iterdir():
+        if not project_dir.is_dir():
+            continue
+        videos = sorted(project_dir.glob("*.mp4"), key=lambda item: item.stat().st_mtime, reverse=True)
+        if not videos:
+            continue
+        subtitle = project_dir / "subtitles.srt"
+        latest = videos[0]
+        rows.append(
+            {
+                "name": project_dir.name,
+                "updatedAt": latest.stat().st_mtime,
+                "video": file_record(latest),
+                "subtitle": file_record(subtitle) if subtitle.exists() else None,
+                "videos": [file_record(item) for item in videos[:5]],
+            }
+        )
+    rows.sort(key=lambda item: item["updatedAt"], reverse=True)
+    return rows[: max(1, int(limit or 50))]
 
 
 def _json_objects_from_bytes(raw: bytes) -> list[dict[str, Any]]:
@@ -345,4 +380,3 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
         "subtitle": {"name": srt.name, "url": relative_url(srt), "size": srt.stat().st_size},
         "command": command,
     }
-
