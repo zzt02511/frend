@@ -26,6 +26,7 @@ from cloud_runtime_client import (
 )
 from custom_home_agent import CaseInput, generate_outputs
 from video_pipeline import (
+    build_pipeline_output_zip,
     compose_with_ffmpeg,
     delete_pipeline_output,
     generate_doubao_tts_audio,
@@ -80,6 +81,9 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return self._send_json(health_check(load_settings()))
         if parsed.path == "/api/pipeline/outputs":
             return self._send_json(list_pipeline_outputs())
+        if parsed.path.startswith("/api/pipeline/outputs/") and parsed.path.endswith("/zip"):
+            name = unquote(parsed.path.removeprefix("/api/pipeline/outputs/").removesuffix("/zip"))
+            return self._send_file_download(*build_pipeline_output_zip(name))
         if parsed.path.startswith("/api/projects/"):
             name = unquote(parsed.path.removeprefix("/api/projects/"))
             path = _project_path(name)
@@ -368,6 +372,18 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_file_download(self, path: Path | None, error: str = "") -> None:
+        if not path or not path.exists():
+            return self._send_error(HTTPStatus.NOT_FOUND, error or "文件不存在")
+        body = path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", f'attachment; filename="{path.name}"')
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()

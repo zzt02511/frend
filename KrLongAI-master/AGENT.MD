@@ -244,6 +244,8 @@ New local server APIs:
   - Lists recent local MP4 outputs and subtitle files from `digital_human_outputs/`.
 - `DELETE /api/pipeline/outputs/<name>`
   - Deletes one local output folder from `digital_human_outputs/`.
+- `GET /api/pipeline/outputs/<name>/zip`
+  - Builds and downloads a delivery ZIP containing the local MP4, subtitles, and manifest JSON.
 
 Digital-human API adapter updates:
 
@@ -343,12 +345,13 @@ D:\Python312\python.exe -m py_compile cloud_runtime_client.py custom_home_server
 Result:
 
 ```text
-27 tests OK
+29 tests OK
 FFmpeg compose smoke test generated a playable 1080x1920 MP4 with video and audio streams.
 Pipeline HTTP endpoints `/api/pipeline/tts` and `/api/pipeline/compose` are covered by smoke tests.
 `/api/pipeline/compose` is also covered by a real HTTP-to-FFmpeg compose smoke test.
 Pipeline output history, manifest files, and output deletion are covered by unit and HTTP endpoint smoke tests.
 FFprobe media probing is covered and adds duration, resolution, and audio-presence metadata to output history.
+Delivery ZIP packaging and HTTP download are covered by unit and endpoint smoke tests.
 ```
 
 ## Recommended Next Implementation Order

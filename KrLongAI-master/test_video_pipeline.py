@@ -5,6 +5,7 @@ import tempfile
 import threading
 import unittest
 import urllib.request
+import zipfile
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -200,6 +201,26 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertTrue(result["deleted"])
         self.assertFalse(project.exists())
 
+    def test_build_pipeline_output_zip_packages_delivery_files(self):
+        old_output_dir = video_pipeline.OUTPUT_DIR
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            video_pipeline.OUTPUT_DIR = Path(temp_dir)
+            project = video_pipeline.OUTPUT_DIR / "zip-me"
+            project.mkdir()
+            (project / "demo.mp4").write_bytes(b"video")
+            (project / "subtitles.srt").write_text("subtitle", encoding="utf-8")
+            (project / "manifest.json").write_text("{}", encoding="utf-8")
+            (project / "ignore.tmp").write_text("ignore", encoding="utf-8")
+            try:
+                zip_path, error = video_pipeline.build_pipeline_output_zip("zip-me")
+                self.assertFalse(error)
+                with zipfile.ZipFile(zip_path) as archive:
+                    names = set(archive.namelist())
+            finally:
+                video_pipeline.OUTPUT_DIR = old_output_dir
+
+        self.assertEqual(names, {"demo.mp4", "subtitles.srt", "manifest.json"})
+
     def test_compose_with_ffmpeg_creates_playable_mp4_when_runtime_exists(self):
         ffmpeg = video_pipeline.ffmpeg_path()
         if not ffmpeg:
@@ -374,6 +395,29 @@ class VideoPipelineHttpTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(result["deleted"])
         self.assertEqual(result["name"], "demo-output")
+
+    def test_pipeline_output_zip_endpoint_returns_zip_download(self):
+        old_zip = custom_home_server.build_pipeline_output_zip
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            zip_path = Path(temp_dir) / "demo-delivery.zip"
+            with zipfile.ZipFile(zip_path, "w") as archive:
+                archive.writestr("demo.mp4", b"video")
+
+            def fake_zip(name):
+                return zip_path, ""
+
+            custom_home_server.build_pipeline_output_zip = fake_zip
+            try:
+                result = urllib.request.urlopen(
+                    f"http://127.0.0.1:{self.port}/api/pipeline/outputs/demo-output/zip",
+                    timeout=10,
+                )
+                body = result.read()
+            finally:
+                custom_home_server.build_pipeline_output_zip = old_zip
+
+        self.assertEqual(result.headers.get("Content-Type"), "application/zip")
+        self.assertGreater(len(body), 0)
 
 
 if __name__ == "__main__":

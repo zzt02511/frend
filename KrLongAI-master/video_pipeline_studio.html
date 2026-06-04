@@ -412,6 +412,7 @@
           <div class="actions">
             <button class="secondary" type="button" data-action="load">预览</button>
             <a href="${item.video?.url || "#"}" download>下载 MP4</a>
+            <a href="/api/pipeline/outputs/${encodeURIComponent(item.name)}/zip">下载交付包</a>
             ${item.manifest ? `<a href="${item.manifest.url}" download>下载 JSON</a>` : ""}
             <button class="ghost" type="button" data-action="delete">删除</button>
           </div>

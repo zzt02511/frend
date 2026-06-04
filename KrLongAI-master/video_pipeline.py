@@ -14,6 +14,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -175,6 +176,29 @@ def delete_pipeline_output(name: str) -> dict[str, Any]:
         return {"ok": False, "error": "输出目标不是目录"}
     shutil.rmtree(target)
     return {"ok": True, "deleted": True, "outputs": list_pipeline_outputs()}
+
+
+def pipeline_output_dir(name: str) -> Path | None:
+    target = (OUTPUT_DIR / safe_name(name)).resolve()
+    try:
+        target.relative_to(OUTPUT_DIR.resolve())
+    except ValueError:
+        return None
+    return target if target.exists() and target.is_dir() else None
+
+
+def build_pipeline_output_zip(name: str) -> tuple[Path | None, str]:
+    output_dir = pipeline_output_dir(name)
+    if not output_dir:
+        return None, "输出目录不存在"
+    zip_path = output_dir / f"{output_dir.name}-delivery.zip"
+    allowed_suffixes = {".mp4", ".srt", ".json"}
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(output_dir.iterdir()):
+            if path == zip_path or not path.is_file() or path.suffix.lower() not in allowed_suffixes:
+                continue
+            archive.write(path, arcname=path.name)
+    return zip_path, ""
 
 
 def _json_objects_from_bytes(raw: bytes) -> list[dict[str, Any]]:
