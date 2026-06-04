@@ -213,6 +213,137 @@ class FFmpegVideoRendererTests(unittest.TestCase):
             self.assertIn("Unsupported URL media path", result["message"])
             self.assertIn("Unsupported URL media path", log_text)
 
+    def test_build_ffmpeg_command_includes_precision_layers_when_plan_has_assets(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            plan = sample_plan()
+            plan["materials"] = [
+                {
+                    "id": "asset-factory",
+                    "name": "factory-check.mp4",
+                    "url": "uploads/assets/factory-check.mp4",
+                    "type": "video",
+                    "tags": ["factory"],
+                    "notes": "",
+                }
+            ]
+            plan["segments"][1]["brollSlots"] = [
+                {"startOffset": 0.4, "duration": 2.0, "assetId": "asset-factory", "reason": "factory"}
+            ]
+            plan["audio"] = {"bgmPath": "uploads/bgm/light.mp3"}
+
+            command = build_ffmpeg_command(plan, project_dir=project_dir, ffmpeg_path="ffmpeg")
+
+            joined = " ".join(command).replace("\\", "/")
+            self.assertIn("uploads/assets/factory-check.mp4", joined)
+            self.assertIn("uploads/bgm/light.mp3", joined)
+            self.assertIn("-filter_complex", command)
+            self.assertIn("drawtext", joined)
+            self.assertIn("overlay", joined)
+            self.assertIn("volume=0.18", joined)
+            self.assertIn("progress", joined)
+            self.assertIn("-map", command)
+
+    def test_build_ffmpeg_command_trims_and_shifts_broll_onto_timeline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            plan = sample_plan()
+            plan["materials"] = [{"id": "asset-case", "url": "uploads/assets/case.mp4", "type": "video"}]
+            plan["segments"][1]["brollSlots"] = [
+                {"startOffset": 0.4, "duration": 2.0, "assetId": "asset-case", "reason": "case"}
+            ]
+
+            command = build_ffmpeg_command(plan, project_dir=project_dir)
+
+            joined = " ".join(command)
+            self.assertIn("trim=duration=2.00", joined)
+            self.assertIn("setpts=PTS-STARTPTS+3.60/TB", joined)
+            self.assertIn("overlay=0:0:enable='between(t,3.60,5.60)'", joined)
+
+    def test_build_ffmpeg_command_escapes_percent_in_drawtext(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            plan = sample_plan()
+            plan["overlays"]["title"] = "100% offer"
+            plan["overlays"]["cta"] = "save 20%"
+
+            command = build_ffmpeg_command(plan, project_dir=project_dir)
+
+            joined = " ".join(command)
+            self.assertIn("100\\% offer", joined)
+            self.assertIn("save 20\\%", joined)
+            self.assertNotIn("100% offer", joined)
+
+    def test_build_ffmpeg_command_uses_optional_audio_map_without_bgm(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+
+            command = build_ffmpeg_command(sample_plan(), project_dir=project_dir)
+
+            map_indices = [index for index, value in enumerate(command) if value == "-map"]
+            mapped_values = [command[index + 1] for index in map_indices]
+            self.assertIn("0:a?", mapped_values)
+
+    def test_build_ffmpeg_command_uses_timeline_safe_progress_bar(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+
+            command = build_ffmpeg_command(sample_plan(), project_dir=project_dir)
+
+            joined = " ".join(command)
+            self.assertIn("drawbox", joined)
+            self.assertIn("enable='gte(t,", joined)
+            self.assertNotIn("w*t/duration", joined)
+
+    def test_build_cover_command_exports_cover_frame(self):
+        from ffmpeg_video_renderer import build_cover_command
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+
+            command = build_cover_command(sample_plan(), project_dir=project_dir, ffmpeg_path="ffmpeg")
+
+            joined = " ".join(command).replace("\\", "/")
+            self.assertEqual(command[0], "ffmpeg")
+            self.assertIn("-ss", command)
+            self.assertIn("uploads/talking.mp4", joined)
+            self.assertIn("renders/cover.jpg", joined)
+            self.assertIn("drawtext", joined)
+
+    def test_render_edit_plan_exports_cover_after_successful_render(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            completed = type("Completed", (), {"returncode": 0, "stdout": "ok\n", "stderr": ""})()
+
+            with patch("ffmpeg_video_renderer.ffmpeg_available", return_value=True), patch(
+                "ffmpeg_video_renderer.subprocess.run", return_value=completed
+            ) as run:
+                result = render_edit_plan(sample_plan(), project_dir)
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["status"], "done")
+            self.assertIn("coverCommand", result)
+            self.assertIn("cover", result)
+            self.assertEqual(run.call_count, 2)
+            log_text = (project_dir / "logs" / "ffmpeg.log").read_text(encoding="utf-8")
+            self.assertIn("# cover", log_text)
+
+    def test_render_edit_plan_returns_cover_returncode_when_cover_launch_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            completed = type("Completed", (), {"returncode": 0, "stdout": "ok\n", "stderr": ""})()
+
+            with patch("ffmpeg_video_renderer.ffmpeg_available", return_value=True), patch(
+                "ffmpeg_video_renderer.subprocess.run", side_effect=[completed, OSError("cover launch failed")]
+            ):
+                result = render_edit_plan(sample_plan(), project_dir)
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["status"], "failed")
+            self.assertIsNone(result["coverReturncode"])
+            self.assertIn("coverCommand", result)
+            self.assertIn("cover", result)
+
 
 if __name__ == "__main__":
     unittest.main()

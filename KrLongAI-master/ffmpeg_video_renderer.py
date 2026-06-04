@@ -69,6 +69,138 @@ def _output_path(plan: dict[str, Any], project_dir: Path) -> Path:
     return resolve_project_path(render_settings.get("output"), project_dir, "renders/final.mp4")
 
 
+def _asset_by_id(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {str(item.get("id")): item for item in plan.get("materials") or [] if item.get("id")}
+
+
+def _escape_drawtext(value: str) -> str:
+    return str(value or "").replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace("%", "\\%")
+
+
+def _collect_broll_inputs(plan: dict[str, Any], project_dir: Path) -> list[tuple[str, Path, float, float]]:
+    assets = _asset_by_id(plan)
+    collected: list[tuple[str, Path, float, float]] = []
+    for segment in plan.get("segments") or []:
+        segment_start = float(segment.get("start") or 0)
+        for slot in segment.get("brollSlots") or []:
+            asset = assets.get(str(slot.get("assetId")))
+            if not asset:
+                continue
+            source = asset.get("url") or asset.get("path") or ""
+            if not source:
+                continue
+            start = segment_start + float(slot.get("startOffset") or 0)
+            duration = float(slot.get("duration") or 2.5)
+            collected.append(
+                (
+                    str(asset.get("id")),
+                    resolve_project_path(str(source), project_dir, ""),
+                    start,
+                    duration,
+                )
+            )
+    return collected
+
+
+def _subtitle_filter_path(path: Path) -> str:
+    return path.as_posix().replace(":", "\\:").replace("'", "\\'")
+
+
+def _plan_duration(plan: dict[str, Any]) -> float:
+    try:
+        duration = float(plan.get("durationTarget") or 0)
+    except (TypeError, ValueError):
+        duration = 0.0
+    if duration > 0:
+        return duration
+    segment_ends = []
+    for segment in plan.get("segments") or []:
+        try:
+            segment_ends.append(float(segment.get("end") or 0))
+        except (TypeError, ValueError):
+            continue
+    return max(segment_ends, default=1.0)
+
+
+def _progress_bar_filters(plan: dict[str, Any], width: int, steps: int = 12) -> list[str]:
+    duration = max(_plan_duration(plan), 1.0)
+    filters = []
+    for step in range(1, steps + 1):
+        start = duration * (step - 1) / steps
+        bar_width = max(1, round(width * step / steps))
+        filters.append(
+            f"drawbox=x=0:y=h-10:w={bar_width}:h=10:color=#67d391@0.85:t=fill:enable='gte(t,{start:.2f})'"
+        )
+    return filters
+
+
+def _base_video_filter(plan: dict[str, Any], captions_path: Path) -> str:
+    width, height = _target_size(str(plan.get("aspectRatio") or "9:16"))
+    subtitles_path = _subtitle_filter_path(captions_path)
+    overlays = plan.get("overlays") if isinstance(plan.get("overlays"), dict) else {}
+    title = _escape_drawtext(overlays.get("title") or "")
+    cta = _escape_drawtext(overlays.get("cta") or "")
+    filters = [
+        f"scale={width}:{height}:force_original_aspect_ratio=increase",
+        f"crop={width}:{height}",
+        "setsar=1",
+        (
+            f"subtitles='{subtitles_path}':force_style='"
+            "FontName=Microsoft YaHei,"
+            "FontSize=54,"
+            "PrimaryColour=&H00FFFFFF&,"
+            "OutlineColour=&H00000000&,"
+            "Outline=2,"
+            "Shadow=1,"
+            "Alignment=2,"
+            "MarginV=90'"
+        ),
+    ]
+    if title:
+        filters.append(
+            f"drawtext=text='{title}':x=(w-text_w)/2:y=90:fontsize=52:fontcolor=white:borderw=3:bordercolor=black@0.55"
+        )
+    if cta:
+        filters.append(
+            f"drawtext=text='{cta}':x=(w-text_w)/2:y=h-190:fontsize=34:fontcolor=white:borderw=3:bordercolor=black@0.55"
+        )
+    if overlays.get("progressBar", False):
+        filters.extend(_progress_bar_filters(plan, width))
+    return ",".join(filters)
+
+
+def _build_filter_complex(
+    plan: dict[str, Any],
+    captions_path: Path,
+    brolls: list[tuple[str, Path, float, float]],
+    has_bgm: bool,
+) -> tuple[str, str, str]:
+    width, height = _target_size(str(plan.get("aspectRatio") or "9:16"))
+    base = _base_video_filter(plan, captions_path)
+    base_label = "progress" if (plan.get("overlays") or {}).get("progressBar", False) else "vbase"
+    chains = [f"[0:v]{base}[{base_label}]"]
+    current = base_label
+    for index, (_, _, start, duration) in enumerate(brolls, start=1):
+        broll_input = index
+        broll_label = f"broll{index}"
+        out_label = f"vout{index}"
+        end = start + duration
+        chains.append(
+            f"[{broll_input}:v]trim=duration={duration:.2f},setpts=PTS-STARTPTS+{start:.2f}/TB,"
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},setsar=1,format=rgba,colorchannelmixer=aa=0.96[{broll_label}]"
+        )
+        chains.append(
+            f"[{current}][{broll_label}]overlay=0:0:enable='between(t,{start:.2f},{end:.2f})'[{out_label}]"
+        )
+        current = out_label
+    if has_bgm:
+        bgm_input = 1 + len(brolls)
+        chains.append(f"[{bgm_input}:a]volume=0.18[bgm]")
+        chains.append("[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]")
+    return ";".join(chains), current, "aout" if has_bgm else "0:a?"
+
+
 def build_ffmpeg_command(
     plan: dict[str, Any],
     project_dir: Path,
@@ -84,37 +216,76 @@ def build_ffmpeg_command(
     output_path = _output_path(plan, project_dir)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    width, height = _target_size(plan.get("aspectRatio", "9:16"))
-    subtitles_path = captions_path.as_posix().replace(":", "\\:").replace("'", "\\'")
-    video_filter = (
-        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height},setsar=1,"
-        f"subtitles='{subtitles_path}':force_style='"
-        "FontName=Microsoft YaHei,"
-        "FontSize=54,"
-        "PrimaryColour=&H00FFFFFF&,"
-        "OutlineColour=&H00000000&,"
-        "Outline=2,"
-        "Shadow=1,"
-        "Alignment=2,"
-        "MarginV=90'"
-    )
+    brolls = _collect_broll_inputs(plan, project_dir)
+    audio_settings = plan.get("audio") if isinstance(plan.get("audio"), dict) else {}
+    bgm_path = audio_settings.get("bgmPath")
+    has_bgm = bool(bgm_path)
+    filter_complex, video_label, audio_label = _build_filter_complex(plan, captions_path, brolls, has_bgm)
 
-    return [
+    command = [
         ffmpeg_path,
         "-y",
         "-i",
         source_path.as_posix(),
+    ]
+    for _, path, _, _ in brolls:
+        command.extend(["-i", path.as_posix()])
+    if has_bgm:
+        command.extend(["-i", resolve_project_path(str(bgm_path), project_dir, "").as_posix()])
+
+    command.extend(
+        [
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            f"[{video_label}]",
+            "-map",
+            f"[{audio_label}]" if has_bgm else audio_label,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-c:a",
+            "aac",
+            "-shortest",
+            "-movflags",
+            "+faststart",
+            output_path.as_posix(),
+        ]
+    )
+    return command
+
+
+def build_cover_command(
+    plan: dict[str, Any],
+    project_dir: Path,
+    ffmpeg_path: str = "ffmpeg",
+) -> list[str]:
+    project_dir = Path(project_dir)
+    source_path = resolve_project_path(plan.get("sourceTalkingVideo"), project_dir, "uploads/talking.mp4")
+    cover_settings = plan.get("cover") if isinstance(plan.get("cover"), dict) else {}
+    frame_at = str(cover_settings.get("frameAt") or 1.2)
+    output_path = project_dir / "renders" / "cover.jpg"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    width, height = _target_size(str(plan.get("aspectRatio") or "9:16"))
+    cover_text = _escape_drawtext(cover_settings.get("text") or (plan.get("overlays") or {}).get("title") or "")
+    video_filter = (
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height},"
+        f"drawtext=text='{cover_text}':x=(w-text_w)/2:y=h*0.16:"
+        "fontsize=62:fontcolor=white:borderw=4:bordercolor=black@0.6"
+    )
+    return [
+        ffmpeg_path,
+        "-y",
+        "-ss",
+        frame_at,
+        "-i",
+        source_path.as_posix(),
+        "-frames:v",
+        "1",
         "-vf",
         video_filter,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-c:a",
-        "aac",
-        "-movflags",
-        "+faststart",
         output_path.as_posix(),
     ]
 
@@ -197,13 +368,53 @@ def render_edit_plan(
     log_text = (completed.stdout or "") + (completed.stderr or "")
     log_path.write_text(log_text, encoding="utf-8")
 
+    if completed.returncode != 0:
+        return {
+            "ok": False,
+            "status": "failed",
+            "returncode": completed.returncode,
+            "command": command,
+            "log": log_path.as_posix(),
+            "output": output_path.as_posix(),
+            "captions": captions_path.as_posix(),
+        }
+
+    cover_command = build_cover_command(plan, project_dir, ffmpeg_path)
+    try:
+        cover_result = subprocess.run(
+            cover_command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as error:
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write("\n\n# cover\n")
+            handle.write(str(error))
+        status = _failed_render_status(command, log_path, output_path, captions_path, str(error), None)
+        status["coverCommand"] = cover_command
+        status["coverReturncode"] = None
+        status["cover"] = (project_dir / "renders" / "cover.jpg").as_posix()
+        return status
+
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n\n# cover\n")
+        handle.write((cover_result.stdout or "") + (cover_result.stderr or ""))
+
+    cover_path = project_dir / "renders" / "cover.jpg"
+    cover_ok = cover_result.returncode == 0
     result = {
-        "ok": completed.returncode == 0,
-        "status": "done" if completed.returncode == 0 else "failed",
+        "ok": cover_ok,
+        "status": "done" if cover_ok else "failed",
         "returncode": completed.returncode,
         "command": command,
+        "coverCommand": cover_command,
+        "coverReturncode": cover_result.returncode,
         "log": log_path.as_posix(),
         "output": output_path.as_posix(),
         "captions": captions_path.as_posix(),
+        "cover": cover_path.as_posix(),
     }
     return result
