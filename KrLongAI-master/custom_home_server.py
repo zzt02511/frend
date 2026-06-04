@@ -25,6 +25,8 @@ from cloud_runtime_client import (
     submit_tts_task,
 )
 from custom_home_agent import CaseInput, generate_outputs
+from ffmpeg_video_renderer import render_edit_plan
+from talking_video_editor import build_edit_plan, normalize_materials, safe_project_id, save_edit_plan
 
 
 ROOT = Path(__file__).resolve().parent
@@ -32,6 +34,7 @@ PROJECT_DIR = ROOT / "custom_home_projects"
 MATERIAL_DIR = ROOT / "custom_home_materials"
 AVATAR_DIR = ROOT / "digital_human_assets"
 PACKAGE_DIR = ROOT / "digital_human_packages"
+TALKING_VIDEO_DIR = ROOT / "talking_video_projects"
 
 
 def _safe_name(name: str) -> str:
@@ -67,6 +70,8 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return self._send_json(self._list_projects())
         if parsed.path == "/api/digital-human/packages":
             return self._send_json(self._list_digital_human_packages())
+        if parsed.path == "/api/talking-video/projects":
+            return self._send_json(self._list_talking_video_projects())
         if parsed.path == "/api/cloud/settings":
             return self._send_json(public_settings(load_settings()))
         if parsed.path == "/api/cloud/health":
@@ -83,6 +88,12 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             if not path.exists():
                 return self._send_error(HTTPStatus.NOT_FOUND, "制作包不存在")
             return self._send_json(json.loads(path.read_text(encoding="utf-8")))
+        if parsed.path.startswith("/api/talking-video/projects/"):
+            project_id = safe_project_id(unquote(parsed.path.removeprefix("/api/talking-video/projects/")))
+            path = TALKING_VIDEO_DIR / project_id / "project.json"
+            if not path.exists():
+                return self._send_error(HTTPStatus.NOT_FOUND, "talking video project not found")
+            return self._send_json(json.loads(path.read_text(encoding="utf-8")))
         return super().do_GET()
 
     def do_POST(self) -> None:
@@ -96,6 +107,14 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return self._save_project(self._read_json())
         if parsed.path == "/api/materials":
             return self._handle_material_upload()
+        if parsed.path == "/api/talking-video/projects":
+            return self._save_talking_video_project(self._read_json())
+        if parsed.path == "/api/talking-video/assets":
+            return self._handle_talking_video_asset_upload()
+        if parsed.path == "/api/talking-video/plan":
+            return self._generate_talking_video_plan(self._read_json())
+        if parsed.path == "/api/talking-video/render":
+            return self._render_talking_video(self._read_json())
         if parsed.path == "/api/refined-materials":
             return self._handle_refined_material_save()
         if parsed.path == "/api/digital-human/assets":
@@ -148,6 +167,14 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             if path.exists():
                 path.unlink()
             return self._send_json({"ok": True, "packages": self._list_digital_human_packages()})
+        if parsed.path.startswith("/api/talking-video/projects/"):
+            project_id = safe_project_id(unquote(parsed.path.removeprefix("/api/talking-video/projects/")))
+            path = TALKING_VIDEO_DIR / project_id
+            if path.exists():
+                import shutil
+
+                shutil.rmtree(path)
+            return self._send_json({"ok": True, "projects": self._list_talking_video_projects()})
         return self._send_error(HTTPStatus.NOT_FOUND, "接口不存在")
 
     def _read_json(self) -> dict:
@@ -345,6 +372,158 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
                 },
             }
         )
+
+    def _talking_project_dir(self, project_id: str) -> Path:
+        return TALKING_VIDEO_DIR / safe_project_id(project_id)
+
+    def _list_talking_video_projects(self) -> list[dict]:
+        TALKING_VIDEO_DIR.mkdir(exist_ok=True)
+        projects = []
+        for path in sorted(TALKING_VIDEO_DIR.glob("*/project.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            projects.append(
+                {
+                    "id": data.get("id") or path.parent.name,
+                    "name": data.get("name") or path.parent.name,
+                    "savedAt": data.get("savedAt") or "",
+                    "hasPlan": (path.parent / "edit_plan.json").exists(),
+                    "hasRender": (path.parent / "renders" / "final.mp4").exists(),
+                }
+            )
+        return projects
+
+    def _save_talking_video_project(self, payload: dict) -> None:
+        import datetime
+
+        name = str(payload.get("name") or "鍙ｆ挱鍓緫椤圭洰")
+        project_id = safe_project_id(payload.get("id") or name)
+        project_dir = self._talking_project_dir(project_id)
+        project_dir.mkdir(parents=True, exist_ok=True)
+        data = {
+            **payload,
+            "id": project_id,
+            "name": name,
+            "savedAt": datetime.datetime.now().isoformat(timespec="seconds"),
+        }
+        (project_dir / "project.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._send_json({"ok": True, "project": data, "projects": self._list_talking_video_projects()})
+
+    def _save_talking_video_uploaded_files(self, form: cgi.FieldStorage, target_dir: Path) -> list[dict]:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        files = form["files"] if "files" in form else []
+        if not isinstance(files, list):
+            files = [files]
+        saved = []
+        project_dir = target_dir.parents[1]
+        for item in files:
+            if not getattr(item, "filename", ""):
+                continue
+            filename = _safe_name(Path(item.filename).name)
+            target = target_dir / filename
+            stem = target.stem
+            suffix = target.suffix
+            counter = 2
+            while target.exists():
+                target = target_dir / f"{stem}-{counter}{suffix}"
+                counter += 1
+            with target.open("wb") as handle:
+                while True:
+                    chunk = item.file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+            saved.append(
+                {
+                    "name": target.name,
+                    "url": target.relative_to(project_dir).as_posix(),
+                    "size": target.stat().st_size,
+                }
+            )
+        return saved
+
+    def _handle_talking_video_asset_upload(self) -> None:
+        form = self._read_multipart()
+        project = safe_project_id(form.getfirst("project", "talking-video"))
+        role = safe_project_id(form.getfirst("role", "assets"))
+        project_dir = self._talking_project_dir(project)
+        saved = self._save_talking_video_uploaded_files(form, project_dir / "uploads" / role)
+        self._send_json({"ok": True, "project": project, "role": role, "files": saved})
+
+    def _validate_talking_video_media_path(self, value: object, field_name: str) -> str:
+        path_text = str(value or "").strip().replace("\\", "/")
+        if not path_text:
+            raise ValueError(f"invalid media path: {field_name}")
+        if "://" in path_text or Path(path_text).is_absolute():
+            raise ValueError(f"invalid media path: {field_name}")
+        parts = [part for part in path_text.split("/") if part]
+        if any(part == ".." for part in parts):
+            raise ValueError(f"invalid media path: {field_name}")
+        return "/".join(parts)
+
+    def _validate_talking_video_material_paths(self, materials: list[dict]) -> list[dict]:
+        validated = []
+        for index, material in enumerate(materials):
+            item = dict(material)
+            for key in ("url", "path"):
+                if item.get(key):
+                    item[key] = self._validate_talking_video_media_path(item[key], f"materials[{index}].{key}")
+            validated.append(item)
+        return validated
+
+    def _parse_execute_flag(self, value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return True
+        if isinstance(value, str):
+            return value.strip().lower() not in {"false", "0", "no", "off"}
+        return bool(value)
+
+    def _generate_talking_video_plan(self, payload: dict) -> None:
+        project_id = safe_project_id(payload.get("projectId") or payload.get("name") or "talking-video")
+        project_dir = self._talking_project_dir(project_id)
+        project_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            talking_video = self._validate_talking_video_media_path(
+                payload.get("talkingVideo") or "uploads/talking.mp4",
+                "talkingVideo",
+            )
+            material_payload = self._validate_talking_video_material_paths(payload.get("materials") or [])
+        except ValueError as error:
+            return self._send_error(HTTPStatus.BAD_REQUEST, str(error))
+        materials = normalize_materials(material_payload)
+        plan = build_edit_plan(
+            project_id=project_id,
+            talking_video=talking_video,
+            script=payload.get("script") or payload.get("transcript") or "",
+            materials=materials,
+            duration=payload.get("duration"),
+            aspect_ratio=payload.get("aspectRatio") or "9:16",
+            title=payload.get("title"),
+            cta=payload.get("cta"),
+        )
+        save_edit_plan(plan, project_dir / "edit_plan.json")
+        self._send_json({"ok": True, "projectId": project_id, "plan": plan})
+
+    def _render_talking_video(self, payload: dict) -> None:
+        project_id = safe_project_id(payload.get("projectId") or "")
+        if not project_id:
+            return self._send_error(HTTPStatus.BAD_REQUEST, "missing projectId")
+        project_dir = self._talking_project_dir(project_id)
+        plan_path = project_dir / "edit_plan.json"
+        if not plan_path.exists():
+            return self._send_error(HTTPStatus.NOT_FOUND, "edit plan not found")
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        result = render_edit_plan(
+            plan,
+            project_dir,
+            ffmpeg_path=payload.get("ffmpegPath") or "ffmpeg",
+            execute=self._parse_execute_flag(payload.get("execute", True)),
+        )
+        self._send_json(result)
 
     def _send_json(self, payload: object, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
