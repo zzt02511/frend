@@ -85,6 +85,22 @@ class TalkingVideoEditorTests(unittest.TestCase):
         self.assertIn(slots[0]["assetId"], {"asset-factory", "asset-case"})
         self.assertIn("匹配关键词", slots[0]["reason"])
 
+    def test_build_edit_plan_accepts_explicit_title_for_overlay_and_cover(self):
+        try:
+            plan = build_edit_plan(
+                project_id="标题测试",
+                talking_video="/videos/talking.mp4",
+                script="选门不要只看价格。到店看实物更放心。",
+                materials=[],
+                duration=12,
+                title="苏州门店选门避坑",
+            )
+        except TypeError as exc:
+            self.fail(f"build_edit_plan should accept title keyword: {exc}")
+
+        self.assertEqual(plan["overlays"]["title"], "苏州门店选门避坑")
+        self.assertEqual(plan["cover"]["text"], "苏州门店选门避坑")
+
     def test_build_edit_plan_degrades_when_materials_are_missing(self):
         plan = build_edit_plan(
             project_id="缺素材测试",

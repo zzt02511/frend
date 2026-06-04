@@ -245,6 +245,7 @@ def build_edit_plan(
     materials: list[MaterialAsset | dict[str, Any]] | None = None,
     duration: float | None = None,
     aspect_ratio: str = "9:16",
+    title: str | None = None,
     cta: str | None = None,
 ) -> dict[str, Any]:
     warnings: list[str] = []
@@ -287,7 +288,7 @@ def build_edit_plan(
         if unmatched:
             warnings.append(f"以下素材未匹配到脚本关键词：{'、'.join(unmatched)}")
 
-    title = infer_title(script_text)
+    plan_title = str(title or "").strip() or infer_title(script_text)
     return {
         "projectId": safe_project_id(project_id),
         "sourceTalkingVideo": talking_video,
@@ -297,9 +298,9 @@ def build_edit_plan(
         "materials": [asdict(asset) for asset in assets],
         "segments": segments,
         "captions": {"style": "bold-bottom", "highlightKeywords": True},
-        "overlays": {"title": title, "cta": cta or "预约到店看样", "progressBar": True},
+        "overlays": {"title": plan_title, "cta": cta or "预约到店看样", "progressBar": True},
         "audio": {"bgm": "light-commercial", "ducking": True, "soundEffects": ["whoosh-soft"]},
-        "cover": {"text": title, "frameAt": 1.2},
+        "cover": {"text": plan_title, "frameAt": 1.2},
         "render": {"output": "renders/final.mp4", "status": "draft"},
         "warnings": warnings,
     }
