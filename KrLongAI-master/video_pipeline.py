@@ -46,6 +46,56 @@ def file_record(path: Path) -> dict[str, Any]:
     }
 
 
+def ffprobe_path() -> str | None:
+    env_path = os.environ.get("FFPROBE_BINARY")
+    if env_path and Path(env_path).exists():
+        return env_path
+    bundled = ROOT / "ffmpeg" / "bin" / "ffprobe.exe"
+    if bundled.exists():
+        return str(bundled)
+    return shutil.which("ffprobe")
+
+
+def probe_media(path: Path) -> dict[str, Any]:
+    binary = ffprobe_path()
+    if not binary or not path.exists():
+        return {}
+    command = [
+        binary,
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration:stream=codec_type,width,height",
+        "-of",
+        "json",
+        str(path),
+    ]
+    try:
+        completed = subprocess.run(command, cwd=str(ROOT), capture_output=True, text=True, timeout=30)
+    except Exception:
+        return {}
+    if completed.returncode != 0:
+        return {}
+    try:
+        data = json.loads(completed.stdout or "{}")
+    except json.JSONDecodeError:
+        return {}
+    streams = data.get("streams") or []
+    video = next((item for item in streams if item.get("codec_type") == "video"), {})
+    has_audio = any(item.get("codec_type") == "audio" for item in streams)
+    duration = None
+    try:
+        duration = float((data.get("format") or {}).get("duration"))
+    except (TypeError, ValueError):
+        duration = None
+    return {
+        "duration": duration,
+        "width": video.get("width"),
+        "height": video.get("height"),
+        "hasAudio": has_audio,
+    }
+
+
 def local_path_from_url(url: str | None) -> Path | None:
     text = str(url or "").strip()
     if not text:
@@ -100,6 +150,7 @@ def list_pipeline_outputs(limit: int = 50) -> list[dict[str, Any]]:
                 "name": project_dir.name,
                 "updatedAt": latest.stat().st_mtime,
                 "video": file_record(latest),
+                "media": manifest_data.get("media") or probe_media(latest),
                 "subtitle": file_record(subtitle) if subtitle.exists() else None,
                 "manifest": file_record(manifest) if manifest.exists() else None,
                 "title": manifest_data.get("title") or manifest_data.get("name") or project_dir.name,
@@ -399,6 +450,7 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
     completed = subprocess.run(command, cwd=str(ROOT), capture_output=True, text=True, timeout=600)
     if completed.returncode != 0:
         return {"ok": False, "error": completed.stderr[-4000:], "command": command}
+    media = probe_media(output)
     manifest = project_dir / "manifest.json"
     manifest.write_text(
         json.dumps(
@@ -412,6 +464,7 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
                 "voice": payload.get("voice") or payload.get("voice_url") or {},
                 "output": file_record(output),
                 "subtitle": file_record(srt),
+                "media": media,
                 "createdAt": time.time(),
             },
             ensure_ascii=False,
@@ -424,5 +477,6 @@ def compose_with_ffmpeg(payload: dict[str, Any]) -> dict[str, Any]:
         "file": {"name": output.name, "url": relative_url(output), "size": output.stat().st_size},
         "subtitle": {"name": srt.name, "url": relative_url(srt), "size": srt.stat().st_size},
         "manifest": {"name": manifest.name, "url": relative_url(manifest), "size": manifest.stat().st_size},
+        "media": media,
         "command": command,
     }

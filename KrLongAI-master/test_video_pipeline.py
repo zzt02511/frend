@@ -144,6 +144,46 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertEqual(rows[0]["subtitle"]["name"], "subtitles.srt")
         self.assertEqual(rows[0]["manifest"]["name"], "manifest.json")
 
+    def test_probe_media_reads_video_dimensions_and_audio(self):
+        ffmpeg = video_pipeline.ffmpeg_path()
+        if not ffmpeg or not video_pipeline.ffprobe_path():
+            self.skipTest("FFmpeg/FFprobe runtime is not installed")
+
+        with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
+            temp = Path(temp_dir)
+            output = temp / "probe.mp4"
+            subprocess.run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=0x4b6b57:s=320x240:d=1",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:duration=1",
+                    "-shortest",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    str(output),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            media = video_pipeline.probe_media(output)
+
+        self.assertEqual(media["width"], 320)
+        self.assertEqual(media["height"], 240)
+        self.assertTrue(media["hasAudio"])
+        self.assertGreater(media["duration"], 0)
+
     def test_delete_pipeline_output_removes_only_named_output_dir(self):
         old_output_dir = video_pipeline.OUTPUT_DIR
         with tempfile.TemporaryDirectory(dir=video_pipeline.ROOT) as temp_dir:
@@ -189,6 +229,9 @@ class VideoPipelineTests(unittest.TestCase):
         self.assertGreater(result["file"]["size"], 0)
         self.assertEqual(result["file"]["url"].split("/")[-1].split(".")[-1], "mp4")
         self.assertEqual(result["manifest"]["name"], "manifest.json")
+        self.assertEqual(result["media"]["width"], 1080)
+        self.assertEqual(result["media"]["height"], 1920)
+        self.assertTrue(result["media"]["hasAudio"])
 
 
 class VideoPipelineHttpTests(unittest.TestCase):
@@ -295,6 +338,7 @@ class VideoPipelineHttpTests(unittest.TestCase):
                 {
                     "name": "demo",
                     "video": {"name": "demo.mp4", "url": "/digital_human_outputs/demo/demo.mp4", "size": 100},
+                    "media": {"duration": 2.0, "width": 1080, "height": 1920, "hasAudio": True},
                     "subtitle": None,
                     "videos": [],
                 }

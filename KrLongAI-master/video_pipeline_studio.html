@@ -369,6 +369,21 @@
       return `${bytes} B`;
     }
 
+    function formatDuration(seconds) {
+      const value = Number(seconds || 0);
+      if (!value) return "未知时长";
+      const minutes = Math.floor(value / 60);
+      const remain = Math.round(value % 60).toString().padStart(2, "0");
+      return `${minutes}:${remain}`;
+    }
+
+    function mediaLine(media) {
+      if (!media) return "媒体信息待检测";
+      const size = media.width && media.height ? `${media.width}x${media.height}` : "未知分辨率";
+      const audio = media.hasAudio ? "含音频" : "无音频";
+      return `${size} · ${formatDuration(media.duration)} · ${audio}`;
+    }
+
     function loadOutput(item) {
       state.final = item.video;
       el("finalSummary").textContent = `${item.video.name} (${formatSize(item.video.size)})`;
@@ -392,6 +407,7 @@
         card.innerHTML = `
           <b>${item.title || item.name}</b>
           <div class="asset-line">${detail}</div>
+          <div class="asset-line">${mediaLine(item.media)}</div>
           <div class="asset-line">${item.video?.name || ""}</div>
           <div class="actions">
             <button class="secondary" type="button" data-action="load">预览</button>
