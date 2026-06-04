@@ -208,12 +208,15 @@ def match_materials_for_segment(segment: dict[str, Any], materials: list[Materia
         return []
 
     start_offset = 1.0
-    segment_length = round(float(segment.get("end", 0)) - float(segment.get("start", 0)), 2)
-    max_slot_duration = round(segment_length - start_offset, 2)
+    segment_length = float(segment.get("end", 0)) - float(segment.get("start", 0))
+    max_slot_duration = segment_length - start_offset
     if max_slot_duration < 1.0:
         return []
 
-    duration = round(min(2.0, max_slot_duration), 2)
+    duration = int(min(2.0, max_slot_duration) * 100) / 100
+    if duration < 1.0:
+        return []
+
     reason_keywords = "、".join(best_matches[:3])
     return [
         {

@@ -143,6 +143,24 @@ class TalkingVideoEditorTests(unittest.TestCase):
 
         self.assertEqual(plan["segments"][0]["brollSlots"], [])
 
+    def test_broll_slots_do_not_round_up_near_two_second_segments(self):
+        plan = build_edit_plan(
+            project_id="边界时长测试",
+            talking_video="/videos/talking.mp4",
+            script="工厂质检。",
+            materials=[
+                {
+                    "id": "asset-factory",
+                    "name": "工厂质检.mp4",
+                    "url": "/custom_home_materials/demo/工厂质检.mp4",
+                    "notes": "工厂 质检",
+                }
+            ],
+            duration=1.999,
+        )
+
+        self.assertEqual(plan["segments"][0]["brollSlots"], [])
+
     def test_build_edit_plan_preserves_fractional_duration_target(self):
         plan = build_edit_plan(
             project_id="小数时长测试",
