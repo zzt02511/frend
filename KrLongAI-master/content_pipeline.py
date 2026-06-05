@@ -112,6 +112,11 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
             {"id": "tts", "tool": "CosyVoice or Duix voice service", "status": "waiting_runtime"},
             {"id": "avatar", "tool": "HeyGem / Duix.Avatar", "status": "waiting_runtime"},
             {"id": "editing", "tool": "FFmpeg + ImageMagick", "status": "waiting_runtime"},
+            {
+                "id": "talking_video_auto_edit",
+                "tool": "talking_video_editor.py + ffmpeg_video_renderer.py",
+                "status": "optional_local_runtime",
+            },
             {"id": "publish_package", "tool": "manual first, social-auto-upload later", "status": "ready"},
         ],
     }
@@ -201,7 +206,8 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
                 "2. 启动 HeyGem / Duix.Avatar，补全 `heygem_tasks/*.json` 里的 avatar/voice/payload。",
                 "3. 生成数字人口播视频到 `avatar_videos/`。",
                 "4. 用 FFmpeg/ImageMagick 执行 `ffmpeg_tasks/*.json` 对应剪辑合成。",
-                "5. 先人工发布，等账号稳定后再接 social-auto-upload。",
+                "5. 如果已有真人口播视频，打开 `talking_video_editor.html` 生成 `edit_plan.json` 并渲染 MP4 草稿。",
+                "6. 先人工发布，等账号稳定后再接 social-auto-upload。",
                 "",
             ]
         ),

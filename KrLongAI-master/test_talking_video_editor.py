@@ -246,5 +246,12 @@ class TalkingVideoEditorTests(unittest.TestCase):
             self.assertIn("保存方案要保留中文", decoded["segments"][0]["text"])
 
 
+    def test_gitignore_excludes_talking_video_runtime_outputs(self):
+        ignore = Path(".gitignore").read_text(encoding="utf-8")
+
+        self.assertIn("talking_video_projects/", ignore)
+        self.assertIn("talking_video_exports/", ignore)
+
+
 if __name__ == "__main__":
     unittest.main()
