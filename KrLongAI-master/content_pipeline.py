@@ -90,10 +90,47 @@ def _copy_materials(materials: list[dict[str, Any]], export_dir: Path) -> list[d
             target = target_dir / source_path.name
             if source_path.resolve() != target.resolve():
                 shutil.copy2(source_path, target)
-            copied.append({**item, "export_path": str(target)})
+            copied.append({**item, "export_path": target.as_posix()})
         else:
             copied.append(item)
     return copied
+
+
+def _build_talking_video_task(
+    project_name: str,
+    rows: list[dict[str, Any]],
+    materials: list[dict[str, Any]],
+    project_data: dict[str, Any],
+) -> dict[str, Any]:
+    config = project_data.get("talking_video") or {}
+    project_id = config.get("projectId") or config.get("project_id") or project_name
+    scripts = []
+    for row in rows:
+        scripts.append(
+            {
+                "index": int(row.get("index") or len(scripts) + 1),
+                "title": (row.get("titles") or [""])[0],
+                "script": row.get("rewritten_script") or row.get("script") or "",
+                "cover": row.get("cover") or "",
+                "plan": row.get("xiaohongshu_video_plan") or row.get("storyboard") or [],
+            }
+        )
+    return {
+        "projectId": project_id,
+        "sourceTalkingVideo": config.get("sourceTalkingVideo") or config.get("source") or "uploads/talking.mp4",
+        "aspectRatio": config.get("aspectRatio") or config.get("aspect_ratio") or "9:16",
+        "durationTarget": config.get("durationTarget") or config.get("duration") or "",
+        "materials": materials,
+        "scripts": scripts,
+        "workbench": "talking_video_editor.html",
+        "editPlan": f"talking_video_projects/{project_id}/edit_plan.json",
+        "render": {
+            "output": f"talking_video_exports/{project_id}/final.mp4",
+            "cover": f"talking_video_exports/{project_id}/cover.jpg",
+            "log": f"talking_video_projects/{project_id}/logs/ffmpeg.log",
+        },
+        "status": "ready_for_local_workbench",
+    }
 
 
 def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_data: dict[str, Any], export_dir: Path) -> None:
@@ -102,6 +139,7 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
     package_dir.mkdir(parents=True, exist_ok=True)
 
     materials = _copy_materials(_collect_materials(case, project_data), package_dir)
+    talking_video_task = _build_talking_video_task(project_name, rows, materials, project_data)
     pipeline = {
         "project": project_name,
         "case": asdict(case),
@@ -116,6 +154,7 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
                 "id": "talking_video_auto_edit",
                 "tool": "talking_video_editor.py + ffmpeg_video_renderer.py",
                 "status": "optional_local_runtime",
+                "task_file": "talking_video_task.json",
             },
             {"id": "publish_package", "tool": "manual first, social-auto-upload later", "status": "ready"},
         ],
@@ -123,6 +162,7 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
     _write_json(package_dir / "pipeline.json", pipeline)
     _write_json(package_dir / "case.json", asdict(case))
     _write_json(package_dir / "rows.json", rows)
+    _write_json(package_dir / "talking_video_task.json", talking_video_task)
 
     note_index = []
     heygem_tasks = []
@@ -191,6 +231,10 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
             }
         )
 
+    talking_task_path = str(package_dir / "talking_video_task.json")
+    for row in publish_rows:
+        row["talking_video_task"] = talking_task_path
+
     _write_text(
         package_dir / "README.md",
         "\n".join(
@@ -199,6 +243,10 @@ def build_pipeline_package(case: CaseInput, rows: list[dict[str, Any]], project_
                 "",
                 "## 小红书图文",
                 *note_index,
+                "",
+                "## Talking video task",
+                "",
+                "- `talking_video_task.json` collects the local workbench source video, materials, scripts, and expected render outputs.",
                 "",
                 "## 下一步",
                 "",
