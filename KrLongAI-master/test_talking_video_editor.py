@@ -266,6 +266,13 @@ class TalkingVideoEditorTests(unittest.TestCase):
         ):
             self.assertIn(marker, html)
 
+    def test_workbench_exposes_ffmpeg_path_input_for_render_requests(self):
+        html = Path("talking_video_editor.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="ffmpegPath"', html)
+        self.assertIn('document.getElementById("ffmpegPath").value.trim()', html)
+        self.assertIn("payload.ffmpegPath", html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -375,6 +375,10 @@
 ]</textarea>
           <div id="materialPreview" class="material-preview" aria-live="polite"></div>
 
+          <label for="ffmpegPath">FFmpeg 路径</label>
+          <input id="ffmpegPath" value="D:\ffmpeg-8.0.1-full_build\bin\FFmpeg.exe" />
+          <div class="hint">留空时使用系统 PATH 中的 ffmpeg；Windows 路径可直接粘贴。</div>
+
           <div class="actions">
             <button class="primary" type="button" onclick="createProjectAndPlan()">生成剪辑方案</button>
             <button class="secondary" type="button" onclick="renderPlan()">渲染 MP4</button>
@@ -630,10 +634,13 @@
           }
           setRenderStage("渲染");
           setStatus("正在请求渲染...");
+          const ffmpegPath = document.getElementById("ffmpegPath").value.trim();
+          const payload = {projectId: currentProjectId};
+          if (ffmpegPath) payload.ffmpegPath = ffmpegPath;
           const result = await fetch("/api/talking-video/render", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({projectId: currentProjectId})
+            body: JSON.stringify(payload)
           }).then((response) => response.json());
           document.getElementById("renderOutput").textContent = JSON.stringify(result, null, 2);
           updateMetrics(lastPlan, result.status || "unknown");
