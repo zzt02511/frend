@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -17,13 +18,30 @@ def _format_srt_time(seconds: float) -> str:
     return f"{hours:02}:{minutes:02}:{whole_seconds:02},{milliseconds:03}"
 
 
+FILLER_WORD_RE = re.compile(r"\b(?:um|uh|erm|ah)\b[,，、]?\s*|(?:嗯|啊|呃|这个|那个|然后呢|就是说)[,，、]?", re.IGNORECASE)
+
+
+def _cleanup_settings(plan: dict[str, Any]) -> dict[str, Any]:
+    return plan.get("cleanup") if isinstance(plan.get("cleanup"), dict) else {}
+
+
+def _clean_caption_text(text: str, plan: dict[str, Any]) -> str:
+    if not _cleanup_settings(plan).get("removeFillerWords"):
+        return str(text or "")
+    cleaned = FILLER_WORD_RE.sub("", str(text or ""))
+    cleaned = re.sub(r"\s*[,，、]\s+", " ", cleaned)
+    cleaned = re.sub(r"\s+([.!?。！？])", r"\1", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned.strip()
+
+
 def write_srt(plan: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     blocks = []
     for index, segment in enumerate(plan.get("segments", []), start=1):
         start = _format_srt_time(float(segment.get("start", 0.0)))
         end = _format_srt_time(float(segment.get("end", 0.0)))
-        text = str(segment.get("text", ""))
+        text = _clean_caption_text(str(segment.get("text", "")), plan)
         blocks.append(f"{index}\n{start} --> {end}\n{text}")
 
     path.write_text("\n\n".join(blocks) + ("\n" if blocks else ""), encoding="utf-8")
@@ -67,6 +85,135 @@ def _captions_path(project_dir: Path) -> Path:
 def _output_path(plan: dict[str, Any], project_dir: Path) -> Path:
     render_settings = plan.get("render") if isinstance(plan.get("render"), dict) else {}
     return resolve_project_path(render_settings.get("output"), project_dir, "renders/final.mp4")
+
+
+def _source_path(plan: dict[str, Any], project_dir: Path) -> Path:
+    return resolve_project_path(plan.get("sourceTalkingVideo"), project_dir, "uploads/talking.mp4")
+
+
+def _preprocessed_source_path(project_dir: Path) -> Path:
+    return project_dir / "processed" / "talking_trimmed.mp4"
+
+
+def _effective_source_path(plan: dict[str, Any], project_dir: Path) -> Path:
+    if _cleanup_settings(plan).get("trimSilence"):
+        return _preprocessed_source_path(project_dir)
+    return _source_path(plan, project_dir)
+
+
+def parse_silence_intervals(log_text: str) -> list[tuple[float, float]]:
+    starts: list[float] = []
+    intervals: list[tuple[float, float]] = []
+    for line in str(log_text or "").splitlines():
+        start_match = re.search(r"silence_start:\s*([0-9.]+)", line)
+        if start_match:
+            starts.append(float(start_match.group(1)))
+            continue
+        end_match = re.search(r"silence_end:\s*([0-9.]+)", line)
+        if end_match and starts:
+            start = starts.pop(0)
+            end = float(end_match.group(1))
+            if end > start:
+                intervals.append((start, end))
+    return intervals
+
+
+def _duration_target(plan: dict[str, Any]) -> float | None:
+    try:
+        value = float(plan.get("durationTarget") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    if value > 0:
+        return value
+    segments = plan.get("segments") or []
+    if segments:
+        try:
+            return float(segments[-1].get("end") or 0)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def build_silence_detect_command(plan: dict[str, Any], project_dir: Path, ffmpeg_path: str = "ffmpeg") -> list[str]:
+    cleanup = _cleanup_settings(plan)
+    threshold = str(cleanup.get("silenceThreshold") or "-35dB")
+    minimum = float(cleanup.get("minimumSilence") or 0.35)
+    source_path = _source_path(plan, project_dir)
+    return [
+        ffmpeg_path,
+        "-y",
+        "-i",
+        source_path.as_posix(),
+        "-af",
+        f"silencedetect=n={threshold}:d={minimum:.2f}",
+        "-f",
+        "null",
+        "-",
+    ]
+
+
+def build_silence_trim_command(
+    plan: dict[str, Any],
+    project_dir: Path,
+    ffmpeg_path: str = "ffmpeg",
+    silence_intervals: list[tuple[float, float]] | None = None,
+) -> list[str]:
+    source_path = _source_path(plan, project_dir)
+    output_path = _preprocessed_source_path(project_dir)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    intervals = sorted(silence_intervals or [])
+    if not intervals:
+        return [
+            ffmpeg_path,
+            "-y",
+            "-i",
+            source_path.as_posix(),
+            "-c",
+            "copy",
+            output_path.as_posix(),
+        ]
+
+    keep_ranges: list[tuple[float, float | None]] = []
+    cursor = 0.0
+    for start, end in intervals:
+        if start > cursor + 0.03:
+            keep_ranges.append((cursor, start))
+        cursor = max(cursor, end)
+    duration = _duration_target(plan)
+    if duration and cursor < duration - 0.03:
+        keep_ranges.append((cursor, duration))
+    elif duration is None:
+        keep_ranges.append((cursor, None))
+    if not keep_ranges:
+        keep_ranges.append((0.0, duration))
+
+    chains: list[str] = []
+    concat_inputs: list[str] = []
+    for index, (start, end) in enumerate(keep_ranges):
+        end_part = f":end={end:.2f}" if end is not None else ""
+        chains.append(f"[0:v]trim=start={start:.2f}{end_part},setpts=PTS-STARTPTS[v{index}]")
+        chains.append(f"[0:a]atrim=start={start:.2f}{end_part},asetpts=PTS-STARTPTS[a{index}]")
+        concat_inputs.append(f"[v{index}][a{index}]")
+    chains.append(f"{''.join(concat_inputs)}concat=n={len(keep_ranges)}:v=1:a=1[vout][aout]")
+    return [
+        ffmpeg_path,
+        "-y",
+        "-i",
+        source_path.as_posix(),
+        "-filter_complex",
+        ";".join(chains),
+        "-map",
+        "[vout]",
+        "-map",
+        "[aout]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-c:a",
+        "aac",
+        output_path.as_posix(),
+    ]
 
 
 def _asset_by_id(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -208,7 +355,7 @@ def build_ffmpeg_command(
 ) -> list[str]:
     project_dir = Path(project_dir)
 
-    source_path = resolve_project_path(plan.get("sourceTalkingVideo"), project_dir, "uploads/talking.mp4")
+    source_path = _effective_source_path(plan, project_dir)
 
     captions_path = _captions_path(project_dir)
     captions_path.parent.mkdir(parents=True, exist_ok=True)
@@ -262,7 +409,7 @@ def build_cover_command(
     ffmpeg_path: str = "ffmpeg",
 ) -> list[str]:
     project_dir = Path(project_dir)
-    source_path = resolve_project_path(plan.get("sourceTalkingVideo"), project_dir, "uploads/talking.mp4")
+    source_path = _effective_source_path(plan, project_dir)
     cover_settings = plan.get("cover") if isinstance(plan.get("cover"), dict) else {}
     frame_at = str(cover_settings.get("frameAt") or 1.2)
     output_path = project_dir / "renders" / "cover.jpg"
@@ -334,8 +481,13 @@ def render_edit_plan(
     log_path = logs_dir / "ffmpeg.log"
 
     command: list[str] = []
+    preprocess_command: list[str] = []
+    preprocess_detect_command: list[str] = []
     try:
         output_path = _output_path(plan, project_dir)
+        if _cleanup_settings(plan).get("trimSilence"):
+            preprocess_detect_command = build_silence_detect_command(plan, project_dir, ffmpeg_path)
+            preprocess_command = preprocess_detect_command
         command = build_ffmpeg_command(plan, project_dir, ffmpeg_path)
     except ValueError as error:
         output_path = project_dir / "renders" / "final.mp4"
@@ -344,12 +496,80 @@ def render_edit_plan(
         return status
 
     if not execute:
-        return {"ok": True, "status": "command_ready", "command": command}
+        result = {"ok": True, "status": "command_ready", "command": command}
+        if preprocess_detect_command:
+            result["preprocessCommand"] = preprocess_detect_command
+            result["preprocessedSource"] = _preprocessed_source_path(project_dir).as_posix()
+        return result
 
     if not ffmpeg_available(ffmpeg_path):
         status = render_status_when_ffmpeg_missing(command)
+        if preprocess_command:
+            status["preprocessCommand"] = preprocess_command
         log_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
         return status
+
+    preprocess_log = ""
+    if preprocess_detect_command:
+        try:
+            detected = subprocess.run(
+                preprocess_detect_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+        except OSError as error:
+            status = _failed_render_status(preprocess_detect_command, log_path, output_path, captions_path, str(error))
+            status["preprocessCommand"] = preprocess_detect_command
+            log_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+            return status
+        detect_text = (detected.stdout or "") + (detected.stderr or "")
+        preprocess_log = "# silence detect\n" + detect_text
+        if detected.returncode != 0:
+            status = _failed_render_status(
+                preprocess_detect_command,
+                log_path,
+                output_path,
+                captions_path,
+                "FFmpeg silence detection failed",
+                detected.returncode,
+            )
+            status["preprocessCommand"] = preprocess_detect_command
+            log_path.write_text(preprocess_log, encoding="utf-8")
+            return status
+
+        preprocess_command = build_silence_trim_command(plan, project_dir, ffmpeg_path, parse_silence_intervals(detect_text))
+        try:
+            preprocessed = subprocess.run(
+                preprocess_command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+        except OSError as error:
+            status = _failed_render_status(preprocess_command, log_path, output_path, captions_path, str(error))
+            status["preprocessDetectCommand"] = preprocess_detect_command
+            status["preprocessCommand"] = preprocess_command
+            log_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+            return status
+        preprocess_log += "\n# preprocess\n" + (preprocessed.stdout or "") + (preprocessed.stderr or "")
+        if preprocessed.returncode != 0:
+            status = _failed_render_status(
+                preprocess_command,
+                log_path,
+                output_path,
+                captions_path,
+                "FFmpeg silence trim preprocessing failed",
+                preprocessed.returncode,
+            )
+            status["preprocessDetectCommand"] = preprocess_detect_command
+            status["preprocessCommand"] = preprocess_command
+            log_path.write_text(preprocess_log, encoding="utf-8")
+            return status
 
     try:
         completed = subprocess.run(
@@ -365,7 +585,7 @@ def render_edit_plan(
         log_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
         return status
 
-    log_text = (completed.stdout or "") + (completed.stderr or "")
+    log_text = preprocess_log + (("\n# render\n") if preprocess_log else "") + (completed.stdout or "") + (completed.stderr or "")
     log_path.write_text(log_text, encoding="utf-8")
 
     if completed.returncode != 0:
@@ -374,6 +594,8 @@ def render_edit_plan(
             "status": "failed",
             "returncode": completed.returncode,
             "command": command,
+            "preprocessDetectCommand": preprocess_detect_command or None,
+            "preprocessCommand": preprocess_command or None,
             "log": log_path.as_posix(),
             "output": output_path.as_posix(),
             "captions": captions_path.as_posix(),
@@ -410,6 +632,8 @@ def render_edit_plan(
         "status": "done" if cover_ok else "failed",
         "returncode": completed.returncode,
         "command": command,
+        "preprocessDetectCommand": preprocess_detect_command or None,
+        "preprocessCommand": preprocess_command or None,
         "coverCommand": cover_command,
         "coverReturncode": cover_result.returncode,
         "log": log_path.as_posix(),

@@ -482,6 +482,16 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             return value.strip().lower() not in {"false", "0", "no", "off"}
         return bool(value)
 
+    def _resolve_talking_video_ffmpeg_path(self, value: object, project_dir: Path) -> str:
+        path_text = str(value or "").strip()
+        if not path_text:
+            return "ffmpeg"
+        candidate = Path(path_text)
+        if candidate.is_absolute() or ("/" not in path_text and "\\" not in path_text):
+            return path_text
+        safe_path = self._validate_talking_video_media_path(path_text, "ffmpegPath")
+        return (project_dir / safe_path).as_posix()
+
     def _generate_talking_video_plan(self, payload: dict) -> None:
         project_id = safe_project_id(payload.get("projectId") or payload.get("name") or "talking-video")
         project_dir = self._talking_project_dir(project_id)
@@ -505,6 +515,12 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
             title=payload.get("title"),
             cta=payload.get("cta"),
         )
+        plan["cleanup"] = {
+            "trimSilence": self._parse_execute_flag(payload.get("trimSilence", False)),
+            "removeFillerWords": self._parse_execute_flag(payload.get("removeFillerWords", False)),
+            "silenceThreshold": payload.get("silenceThreshold") or "-35dB",
+            "minimumSilence": payload.get("minimumSilence") or 0.35,
+        }
         save_edit_plan(plan, project_dir / "edit_plan.json")
         self._send_json({"ok": True, "projectId": project_id, "plan": plan})
 
@@ -520,7 +536,7 @@ class CustomHomeHandler(SimpleHTTPRequestHandler):
         result = render_edit_plan(
             plan,
             project_dir,
-            ffmpeg_path=payload.get("ffmpegPath") or "ffmpeg",
+            ffmpeg_path=self._resolve_talking_video_ffmpeg_path(payload.get("ffmpegPath"), project_dir),
             execute=self._parse_execute_flag(payload.get("execute", True)),
         )
         self._send_json(result)

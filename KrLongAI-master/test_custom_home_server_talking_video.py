@@ -147,6 +147,39 @@ class TalkingVideoServerTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["status"], "command_ready")
 
+    def test_render_endpoint_resolves_project_relative_ffmpeg_path(self):
+        _, created = self.request_json("POST", "/api/talking-video/projects", {"name": "demo"})
+        project_id = created["project"]["id"]
+        self.request_json(
+            "POST",
+            "/api/talking-video/plan",
+            {
+                "projectId": project_id,
+                "talkingVideo": "uploads/talking.mp4",
+                "script": "Choose materials carefully.",
+                "duration": 8,
+                "materials": [],
+            },
+        )
+
+        status, result = self.request_json(
+            "POST",
+            "/api/talking-video/render",
+            {
+                "projectId": project_id,
+                "ffmpegPath": "uploads/tools/FFmpeg.exe",
+                "execute": False,
+            },
+        )
+
+        self.assertEqual(status, 200)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "command_ready")
+        self.assertEqual(
+            result["command"][0].replace("\\", "/"),
+            (server_module.TALKING_VIDEO_DIR / project_id / "uploads" / "tools" / "FFmpeg.exe").as_posix(),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

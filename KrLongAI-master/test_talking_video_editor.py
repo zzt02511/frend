@@ -273,6 +273,22 @@ class TalkingVideoEditorTests(unittest.TestCase):
         self.assertIn('document.getElementById("ffmpegPath").value.trim()', html)
         self.assertIn("payload.ffmpegPath", html)
 
+    def test_workbench_exposes_file_upload_and_cleanup_controls(self):
+        html = Path("talking_video_editor.html").read_text(encoding="utf-8")
+
+        for marker in (
+            'id="talkingVideoFile"',
+            'id="materialFiles"',
+            'id="ffmpegFile"',
+            'id="trimSilence"',
+            'id="removeFillerWords"',
+            "function uploadSelectedFiles",
+            '"/api/talking-video/assets"',
+            "trimSilence:",
+            "removeFillerWords:",
+        ):
+            self.assertIn(marker, html)
+
 
 if __name__ == "__main__":
     unittest.main()

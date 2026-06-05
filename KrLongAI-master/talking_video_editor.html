@@ -118,6 +118,13 @@
         padding: 9px 10px;
         outline: none;
       }
+      input[type="checkbox"] {
+        width: auto;
+        margin-right: 6px;
+      }
+      input[type="file"] {
+        padding: 7px 10px;
+      }
       textarea {
         min-height: 118px;
         resize: vertical;
@@ -346,6 +353,8 @@
 
           <label for="talkingVideo">口播视频路径</label>
           <input id="talkingVideo" value="uploads/talking.mp4" />
+          <input id="talkingVideoFile" type="file" accept="video/*" />
+          <button class="secondary" type="button" onclick="uploadSelectedFiles('talking', 'talkingVideoFile')">上传口播视频</button>
           <div id="workspaceHint" class="hint"></div>
 
           <div class="row">
@@ -373,11 +382,24 @@
   {"name":"factory-check.mp4","url":"uploads/assets/factory-check.mp4","tags":["工厂","质检"]},
   {"name":"install-case.mp4","url":"uploads/assets/install-case.mp4","tags":["安装","案例"]}
 ]</textarea>
+          <input id="materialFiles" type="file" accept="image/*,video/*" multiple />
+          <button class="secondary" type="button" onclick="uploadSelectedFiles('assets', 'materialFiles')">上传素材</button>
           <div id="materialPreview" class="material-preview" aria-live="polite"></div>
 
           <label for="ffmpegPath">FFmpeg 路径</label>
           <input id="ffmpegPath" value="D:\ffmpeg-8.0.1-full_build\bin\FFmpeg.exe" />
+          <input id="ffmpegFile" type="file" accept=".exe" />
+          <button class="secondary" type="button" onclick="uploadSelectedFiles('tools', 'ffmpegFile')">上传 FFmpeg.exe</button>
           <div class="hint">留空时使用系统 PATH 中的 ffmpeg；Windows 路径可直接粘贴。</div>
+
+          <label>
+            <input id="trimSilence" type="checkbox" checked />
+            剪掉无声片段
+          </label>
+          <label>
+            <input id="removeFillerWords" type="checkbox" checked />
+            字幕去掉语气词和口语词
+          </label>
 
           <div class="actions">
             <button class="primary" type="button" onclick="createProjectAndPlan()">生成剪辑方案</button>
@@ -507,6 +529,61 @@
         });
       }
 
+      function tagsFromFilename(name) {
+        const stem = String(name || "").replace(/\.[^.]+$/, "");
+        return stem.split(/[-_\s]+/).filter((part) => part.length > 1).slice(0, 5);
+      }
+
+      function mergeUploadedMaterials(files) {
+        const current = readMaterials();
+        files.forEach((file) => {
+          current.push({
+            name: file.name,
+            url: file.url,
+            tags: tagsFromFilename(file.name)
+          });
+        });
+        document.getElementById("materials").value = JSON.stringify(current, null, 2);
+        renderMaterialPreview(current, lastPlan);
+      }
+
+      async function uploadSelectedFiles(role, inputId) {
+        try {
+          setErrorSummary("");
+          const input = document.getElementById(inputId);
+          const files = Array.from(input.files || []);
+          if (!files.length) {
+            setStatus("请先选择文件。", true);
+            return;
+          }
+          const project = document.getElementById("projectName").value.trim() || "talking-video";
+          const form = new FormData();
+          form.append("project", project);
+          form.append("role", role);
+          files.forEach((file) => form.append("files", file));
+          setStatus("正在上传文件...");
+          const result = await fetch("/api/talking-video/assets", {
+            method: "POST",
+            body: form
+          }).then((response) => response.json());
+          if (!result.ok) throw new Error(result.error || "文件上传失败");
+          currentProjectId = result.project || currentProjectId;
+          if (role === "talking" && result.files[0]) {
+            document.getElementById("talkingVideo").value = result.files[0].url;
+            updateWorkspaceHint();
+          } else if (role === "assets") {
+            mergeUploadedMaterials(result.files || []);
+          } else if (role === "tools" && result.files[0]) {
+            document.getElementById("ffmpegPath").value = result.files[0].url;
+          }
+          input.value = "";
+          setStatus(`已上传 ${files.length} 个文件。`);
+        } catch (error) {
+          setErrorSummary(error.message);
+          setStatus(`上传失败：${error.message}`, true);
+        }
+      }
+
       function validateInputs() {
         setErrorSummary("");
         const talkingVideo = document.getElementById("talkingVideo").value.trim();
@@ -602,7 +679,9 @@
             script: document.getElementById("script").value,
             duration: Number(document.getElementById("duration").value || 60),
             aspectRatio: document.getElementById("aspectRatio").value,
-            materials: validation.materials
+            materials: validation.materials,
+            trimSilence: document.getElementById("trimSilence").checked,
+            removeFillerWords: document.getElementById("removeFillerWords").checked
           };
           const result = await fetch("/api/talking-video/plan", {
             method: "POST",
