@@ -16,6 +16,8 @@
         --work: #26342d;
         --accent: #4f7a63;
         --warn: #9b5d2e;
+        --danger: #9f3535;
+        --ok: #2f7350;
       }
       * {
         box-sizing: border-box;
@@ -168,6 +170,83 @@
         line-height: 1.6;
         white-space: pre-wrap;
       }
+      .hint {
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      .error-summary {
+        margin-top: 10px;
+        border: 1px solid rgba(159, 53, 53, 0.28);
+        border-radius: 6px;
+        background: rgba(159, 53, 53, 0.06);
+        color: var(--danger);
+        padding: 9px 10px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+      .error-summary:empty {
+        display: none;
+      }
+      .material-preview {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .material-card {
+        border: 1px solid #dde4db;
+        border-radius: 6px;
+        background: #fbfcfa;
+        padding: 9px 10px;
+      }
+      .material-card strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .material-card small {
+        display: block;
+        color: var(--muted);
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      .material-card.used {
+        border-color: rgba(47, 115, 80, 0.45);
+        background: rgba(47, 115, 80, 0.06);
+      }
+      .material-card.unused {
+        border-color: rgba(155, 93, 46, 0.35);
+      }
+      .render-stage {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .stage-step {
+        border: 1px solid #dce4db;
+        border-radius: 6px;
+        background: #fbfcfa;
+        color: var(--muted);
+        padding: 8px;
+        text-align: center;
+        font-size: 12px;
+      }
+      .stage-step.active {
+        border-color: var(--accent);
+        color: var(--work);
+        background: rgba(79, 122, 99, 0.1);
+      }
+      .stage-step.done {
+        border-color: rgba(47, 115, 80, 0.5);
+        color: var(--ok);
+      }
+      .stage-step.failed {
+        border-color: rgba(159, 53, 53, 0.45);
+        color: var(--danger);
+        background: rgba(159, 53, 53, 0.06);
+      }
       .workspace {
         display: grid;
         grid-template-rows: auto auto;
@@ -236,6 +315,9 @@
         .segment {
           grid-template-columns: 1fr;
         }
+        .render-stage {
+          grid-template-columns: 1fr 1fr;
+        }
       }
     </style>
   </head>
@@ -264,6 +346,7 @@
 
           <label for="talkingVideo">口播视频路径</label>
           <input id="talkingVideo" value="uploads/talking.mp4" />
+          <div id="workspaceHint" class="hint"></div>
 
           <div class="row">
             <div>
@@ -290,12 +373,14 @@
   {"name":"factory-check.mp4","url":"uploads/assets/factory-check.mp4","tags":["工厂","质检"]},
   {"name":"install-case.mp4","url":"uploads/assets/install-case.mp4","tags":["安装","案例"]}
 ]</textarea>
+          <div id="materialPreview" class="material-preview" aria-live="polite"></div>
 
           <div class="actions">
             <button class="primary" type="button" onclick="createProjectAndPlan()">生成剪辑方案</button>
             <button class="secondary" type="button" onclick="renderPlan()">渲染 MP4</button>
           </div>
           <div id="status" class="status">等待操作。</div>
+          <div id="errorSummary" class="error-summary"></div>
         </section>
 
         <section class="workspace">
@@ -308,6 +393,7 @@
             <h2>edit_plan.json</h2>
             <textarea id="planJson" class="json-box" spellcheck="false" readonly></textarea>
             <label>渲染结果</label>
+            <div id="renderStage" class="render-stage" aria-label="渲染阶段"></div>
             <div id="renderOutput" class="render-output">暂无渲染结果。</div>
           </section>
         </section>
@@ -317,11 +403,35 @@
     <script>
       let currentProjectId = "";
       let lastPlan = null;
+      const renderStages = ["准备", "生成方案", "渲染", "完成"];
 
       function setStatus(text, isWarning = false) {
         const box = document.getElementById("status");
         box.textContent = text;
         box.className = isWarning ? "status warn" : "status";
+      }
+
+      function setErrorSummary(text) {
+        document.getElementById("errorSummary").textContent = text || "";
+      }
+
+      function setRenderStage(activeStage, failed = false) {
+        const box = document.getElementById("renderStage");
+        box.innerHTML = "";
+        const activeIndex = renderStages.indexOf(activeStage);
+        renderStages.forEach((stage, index) => {
+          const item = document.createElement("div");
+          item.className = "stage-step";
+          if (failed && stage === activeStage) {
+            item.classList.add("failed");
+          } else if (index < activeIndex || activeStage === "完成") {
+            item.classList.add("done");
+          } else if (stage === activeStage) {
+            item.classList.add("active");
+          }
+          item.textContent = stage;
+          box.appendChild(item);
+        });
       }
 
       function updateMetrics(plan, renderStatus) {
@@ -337,6 +447,94 @@
         const raw = document.getElementById("materials").value.trim();
         if (!raw) return [];
         return JSON.parse(raw);
+      }
+
+      function inferMaterialType(material) {
+        const source = `${material.name || ""} ${material.url || material.path || ""}`.toLowerCase();
+        if (/\.(mp4|mov|avi|mkv|webm)(\?|$)/.test(source)) return "video";
+        if (/\.(jpg|jpeg|png|webp|bmp)(\?|$)/.test(source)) return "image";
+        return "unknown";
+      }
+
+      function updateWorkspaceHint() {
+        const name = document.getElementById("projectName").value.trim() || "talking-video";
+        const safeName = name.replace(/[<>:"/\\|?*\x00-\x1f]+/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^[ .-]+|[ .-]+$/g, "") || "talking-video";
+        const mediaPath = document.getElementById("talkingVideo").value.trim() || "uploads/talking.mp4";
+        const hint = [
+          `项目目录：talking_video_projects/${safeName}/`,
+          `主视频应放在：talking_video_projects/${safeName}/${mediaPath.replace(/^[/\\]+/, "")}`
+        ];
+        if (/\.mp4$/i.test(mediaPath)) {
+          hint.push("若文件实际名是 talking.mp4.mp4，请把路径同步改成 uploads/talking.mp4.mp4。");
+        }
+        document.getElementById("workspaceHint").textContent = hint.join(" ");
+      }
+
+      function renderMaterialPreview(materials = [], plan = null) {
+        const box = document.getElementById("materialPreview");
+        box.innerHTML = "";
+        if (!materials.length) {
+          box.textContent = "暂无素材。";
+          return;
+        }
+        const usedIds = new Set();
+        ((plan && plan.segments) || []).forEach((segment) => {
+          (segment.brollSlots || []).forEach((slot) => usedIds.add(slot.assetId));
+        });
+        const planAssets = new Map(((plan && plan.materials) || []).map((asset) => [asset.url || asset.path || asset.name, asset.id]));
+        materials.forEach((material) => {
+          const key = material.url || material.path || material.name || "";
+          const assetId = material.id || planAssets.get(key) || "";
+          const tags = Array.isArray(material.tags) ? material.tags.join("、") : (material.tags || "无标签");
+          const card = document.createElement("div");
+          card.className = "material-card";
+          if (plan) card.classList.add(usedIds.has(assetId) ? "used" : "unused");
+
+          const title = document.createElement("strong");
+          title.textContent = material.name || key || "未命名素材";
+          const meta = document.createElement("small");
+          meta.textContent = `${inferMaterialType(material)} · ${key || "缺少路径"}`;
+          const tagLine = document.createElement("small");
+          tagLine.textContent = `标签：${tags}`;
+          const state = document.createElement("small");
+          state.textContent = plan ? (usedIds.has(assetId) ? "已匹配到 B-roll" : "未匹配到脚本关键词") : "等待生成方案";
+          card.append(title, meta, tagLine, state);
+          box.appendChild(card);
+        });
+      }
+
+      function validateInputs() {
+        setErrorSummary("");
+        const talkingVideo = document.getElementById("talkingVideo").value.trim();
+        if (!talkingVideo) {
+          return {ok: false, error: "请填写口播视频路径。"};
+        }
+        if (/^[a-z]+:\/\//i.test(talkingVideo)) {
+          return {ok: false, error: "口播视频路径请使用项目内相对路径，不要使用 URL。"};
+        }
+        let materials;
+        try {
+          materials = readMaterials();
+        } catch (error) {
+          return {ok: false, error: `素材 JSON 格式错误：${error.message}`};
+        }
+        if (!Array.isArray(materials)) {
+          return {ok: false, error: "素材 JSON 顶层必须是数组。"};
+        }
+        return {ok: true, materials};
+      }
+
+      function summarizeRenderResult(result) {
+        if (result.ok) {
+          return `输出：${result.output || "未返回"}\n封面：${result.cover || "未返回"}\n日志：${result.log || "未返回"}`;
+        }
+        const lines = [`状态：${result.status || "failed"}`];
+        if (result.error) lines.push(`错误：${result.error}`);
+        if (result.returncode !== undefined) lines.push(`FFmpeg 返回码：${result.returncode}`);
+        if (result.log) lines.push(`日志：${result.log}`);
+        if (result.output) lines.push(`输出：${result.output}`);
+        if (result.status === "missing_ffmpeg") lines.push("请检查 FFmpeg 路径是否可执行。");
+        return lines.join("\n");
       }
 
       function renderSegments(plan) {
@@ -371,6 +569,17 @@
 
       async function createProjectAndPlan() {
         try {
+          setErrorSummary("");
+          setRenderStage("准备");
+          updateWorkspaceHint();
+          const validation = validateInputs();
+          if (!validation.ok) {
+            setErrorSummary(validation.error);
+            setStatus(validation.error, true);
+            renderMaterialPreview([]);
+            return;
+          }
+          renderMaterialPreview(validation.materials);
           setStatus("正在创建项目...");
           const name = document.getElementById("projectName").value.trim() || "口播剪辑项目";
           const created = await fetch("/api/talking-video/projects", {
@@ -381,6 +590,7 @@
           if (!created.ok) throw new Error(created.error || "项目创建失败");
           currentProjectId = created.project.id;
 
+          setRenderStage("生成方案");
           setStatus("正在生成剪辑方案...");
           const payload = {
             projectId: currentProjectId,
@@ -388,7 +598,7 @@
             script: document.getElementById("script").value,
             duration: Number(document.getElementById("duration").value || 60),
             aspectRatio: document.getElementById("aspectRatio").value,
-            materials: readMaterials()
+            materials: validation.materials
           };
           const result = await fetch("/api/talking-video/plan", {
             method: "POST",
@@ -400,19 +610,25 @@
           document.getElementById("planJson").value = JSON.stringify(result.plan, null, 2);
           lastPlan = result.plan;
           renderSegments(result.plan);
+          renderMaterialPreview(validation.materials, result.plan);
           updateMetrics(result.plan);
           setStatus(`剪辑方案已生成：${currentProjectId}`);
         } catch (error) {
+          setRenderStage("生成方案", true);
+          setErrorSummary(error.message);
           setStatus(`生成失败：${error.message}`, true);
         }
       }
 
       async function renderPlan() {
         try {
+          setErrorSummary("");
           if (!currentProjectId) {
             setStatus("请先生成剪辑方案。", true);
+            setErrorSummary("还没有可渲染的 edit_plan.json。");
             return;
           }
+          setRenderStage("渲染");
           setStatus("正在请求渲染...");
           const result = await fetch("/api/talking-video/render", {
             method: "POST",
@@ -421,12 +637,29 @@
           }).then((response) => response.json());
           document.getElementById("renderOutput").textContent = JSON.stringify(result, null, 2);
           updateMetrics(lastPlan, result.status || "unknown");
+          setErrorSummary(summarizeRenderResult(result));
+          setRenderStage(result.ok ? "完成" : "渲染", !result.ok);
           setStatus(result.ok ? "渲染任务完成。" : `渲染未完成：${result.status || result.error}`, !result.ok);
         } catch (error) {
+          setRenderStage("渲染", true);
+          setErrorSummary(error.message);
           setStatus(`渲染失败：${error.message}`, true);
         }
       }
 
+      document.getElementById("projectName").addEventListener("input", updateWorkspaceHint);
+      document.getElementById("talkingVideo").addEventListener("input", updateWorkspaceHint);
+      document.getElementById("materials").addEventListener("input", () => {
+        const validation = validateInputs();
+        if (validation.ok) {
+          renderMaterialPreview(validation.materials, lastPlan);
+        } else {
+          setErrorSummary(validation.error);
+        }
+      });
+      updateWorkspaceHint();
+      renderMaterialPreview(readMaterials());
+      setRenderStage("准备");
       updateMetrics(null);
     </script>
   </body>

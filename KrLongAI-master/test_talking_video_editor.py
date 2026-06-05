@@ -252,6 +252,20 @@ class TalkingVideoEditorTests(unittest.TestCase):
         self.assertIn("talking_video_projects/", ignore)
         self.assertIn("talking_video_exports/", ignore)
 
+    def test_workbench_exposes_material_preview_and_render_feedback_hooks(self):
+        html = Path("talking_video_editor.html").read_text(encoding="utf-8")
+
+        for marker in (
+            'id="workspaceHint"',
+            'id="materialPreview"',
+            'id="renderStage"',
+            'id="errorSummary"',
+            "function renderMaterialPreview",
+            "function validateInputs",
+            "function summarizeRenderResult",
+        ):
+            self.assertIn(marker, html)
+
 
 if __name__ == "__main__":
     unittest.main()
