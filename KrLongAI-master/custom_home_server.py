@@ -547,6 +547,7 @@ def main() -> None:
     server = ThreadingHTTPServer((args.host, args.port), CustomHomeHandler)
     print(f"Custom home workbench: http://{args.host}:{args.port}/")
     print(f"Digital human studio: http://{args.host}:{args.port}/digital_human_studio.html")
+    print(f"Talking video editor: http://{args.host}:{args.port}/talking_video_editor.html")
     print(f"Projects folder: {PROJECT_DIR}")
     server.serve_forever()
 

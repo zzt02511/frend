@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>口播视频 AI 自动精剪</title>
+    <style>
+      :root {
+        color: #1f2523;
+        background: #f3f5f0;
+        font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+        --ink: #1f2523;
+        --muted: #68736d;
+        --line: #d7ddd4;
+        --panel: #ffffff;
+        --work: #26342d;
+        --accent: #4f7a63;
+        --warn: #9b5d2e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          linear-gradient(90deg, rgba(31, 37, 35, 0.035) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(31, 37, 35, 0.03) 1px, transparent 1px),
+          #f3f5f0;
+        background-size: 28px 28px;
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .shell {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: 0;
+      }
+      .subtitle {
+        margin: 6px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .status-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .metric {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.82);
+        padding: 10px 12px;
+        min-height: 64px;
+      }
+      .metric strong {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .metric span {
+        display: block;
+        margin-top: 6px;
+        font-size: 18px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 380px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+      }
+      .panel {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .panel h2 {
+        margin: 0 0 12px;
+        font-size: 17px;
+      }
+      label {
+        display: block;
+        margin: 12px 0 6px;
+        color: #46514b;
+        font-size: 13px;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        border: 1px solid #cfd7ce;
+        border-radius: 6px;
+        background: #fbfcfa;
+        color: var(--ink);
+        padding: 9px 10px;
+        outline: none;
+      }
+      textarea {
+        min-height: 118px;
+        resize: vertical;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(79, 122, 99, 0.12);
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .primary,
+      .secondary,
+      .link-button {
+        border-radius: 6px;
+        padding: 10px 12px;
+        min-height: 42px;
+      }
+      .primary {
+        border: 0;
+        background: var(--work);
+        color: #fff;
+      }
+      .secondary,
+      .link-button {
+        border: 1px solid #cbd4ca;
+        background: #fff;
+        color: var(--work);
+        text-decoration: none;
+      }
+      .link-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .status {
+        margin-top: 12px;
+        min-height: 44px;
+        color: var(--muted);
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+      .workspace {
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 14px;
+      }
+      .segments {
+        display: grid;
+        gap: 8px;
+      }
+      .segment {
+        display: grid;
+        grid-template-columns: 96px minmax(0, 1fr);
+        gap: 12px;
+        border: 1px solid #e0e6dd;
+        border-radius: 6px;
+        background: #fbfcfa;
+        padding: 10px;
+      }
+      .time {
+        color: var(--accent);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .segment strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .segment p {
+        margin: 0;
+        color: #354039;
+        line-height: 1.55;
+      }
+      .segment small {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+      }
+      .json-box {
+        min-height: 360px;
+        font-family: Consolas, "SFMono-Regular", monospace;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .render-output {
+        border: 1px dashed #c8d1c7;
+        border-radius: 6px;
+        padding: 10px;
+        min-height: 64px;
+        color: var(--muted);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .warn {
+        color: var(--warn);
+      }
+      @media (max-width: 920px) {
+        .topbar,
+        .grid,
+        .status-strip {
+          grid-template-columns: 1fr;
+        }
+        .row,
+        .actions {
+          grid-template-columns: 1fr;
+        }
+        .segment {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>口播视频 AI 自动精剪</h1>
+          <p class="subtitle">上传后的口播视频路径、脚本和真实素材标签生成 edit_plan.json，再交给 FFmpeg 渲染草稿。</p>
+        </div>
+        <a class="link-button" href="/">返回内容工作台</a>
+      </header>
+
+      <section class="status-strip" aria-label="项目状态">
+        <div class="metric"><strong>项目</strong><span id="metricProject">未创建</span></div>
+        <div class="metric"><strong>段落</strong><span id="metricSegments">0</span></div>
+        <div class="metric"><strong>B-roll</strong><span id="metricBroll">0</span></div>
+        <div class="metric"><strong>渲染</strong><span id="metricRender">待处理</span></div>
+      </section>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>项目输入</h2>
+          <label for="projectName">项目名称</label>
+          <input id="projectName" value="同城门店口播精剪" />
+
+          <label for="talkingVideo">口播视频路径</label>
+          <input id="talkingVideo" value="uploads/talking.mp4" />
+
+          <div class="row">
+            <div>
+              <label for="duration">视频时长（秒）</label>
+              <input id="duration" type="number" value="60" min="5" max="300" />
+            </div>
+            <div>
+              <label for="aspectRatio">输出比例</label>
+              <select id="aspectRatio">
+                <option value="9:16">9:16 竖屏</option>
+                <option value="3:4">3:4</option>
+                <option value="1:1">1:1</option>
+                <option value="16:9">16:9 横屏</option>
+              </select>
+            </div>
+          </div>
+
+          <label for="script">口播脚本</label>
+          <textarea id="script">装修选门不要只看价格。先看门套和锁具，再看工厂质检。最后一定要看真实安装案例。</textarea>
+
+          <label for="materials">素材 JSON</label>
+          <textarea id="materials">[
+  {"name":"door-detail.jpg","url":"uploads/assets/door-detail.jpg","tags":["产品","细节"]},
+  {"name":"factory-check.mp4","url":"uploads/assets/factory-check.mp4","tags":["工厂","质检"]},
+  {"name":"install-case.mp4","url":"uploads/assets/install-case.mp4","tags":["安装","案例"]}
+]</textarea>
+
+          <div class="actions">
+            <button class="primary" type="button" onclick="createProjectAndPlan()">生成剪辑方案</button>
+            <button class="secondary" type="button" onclick="renderPlan()">渲染 MP4</button>
+          </div>
+          <div id="status" class="status">等待操作。</div>
+        </section>
+
+        <section class="workspace">
+          <section class="panel">
+            <h2>剪辑方案</h2>
+            <div id="segments" class="segments"></div>
+          </section>
+
+          <section class="panel">
+            <h2>edit_plan.json</h2>
+            <textarea id="planJson" class="json-box" spellcheck="false" readonly></textarea>
+            <label>渲染结果</label>
+            <div id="renderOutput" class="render-output">暂无渲染结果。</div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      let currentProjectId = "";
+      let lastPlan = null;
+
+      function setStatus(text, isWarning = false) {
+        const box = document.getElementById("status");
+        box.textContent = text;
+        box.className = isWarning ? "status warn" : "status";
+      }
+
+      function updateMetrics(plan, renderStatus) {
+        const segments = (plan && plan.segments) || [];
+        const brollCount = segments.reduce((count, segment) => count + ((segment.brollSlots || []).length), 0);
+        document.getElementById("metricProject").textContent = currentProjectId || "未创建";
+        document.getElementById("metricSegments").textContent = String(segments.length);
+        document.getElementById("metricBroll").textContent = String(brollCount);
+        document.getElementById("metricRender").textContent = renderStatus || "待处理";
+      }
+
+      function readMaterials() {
+        const raw = document.getElementById("materials").value.trim();
+        if (!raw) return [];
+        return JSON.parse(raw);
+      }
+
+      function renderSegments(plan) {
+        const box = document.getElementById("segments");
+        box.innerHTML = "";
+        const segments = (plan && plan.segments) || [];
+        if (!segments.length) {
+          box.textContent = "暂无段落。";
+          return;
+        }
+        segments.forEach((segment) => {
+          const div = document.createElement("div");
+          div.className = "segment";
+          const broll = (segment.brollSlots || []).map((slot) => slot.assetId).join("、") || "无素材穿插";
+
+          const time = document.createElement("div");
+          time.className = "time";
+          time.append(document.createTextNode(`${segment.start}s`), document.createElement("br"), document.createTextNode(`${segment.end}s`));
+
+          const content = document.createElement("div");
+          const title = document.createElement("strong");
+          title.textContent = `${segment.id} ${segment.intent || ""}`.trim();
+          const text = document.createElement("p");
+          text.textContent = segment.text || "";
+          const details = document.createElement("small");
+          details.textContent = broll;
+          content.append(title, text, details);
+          div.append(time, content);
+          box.appendChild(div);
+        });
+      }
+
+      async function createProjectAndPlan() {
+        try {
+          setStatus("正在创建项目...");
+          const name = document.getElementById("projectName").value.trim() || "口播剪辑项目";
+          const created = await fetch("/api/talking-video/projects", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name})
+          }).then((response) => response.json());
+          if (!created.ok) throw new Error(created.error || "项目创建失败");
+          currentProjectId = created.project.id;
+
+          setStatus("正在生成剪辑方案...");
+          const payload = {
+            projectId: currentProjectId,
+            talkingVideo: document.getElementById("talkingVideo").value.trim(),
+            script: document.getElementById("script").value,
+            duration: Number(document.getElementById("duration").value || 60),
+            aspectRatio: document.getElementById("aspectRatio").value,
+            materials: readMaterials()
+          };
+          const result = await fetch("/api/talking-video/plan", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+          }).then((response) => response.json());
+          if (!result.ok) throw new Error(result.error || "方案生成失败");
+
+          document.getElementById("planJson").value = JSON.stringify(result.plan, null, 2);
+          lastPlan = result.plan;
+          renderSegments(result.plan);
+          updateMetrics(result.plan);
+          setStatus(`剪辑方案已生成：${currentProjectId}`);
+        } catch (error) {
+          setStatus(`生成失败：${error.message}`, true);
+        }
+      }
+
+      async function renderPlan() {
+        try {
+          if (!currentProjectId) {
+            setStatus("请先生成剪辑方案。", true);
+            return;
+          }
+          setStatus("正在请求渲染...");
+          const result = await fetch("/api/talking-video/render", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({projectId: currentProjectId})
+          }).then((response) => response.json());
+          document.getElementById("renderOutput").textContent = JSON.stringify(result, null, 2);
+          updateMetrics(lastPlan, result.status || "unknown");
+          setStatus(result.ok ? "渲染任务完成。" : `渲染未完成：${result.status || result.error}`, !result.ok);
+        } catch (error) {
+          setStatus(`渲染失败：${error.message}`, true);
+        }
+      }
+
+      updateMetrics(null);
+    </script>
+  </body>
+</html>
