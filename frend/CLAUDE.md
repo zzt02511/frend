@@ -8,8 +8,8 @@ DEERFLOW 架构驱动的模板化短视频制作平台。通过 LangGraph 编排
 
 ## 技术栈
 
-- **Backend**: Python 3.12+, FastAPI, LangGraph (状态图编排), SQLite, FFmpeg, Pydantic v2, httpx, PyYAML, Jinja2, sse-starlette
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, @tanstack/react-query, CSS Variables (无 Tailwind)
+- **Backend**: Python 3.12+, FastAPI, LangGraph (状态图编排), PostgreSQL (asyncpg), FFmpeg, Pydantic v2, httpx, PyYAML, Jinja2, sse-starlette, Pillow, aiofiles
+- **Frontend**: Next.js 16 (App Router, 有破坏性 API 变更), React 19, TypeScript, @tanstack/react-query, CSS Variables (无 Tailwind)
 - **Dev**: pytest (asyncio), uvicorn
 
 ## 核心架构
@@ -22,9 +22,18 @@ DEERFLOW 架构驱动的模板化短视频制作平台。通过 LangGraph 编排
                                      FFmpeg Sandbox → 输出视频
 ```
 
-### Backend 模块设计
+### 关键设计决策
 
-模块化架构，各层职责分明：
+1. **DEERFLOW Skill 模式**: 每个技能继承 `BaseSkill`，实现 `skill_id` 和 `execute(SkillContext) → SkillResult`。技能通过全局 `registry` 注册，支持代码 + YAML 双注册路径。
+2. **LangGraph 线性流水线**: 7 节点线性图（template_parse → script_generate → collect_assets → generate_tts → generate_srt → ffmpeg_render → finalize），前一节点出错时后续节点跳过但继续执行（短路模式）。状态通过 `AgentState` TypedDict 传递。
+3. **PostgreSQL (asyncpg)**: 直接连接池，所有 DB 操作为原生异步，无需线程池包装。Schema 含 projects/jobs/assets 三表。
+4. **Job Queue + SSE**: `JobQueue` 类管理 asyncio.Semaphore 并发控制 + PostgreSQL 持久化状态 + asyncio.Queue SSE 广播 + 超时检测 + 重试(指数退避) + 周期性清理(保留50条最新)。全局单例 `job_queue`。
+5. **多级降级**: TTS 失败→FFmpeg 静音音频；图像生成失败→SVG 占位图；脚本生成无 LLM→模板回退。
+6. **LLM BFF 代理**: 前端通过 `/api/v1/llm/chat` 代理调用 LLM API（默认 MiniMax M2.1），API Key 由前端传入不持久化。`LLMService` 含 MD5 缓存 + 3 次重试 + JSON 响应解析。
+7. **Next.js 16 破坏性变更**: `node_modules/next/dist/docs/` 中有官方指南参考，API/惯例可能和训练数据不同。
+8. **FFmpeg 渲染流水线**: 5 子步骤 - 逐场景渲染 → concat 拼接 → 音频混合(TTS+BGM) → SRT 字幕烧录 → 最终输出 + ffprobe 验证。每场景渲染失败自动降级为占位视频。
+
+## Backend 模块设计
 
 ```
 backend/
@@ -36,9 +45,9 @@ backend/
 │   ├── llm_proxy.py  # LLM BFF 代理（前端→后端→LLM API）
 │   └── batch.py      # 批量生成（CSV/JSON→多视频+ZIP）
 ├── app/agents/       # LangGraph 工作流图
-│   ├── state.py      # AgentState TypedDict（项目/脚本/资产/错误/进度）
-│   ├── graph.py      # 7 节点线性 StateGraph 定义
-│   └── coordinator.py # 初始状态工厂 + finalize 节点
+│   ├── state.py      # AgentState TypedDict（project_id/user_params/template/script/assets/tts_audio/subtitles/ffmpeg_command/output_path/progress/errors/warnings）
+│   ├── graph.py      # 7 节点线性 StateGraph + 编译实例 video_graph
+│   └── coordinator.py # create_initial_state() 工厂 + finalize 节点
 ├── app/skills/       # DEERFLOW 风格技能（基类 + 7 个实现）
 │   ├── base.py       # BaseSkill 抽象基类 + SkillContext/SkillResult
 │   ├── registry.py   # 全局技能注册表（代码 + YAML 双注册）
@@ -50,23 +59,26 @@ backend/
 │   ├── ffmpeg_renderer.py  # FFmpeg 全流水线（逐场景→拼接→音频→字幕→输出）
 │   └── asset_manager.py    # 资产验证/缓存/清理/元数据记录
 ├── app/sandbox/      # 执行沙箱
-│   ├── job_queue.py   # SQLite 持久化队列 + 并发控制(Semaphore) + SSE 广播 + 超时/重试/周期性清理
+│   ├── job_queue.py   # 全局 JobQueue 实例 + 并发控制(Semaphore) + SSE 广播 + 超时/重试/周期性清理
 │   └── local_sandbox.py # FFmpeg 子进程沙箱（LocalSandbox 类）
 ├── app/services/     # 外部服务
-│   └── llm_service.py    # LLM API 客户端（重试/缓存/JSON 解析）
+│   └── llm_service.py    # LLMService 类（MiniMax API / chat / chat_json / MD5 缓存 / 3 次重试）
 ├── app/models/       # Pydantic 数据模型
 │   └── template.py   # TemplateSchema/SceneDefinition/ParameterVariable 等
 ├── app/utils/        # 工具函数
 │   ├── ffmpeg.py     # FFmpeg 命令构建（场景/拼接/音频混合/字幕烧录）
 │   ├── media.py      # ffprobe 封装（MediaInfo 探测器）
 │   └── templates.py  # Jinja2 FFmpeg 模板环境
-├── app/main.py       # FastAPI 应用入口 + 生命周期（DB/技能注册/队列/超时检测）
-├── app/config.py     # pydantic-settings 集中配置
-├── app/db.py         # 异步 SQLite CRUD（线程池包装 + WAL 模式）
-└── tests/            # pytest 异步测试
+├── app/main.py       # FastAPI 应用入口 + lifespan（DB init / 技能注册 / 队列启动 / 超时检测循环）
+├── app/config.py     # pydantic-settings 集中配置，前缀 FREND_
+├── app/db.py         # 异步 PostgreSQL CRUD（asyncpg 连接池 min_size=2 / max_size=10）
+├── app/memory/       # 工作记忆模块
+├── skills_yaml/      # YAML 技能定义目录
+├── ffmpeg_templates/ # FFmpeg 模板目录
+└── tests/            # pytest 异步测试 (asyncio_mode=auto)
 ```
 
-### Frontend 模块设计
+## Frontend 模块设计
 
 ```
 frontend/
@@ -86,41 +98,62 @@ frontend/
 │   ├── settings/          # ApiKeyModal
 │   └── shared/            # Button / Card / EmptyState / ErrorBoundary / LoadingSpinner
 └── src/lib/               # 共享库
-    ├── api-client.ts      # FrendClient 类（所有 API 方法）
+    ├── api-client.ts      # FrendClient 类（所有 API 方法，fetch 原生实现）
     ├── api-types.ts       # TypeScript 接口（与后端 Pydantic 对齐）
     └── hooks/useSSE.ts    # SSE 实时事件 Hook
 ```
 
-## FFmpeg 渲染流水线 (ffmpeg_renderer.py)
-
-5 个子步骤, 使用 `LocalSandbox` (asyncio 子进程):
-1. **逐场景渲染** → 2. **场景拼接 (concat)** → 3. **音频混合 (TTS + BGM)** → 4. **字幕烧录 (SRT hardsub)** → 5. **最终输出 + media probe 验证**
-
-每场景渲染失败自动降级为占位视频（灰色背景 + 错误文本）。
-
 ## AgentState 关键字段
 
-| 字段 | 类型 | 来源阶段 |
-|------|------|----------|
+| 字段 | 类型 | 说明 |
+|------|------|------|
 | project_id, template_id | str | init |
 | user_params | dict | UI 输入 |
-| template | dict | template_parse |
-| script | list[dict] | script_generate |
-| assets | list[dict] | collect_assets |
-| tts_audio | list[str] | generate_tts |
-| subtitles | list[dict] | generate_srt |
-| ffmpeg_command / output_path | str | ffmpeg_render |
-| progress | float (0→1) | 全阶段追踪 |
-| errors / warnings | list[str] | 全阶段 |
+| template | dict | template_parse 输出 |
+| script | list[dict] | script_generate 输出 |
+| assets | list[dict] | collect_assets 输出 |
+| tts_audio | list[str] | generate_tts 输出 |
+| subtitles | list[dict] | generate_srt 输出 |
+| ffmpeg_command / output_path | str | ffmpeg_render 输出 |
+| progress | float | 0→1 全局进度 |
+| errors / warnings | list[str] | 全阶段错误/警告收集 |
+| current_step | str | 当前执行阶段名 |
+| working_memory | dict | 跨节点共享上下文 |
 
-## 关键设计决策
+## API 端点
 
-1. **DEERFLOW Skill 模式**: 每个技能继承 `BaseSkill`，实现 `skill_id` 和 `execute(SkillContext) → SkillResult`。技能通过全局 `registry` 注册，支持代码 + YAML 双注册路径。
-2. **LangGraph 线性流水线**: 视频生成是 7 节点线性图（template_parse → script_generate → collect_assets → generate_tts → generate_srt → ffmpeg_render → finalize），每个节点调用对应的 Skill。状态通过 `AgentState` TypedDict 传递。
-3. **SQLite + 线程池**: 所有数据库操作通过 `asyncio.to_thread` 在独立线程中运行同步 SQLite（WAL 模式 + busy_timeout=5000），避免 GIL 阻塞事件循环。
-4. **Job Queue + SSE**: `JobQueue` 类管理 asyncio.Semaphore 并发控制 + SQLite 持久化状态 + asyncio.Queue SSE 广播 + 超时检测 + 重试(指数退避) + 周期性清理(保留50条最新)。
-5. **多级降级**: TTS 失败→FFmpeg 静音音频；图像生成失败→SVG 占位图；脚本生成无 LLM→模板回退。
-6. **LLM BFF 代理**: 前端通过 `/api/v1/llm/chat` 代理调用 LLM API（默认 MiniMax M2.1），API Key 由前端传入不持久化。
+| 端点 | 方法 | 用途 |
+|------|------|------|
+| `/api/v1/templates` | GET | 模板列表 |
+| `/api/v1/templates/{id}` | GET | 模板详情 |
+| `/api/v1/projects` | GET/POST | 项目 CRUD |
+| `/api/v1/projects/{id}/render` | POST | 提交渲染（异步触发 LangGraph） |
+| `/api/v1/jobs` | GET | 渲染作业列表 |
+| `/api/v1/jobs/{id}` | GET | 作业状态 |
+| `/api/v1/jobs/{id}/stream` | GET | SSE 实时进度 |
+| `/api/v1/jobs/{id}/download` | GET | 下载视频 |
+| `/api/v1/jobs/{id}/cancel` | POST | 取消作业 |
+| `/api/v1/batch/json` | POST | JSON 批量渲染 |
+| `/api/v1/batch/csv` | POST | CSV 批量渲染 |
+| `/api/v1/batch/{id}` | GET | 批次状态 |
+| `/api/v1/batch/{id}/download` | GET | ZIP 下载 |
+| `/api/v1/llm/chat` | POST | LLM BFF 代理 |
+
+## 配置 (pydantic-settings)
+
+所有配置在 `backend/app/config.py`，前缀 `FREND_`:
+- `FREND_DEBUG`, `FREND_HOST` (默认 0.0.0.0), `FREND_PORT` (8000), `FREND_CORS_ORIGINS` (默认 localhost:3000)
+- `FREND_DATA_DIR`, `FREND_TEMPLATES_DIR`, `FREND_DB_PATH`
+- `FREND_DATABASE_URL` (默认 `postgresql://postgres:123456@localhost:5432/frend`)
+- `FREND_MAX_CONCURRENT_JOBS` (默认 2), `FREND_MAX_JOB_DURATION_SECONDS` (600)
+- `FREND_FFMPEG_PATH`, `FREND_FPROBE_PATH`
+- 也支持 `.env` 文件
+
+## 模板格式
+
+模板存储在 `templates/*.yaml`，遵循 `templates/_schema.yaml` 定义的 Schema。核心结构：metadata → video 配置 → parameters（用户填写的参数变量，以 `{{var}}` 引用）→ scenes（场景列表，含 duration/transition/elements）→ audio → subtitles。
+
+目前可用模板：`knowledge-short`、`daily-vlog`、`product-promo`、`showroom-sales`、`talking-head`、`tutorial`
 
 ## 开发命令
 
@@ -154,59 +187,15 @@ pytest --coverage -v                # 带覆盖率
 - **Backend**: 编辑 `backend/pyproject.toml`，然后 `cd backend && pip install -e ".[dev]"`
 - **Frontend**: 编辑 `frontend/package.json`，然后 `cd frontend && npm install`
 
-## API 端点
-
-| 端点 | 方法 | 用途 |
-|------|------|------|
-| `/api/v1/templates` | GET | 模板列表 |
-| `/api/v1/templates/{id}` | GET | 模板详情 |
-| `/api/v1/projects` | GET/POST | 项目 CRUD |
-| `/api/v1/projects/{id}/render` | POST | 提交渲染（异步触发 LangGraph） |
-| `/api/v1/jobs` | GET | 渲染作业列表 |
-| `/api/v1/jobs/{id}` | GET | 作业状态 |
-| `/api/v1/jobs/{id}/stream` | GET | SSE 实时进度 |
-| `/api/v1/jobs/{id}/download` | GET | 下载视频 |
-| `/api/v1/jobs/{id}/cancel` | POST | 取消作业 |
-| `/api/v1/batch/json` | POST | JSON 批量渲染 |
-| `/api/v1/batch/csv` | POST | CSV 批量渲染 |
-| `/api/v1/batch/{id}` | GET | 批次状态 |
-| `/api/v1/batch/{id}/download` | GET | ZIP 下载 |
-| `/api/v1/llm/chat` | POST | LLM BFF 代理 |
-
-## 模板格式
-
-模板存储在 `templates/*.yaml`，遵循 `templates/_schema.yaml` 定义的 Schema。核心结构：元数据 → video 配置 → parameters（用户填写的参数变量，在模板中以 `{{var}}` 引用）→ scenes（场景列表，每个场景包含 duration/transition/elements）→ audio → subtitles。
-
-目前可用模板：`knowledge-short`、`daily-vlog`、`product-promo`、`showroom-sales`、`talking-head`、`tutorial`
-
-## 配置 (pydantic-settings)
-
-所有配置在 `backend/app/config.py`，前缀 `FREND_`:
-- `FREND_DEBUG`, `FREND_HOST` (默认 0.0.0.0), `FREND_PORT` (8000), `FREND_CORS_ORIGINS` (默认 localhost:3000)
-- `FREND_DATA_DIR`, `FREND_TEMPLATES_DIR`, `FREND_DB_PATH` (data/frend.db)
-- `FREND_MAX_CONCURRENT_JOBS` (默认 2), `FREND_MAX_JOB_DURATION_SECONDS` (300)
-- `FREND_FFMPEG_PATH`, `FREND_FPROBE_PATH`
-- 也支持 `.env` 文件
-
-## 测试架构
-
-```bash
-pytest                           # 全部测试 (asyncio_mode=auto)
-pytest tests/test_graph.py -v    # 单个文件
-pytest -k "template_parse"       # 关键词过滤
-pytest tests/test_db.py          # 12 个 CRUD 测试 (project/job)
-pytest tests/test_job_queue.py   # 12 个 JobQueue 测试 (超时/重试/SSE/并发)
-```
-
 ## 约定
 
 - 配置通过 `FREND_` 环境变量前缀覆盖 `app/config.py` 中的 Settings
 - Next.js `next.config.ts` 将 `/api/*` 通过 rewrites 代理到 `http://127.0.0.1:8000/api/*`
-- `frontend/AGENTS.md` 注: 当前 Next.js 16 有非标准 API 变更, 参考 `node_modules/next/dist/docs/`
+- **⚠ `frontend/AGENTS.md`**: Next.js 16 有破坏性 API 变更，参考 `node_modules/next/dist/docs/` 后编写代码
 - 运行时数据存储在 `data/` 目录（gitignored）
 - 所有技能实例在 `app/main.py` 的 lifespan 中注册
 - 前端使用 CSS Variables 主题（见 `globals.css`），无 Tailwind CSS
-- SSE 端点发送心跳（30s 超时）保持长连接
+- SSE 端点发送心跳保持长连接（30s 超时）
 - 渲染作业使用指数退避重试（最多 2 次）
-- `skills_yaml/` 和 `ffmpeg_templates/` 目录已配置路径但尚未创建
-- `data/assets/fonts/.gitkeep` 占位保留，字体文件被 gitignore 排除
+- `data/assets/fonts/.gitkeep` 保留占位，字体文件被 gitignore 排除
+- LangGraph 节点中，前置节点出错时后续节点跳过（`if state.get("errors"):` 短路），最终由 finalize 节点汇总
