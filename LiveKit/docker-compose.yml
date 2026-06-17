@@ -1,0 +1,62 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        RUNTIME_BASE: ${RUNTIME_BASE:-node:22-alpine}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_PORT:-3001}:3000"
+    environment:
+      NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:-https://live.fuguilong.cn}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/wechat_private_live}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      LIVEKIT_URL: ${LIVEKIT_URL:-wss://live.fuguilong.cn}
+    volumes:
+      - app-data:/app/.data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        log_level: info
+        rtc:
+          tcp_port: 7881
+          port_range_start: 50000
+          port_range_end: 50100
+          use_external_ip: true
+        keys:
+          ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+    ports:
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wechat_private_live}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-wechat_private_live}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  app-data:
+  postgres-data:

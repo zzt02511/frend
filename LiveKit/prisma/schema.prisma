@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  super_admin
+  director
+  host
+  moderator
+  audience
+}
+
+enum UserStatus {
+  active
+  disabled
+  blacklisted
+}
+
+enum LiveStatus {
+  draft
+  scheduled
+  live
+  ended
+  closed
+}
+
+enum CommentMode {
+  free
+  review
+  host_only
+  closed
+}
+
+enum CommentStatus {
+  pending
+  approved
+  rejected
+  deleted
+}
+
+enum MicRequestStatus {
+  applied
+  approved
+  rejected
+  connected
+  cancelled
+  ended
+  kicked
+}
+
+enum ReplayStatus {
+  recording
+  processing
+  ready
+  failed
+  hidden
+  deleted
+}
+
+enum WecomStatus {
+  not_contacted
+  pending_add
+  added
+  rejected
+}
+
+enum LeadStage {
+  new
+  identified
+  converted
+  invalid
+}
+
+enum FollowUpStatus {
+  unassigned
+  pending
+  contacted
+  done
+}
+
+model User {
+  id        String     @id @default(cuid())
+  openid    String?    @unique
+  unionid   String?
+  name      String
+  avatarUrl String?
+  mobile    String?
+  role      UserRole   @default(audience)
+  status    UserStatus @default(active)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model LiveSession {
+  id              String      @id @default(cuid())
+  title           String
+  coverUrl        String?
+  description     String?
+  roomName        String      @unique
+  status          LiveStatus  @default(draft)
+  startTime       DateTime
+  endTime         DateTime?
+  actualStartTime DateTime?
+  actualEndTime   DateTime?
+  hostUserId      String
+  moderatorIds    String[]
+  enableComment   Boolean     @default(true)
+  commentMode     CommentMode @default(review)
+  enableMicApply  Boolean     @default(true)
+  enableRecord    Boolean     @default(true)
+  replayUrl       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model LiveParticipant {
+  id              String   @id @default(cuid())
+  liveId          String
+  userId          String
+  livekitIdentity String
+  role            UserRole
+  joinTime        DateTime @default(now())
+  leaveTime       DateTime?
+  watchDuration   Int      @default(0)
+  isMuted         Boolean  @default(false)
+  isBanned        Boolean  @default(false)
+  canPublish      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([liveId])
+  @@index([userId])
+}
+
+model LiveComment {
+  id                  String        @id @default(cuid())
+  liveId              String
+  userId              String
+  content             String
+  status              CommentStatus @default(pending)
+  isPinned            Boolean       @default(false)
+  isHighValueQuestion Boolean       @default(false)
+  visibleToSender     Boolean       @default(true)
+  hitSensitiveWords   String[]
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  createdAt           DateTime      @default(now())
+
+  @@index([liveId])
+}
+
+model MicRequest {
+  id          String           @id @default(cuid())
+  liveId      String
+  userId      String
+  status      MicRequestStatus @default(applied)
+  reason      String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  connectedAt DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([liveId])
+}
+
+model LiveStats {
+  id                 String @id @default(cuid())
+  liveId             String @unique
+  pv                 Int    @default(0)
+  uv                 Int    @default(0)
+  peakOnline         Int    @default(0)
+  currentOnline      Int    @default(0)
+  avgWatchDuration   Int    @default(0)
+  commentCount       Int    @default(0)
+  likeCount          Int    @default(0)
+  micApplyCount      Int    @default(0)
+  successfulMicCount Int    @default(0)
+  leadCount          Int    @default(0)
+  replayViewCount    Int    @default(0)
+}
+
+model ReplayRecord {
+  id        String       @id @default(cuid())
+  liveId    String
+  status    ReplayStatus @default(processing)
+  url       String
+  visible   Boolean      @default(true)
+  createdAt DateTime     @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  targetId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model ShareVisit {
+  id        String   @id @default(cuid())
+  liveId    String
+  viewerId  String
+  source    String   @default("direct")
+  sharedBy  String   @default("direct")
+  createdAt DateTime @default(now())
+
+  @@index([liveId])
+  @@index([sharedBy])
+}
+
+model CustomerFollowUp {
+  id              String         @id @default(cuid())
+  liveId          String
+  customerId      String
+  wecomStatus     WecomStatus    @default(not_contacted)
+  leadStage       LeadStage      @default(new)
+  followUpOwnerId String?
+  followUpStatus  FollowUpStatus @default(unassigned)
+  followUpNote    String?
+  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime       @default(now())
+
+  @@unique([liveId, customerId])
+  @@index([liveId])
+  @@index([followUpOwnerId])
+}
