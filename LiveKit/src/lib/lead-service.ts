@@ -14,6 +14,7 @@ type FollowUpPatch = Partial<
 
 export function getCustomerLeads(store: AppStore, liveId: string): CustomerLead[] {
   const leads = new Map<string, LeadDraft>();
+  const usersById = new Map(store.users.map((user) => [user.id, user.name]));
 
   for (const visit of store.shareVisits.filter((item) => item.liveId === liveId)) {
     const lead = getOrCreateLead(leads, visit.viewerId, visit.createdAt);
@@ -63,6 +64,7 @@ export function getCustomerLeads(store: AppStore, liveId: string): CustomerLead[
   return [...leads.values()]
     .map((lead) => ({
       ...lead,
+      customerName: usersById.get(lead.customerId) ?? lead.customerName,
       questions: lead.questions.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
       temperature: getLeadTemperature(lead),
     }))

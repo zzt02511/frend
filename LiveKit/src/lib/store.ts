@@ -57,6 +57,7 @@ export function createDemoStore(): AppStore {
         commentMode: "review",
         enableMicApply: true,
         enableRecord: true,
+        cdnPlayUrl: "webrtc://play.fuguilong.cn/live/IHQDAT",
       },
     ],
     participants: [],

@@ -41,6 +41,7 @@ export type LiveSession = {
   commentMode: CommentMode;
   enableMicApply: boolean;
   enableRecord: boolean;
+  cdnPlayUrl?: string;
   replayUrl?: string;
 };
 
@@ -48,6 +49,7 @@ export type LiveParticipant = {
   id: string;
   liveId: string;
   userId: string;
+  userName?: string;
   livekitIdentity: string;
   role: UserRole;
   joinTime: string;
@@ -79,6 +81,7 @@ export type MicRequest = {
   id: string;
   liveId: string;
   userId: string;
+  userName?: string;
   status: MicRequestStatus;
   reason: string;
   approvedBy?: string;
@@ -156,6 +159,7 @@ export type CommentStatusCount = {
 
 export type CommentUserStat = {
   userId: string;
+  userName?: string;
   total: number;
   pending: number;
   approved: number;
@@ -186,6 +190,7 @@ export type LeadQuestion = {
 
 export type CustomerLead = {
   customerId: string;
+  customerName?: string;
   source: string;
   sharedBy: string;
   visitCount: number;

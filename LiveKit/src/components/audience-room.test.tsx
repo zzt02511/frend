@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AudienceRoom } from "./audience-room";
@@ -29,6 +29,7 @@ const live: LiveSession = {
   commentMode: "review",
   enableMicApply: true,
   enableRecord: true,
+  cdnPlayUrl: "webrtc://play.fuguilong.cn/live/IHQDAT",
 };
 
 const stats: LiveStats = {
@@ -62,6 +63,7 @@ const approvedComment: LiveComment = {
 
 describe("AudienceRoom", () => {
   afterEach(() => {
+    window.localStorage.clear();
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -83,6 +85,7 @@ describe("AudienceRoom", () => {
       expect.objectContaining({
         liveId: "demo-live",
         hostIdentity: "private-demo-live-host-1",
+        cdnPlayUrl: "webrtc://play.fuguilong.cn/live/IHQDAT",
       }),
       undefined,
     );
@@ -263,5 +266,204 @@ describe("AudienceRoom", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ actorId: "viewer-mic" }),
     });
+  });
+
+  it("places title/status/comments over the video and records likes as approved interaction rows", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string, init?: RequestInit) => ({
+        json: async () => {
+          if (url.endsWith("/audience-events") && init?.method === "POST") {
+            return {
+              ok: true,
+              data: {
+                ...approvedComment,
+                id: "like-comment",
+                userId: "viewer-like",
+                userName: "微信昵称小赵",
+                content: "微信昵称小赵点赞了主播",
+                status: "approved",
+                createdAt: "2026-06-15T00:00:03.000Z",
+              },
+            };
+          }
+          return { ok: true, data: [] };
+        },
+      })),
+    );
+
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-like" />);
+
+    expect(screen.getByTestId("audience-title-overlay")).toHaveClass("left-4", "top-4");
+    expect(screen.getByTestId("audience-status-overlay")).toHaveClass("right-4", "top-4");
+    expect(screen.getByTestId("audience-comments-overlay")).toHaveClass("bg-transparent");
+    expect(screen.queryByText(`LiveKit Room: ${live.roomName}`)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("audience-like-button"));
+    });
+
+    expect(fetch).toHaveBeenCalledWith("/api/live-sessions/demo-live/audience-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "viewer-like", type: "like" }),
+    });
+    expect(screen.getByText("微信昵称小赵点赞了主播")).toBeInTheDocument();
+  });
+
+  it("asks for WeChat nickname authorization before joining and records a join interaction", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => ({
+      json: async () => {
+        if (url.includes("/wechat-profile")) {
+          return { ok: true, data: { viewerId: "viewer-auth", nickname: "微信昵称小周" } };
+        }
+        if (url.endsWith("/join") && init?.method === "POST") {
+          return { ok: true, data: { id: "participant-1" } };
+        }
+        if (url.endsWith("/audience-events") && init?.method === "POST") {
+          return {
+            ok: true,
+            data: {
+              ...approvedComment,
+              id: "join-comment",
+              userId: "viewer-auth",
+              userName: "微信昵称小周",
+              content: "微信昵称小周进入直播间了",
+              status: "approved",
+              createdAt: "2026-06-15T00:00:04.000Z",
+            },
+          };
+        }
+        return { ok: true, data: [] };
+      },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-auth" />);
+
+    expect(screen.getByTestId("wechat-auth-panel")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("wechat-auto-auth-button"));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "viewer-auth", role: "audience", displayName: "微信昵称小周" }),
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/audience-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "viewer-auth", type: "join" }),
+    });
+    expect(screen.getByText("微信昵称小周进入直播间了")).toBeInTheDocument();
+  });
+
+  it("gets the WeChat nickname automatically instead of asking the viewer to type it", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => ({
+      json: async () => {
+        if (url.includes("/wechat-profile")) {
+          return { ok: true, data: { viewerId: "viewer-auto", nickname: "微信昵称小周" } };
+        }
+        if (url.endsWith("/join") && init?.method === "POST") {
+          return { ok: true, data: { id: "participant-auto" } };
+        }
+        if (url.endsWith("/audience-events") && init?.method === "POST") {
+          return {
+            ok: true,
+            data: {
+              ...approvedComment,
+              id: "join-auto-comment",
+              userId: "viewer-auto",
+              userName: "微信昵称小周",
+              content: "微信昵称小周进入直播间了",
+              status: "approved",
+              createdAt: "2026-06-15T00:00:05.000Z",
+            },
+          };
+        }
+        return { ok: true, data: [] };
+      },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-auto" />);
+
+    const authPanel = screen.getByTestId("wechat-auth-panel");
+    expect(within(authPanel).queryByRole("textbox")).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "同意授权并进入" }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/live-sessions/demo-live/wechat-profile?"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "viewer-auto", role: "audience", displayName: "微信昵称小周" }),
+    });
+    expect(screen.getByText("微信昵称小周进入直播间了")).toBeInTheDocument();
+  });
+
+  it("does not skip WeChat OAuth when the phone only has an old fallback nickname cached", async () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem("wechat-live-viewer-name", "微信观众 old");
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ ok: true, data: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-old-cache" />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByTestId("wechat-auth-panel")).toBeInTheDocument();
+  });
+
+  it("skips the auth panel only after a prior WeChat OAuth authorization", async () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem("wechat-live-viewer-name", "微信昵称小周");
+    window.localStorage.setItem("wechat-live-viewer-name-source", "wechat");
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ ok: true, data: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-wechat-cache" />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.queryByTestId("wechat-auth-panel")).not.toBeInTheDocument();
+  });
+
+  it("shows an authorization error when the automatic join request fails", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => ({
+      json: async () => {
+        if (url.includes("/wechat-profile")) {
+          return { ok: true, data: { viewerId: "viewer-banned", nickname: "微信昵称小王" } };
+        }
+        if (url.endsWith("/join") && init?.method === "POST") {
+          return { ok: false, error: "USER_BANNED" };
+        }
+        return { ok: true, data: [] };
+      },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-banned" />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("wechat-auto-auth-button"));
+    });
+
+    expect(screen.getByText("进入失败：USER_BANNED")).toBeInTheDocument();
+    expect(screen.getByTestId("wechat-auth-panel")).toBeInTheDocument();
   });
 });

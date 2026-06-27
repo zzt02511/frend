@@ -1,0 +1,8 @@
+live.fuguilong.cn {
+  encode zstd gzip
+
+  @livekit path /rtc*
+  reverse_proxy @livekit livekit:7880
+
+  reverse_proxy app:3000
+}

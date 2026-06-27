@@ -44,6 +44,7 @@ type Props = {
   initialShareRanking: { sharedBy: string; source: string; visits: number; uniqueViewers: number }[];
   initialCommentAnalytics: CommentAnalytics;
   initialCustomerLeads: CustomerLead[];
+  initialTab?: "comments" | "commentStats" | "leads" | "mic" | "participants";
 };
 
 type ApiPayload<T> = {
@@ -107,6 +108,26 @@ function formatDuration(totalSeconds: number) {
   return `${minutes} 分 ${seconds} 秒`;
 }
 
+function commentUserName(comment: LiveComment) {
+  return comment.userName || comment.userId;
+}
+
+function micRequestUserName(request: MicRequest) {
+  return request.userName || request.userId;
+}
+
+function participantUserName(participant: LiveParticipant) {
+  return participant.userName || participant.userId;
+}
+
+function leadCustomerName(lead: CustomerLead) {
+  return lead.customerName || lead.customerId;
+}
+
+function rankingUserName(user: CommentAnalytics["userRanking"][number]) {
+  return user.userName || user.userId;
+}
+
 export function AdminConsole({
   liveSessions,
   initialComments,
@@ -116,6 +137,7 @@ export function AdminConsole({
   initialShareRanking,
   initialCommentAnalytics,
   initialCustomerLeads,
+  initialTab = "comments",
 }: Props) {
   const [sessions, setSessions] = useState(liveSessions);
   const [activeLiveId, setActiveLiveId] = useState(liveSessions[0]?.id ?? "");
@@ -131,6 +153,9 @@ export function AdminConsole({
   const [commentQuery, setCommentQuery] = useState("");
   const [commentStatusFilter, setCommentStatusFilter] = useState<CommentStatus | "all">("all");
   const [origin, setOrigin] = useState("");
+  const [editingLiveId, setEditingLiveId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const activeLive = sessions.find((item) => item.id === activeLiveId) ?? sessions[0];
   const reviewComments = useMemo(
     () =>
@@ -147,6 +172,7 @@ export function AdminConsole({
       const matchesQuery =
         !query ||
         comment.userId.toLowerCase().includes(query) ||
+        commentUserName(comment).toLowerCase().includes(query) ||
         comment.content.toLowerCase().includes(query);
       const matchesStatus = commentStatusFilter === "all" || comment.status === commentStatusFilter;
       return matchesQuery && matchesStatus;
@@ -243,7 +269,7 @@ export function AdminConsole({
       body: JSON.stringify({ actorId: "moderator-1" }),
     });
     const payload = (await response.json()) as ApiPayload<LiveParticipant>;
-    if (payload.ok) setParticipants((items) => items.map((item) => (item.id === participantId ? payload.data : item)));
+    if (payload.ok) await loadLiveData(activeLive.id);
   }
 
   async function updateLead(customerId: string, patch: Partial<CustomerLead>) {
@@ -272,6 +298,54 @@ export function AdminConsole({
       setCommentStatusFilter("all");
       await loadLiveData(payload.data.id);
       setTitle("");
+    }
+  }
+
+  function startEditLive(session: LiveSession) {
+    setEditingLiveId(session.id);
+    setEditTitle(session.title);
+    setEditDescription(session.description);
+  }
+
+  function cancelEditLive() {
+    setEditingLiveId("");
+    setEditTitle("");
+    setEditDescription("");
+  }
+
+  async function saveLiveSession(liveId: string) {
+    if (!editTitle.trim()) return;
+    const response = await fetch(`/api/live-sessions/${liveId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim() }),
+    });
+    const payload = (await response.json()) as ApiPayload<LiveSession>;
+    if (payload.ok) {
+      setSessions((items) => items.map((item) => (item.id === liveId ? payload.data : item)));
+      cancelEditLive();
+    }
+  }
+
+  async function deleteLiveFromList(liveId: string) {
+    if (!window.confirm("确定要删除这个直播间吗？相关留言、连麦、在线用户和统计数据也会一起删除。")) return;
+    const response = await fetch(`/api/live-sessions/${liveId}`, { method: "DELETE" });
+    const payload = (await response.json()) as ApiPayload<{ id: string }>;
+    if (!payload.ok) return;
+
+    const nextSessions = sessions.filter((item) => item.id !== liveId);
+    setSessions(nextSessions);
+    if (activeLive?.id !== liveId) return;
+
+    const nextLive = nextSessions[0];
+    setActiveLiveId(nextLive?.id ?? "");
+    if (nextLive) {
+      await loadLiveData(nextLive.id);
+    } else {
+      setComments([]);
+      setMicRequests([]);
+      setParticipants([]);
+      setShareRanking([]);
+      setCustomerLeads([]);
     }
   }
 
@@ -333,10 +407,27 @@ export function AdminConsole({
                     return (
                       <TableRow key={session.id} className={selected ? "bg-primary/10" : undefined}>
                         <TableCell>
-                          <button className="text-left font-medium hover:text-primary" onClick={() => void selectLive(session.id)}>
-                            {session.title}
-                          </button>
-                          <p className="font-mono text-xs text-muted-foreground">{session.roomName}</p>
+                          {editingLiveId === session.id ? (
+                            <div className="grid gap-2">
+                              <Input
+                                value={editTitle}
+                                onChange={(event) => setEditTitle(event.target.value)}
+                                placeholder="直播标题"
+                              />
+                              <Input
+                                value={editDescription}
+                                onChange={(event) => setEditDescription(event.target.value)}
+                                placeholder="直播说明"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <button className="text-left font-medium hover:text-primary" onClick={() => void selectLive(session.id)}>
+                                {session.title}
+                              </button>
+                              <p className="font-mono text-xs text-muted-foreground">{session.roomName}</p>
+                            </>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={statusVariant(session.status)}>{statusText[session.status]}</Badge>
@@ -348,9 +439,33 @@ export function AdminConsole({
                           </a>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant={selected ? "secondary" : "outline"} onClick={() => void selectLive(session.id)}>
-                            {selected ? "当前控制" : "切换控制"}
-                          </Button>
+                          {editingLiveId === session.id ? (
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" onClick={() => void saveLiveSession(session.id)}>
+                                保存
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={cancelEditLive}>
+                                取消
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" variant={selected ? "secondary" : "outline"} onClick={() => void selectLive(session.id)}>
+                                {selected ? "当前控制" : "切换控制"}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => startEditLive(session)}>
+                                编辑
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => void deleteLiveFromList(session.id)}
+                                disabled={session.status === "live"}
+                              >
+                                删除
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -438,7 +553,7 @@ export function AdminConsole({
           </div>
         ) : null}
 
-        <Tabs defaultValue="comments">
+        <Tabs defaultValue={initialTab}>
           <TabsList>
             <TabsTrigger value="comments">
               <MessageSquareWarning className="mr-2 h-4 w-4" /> 留言审核
@@ -464,7 +579,7 @@ export function AdminConsole({
                 <CardDescription>默认先审后发，审核通过后才进入观众公开评论流。</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
+                <Table data-testid="admin-review-comments-panel">
                   <TableHeader>
                     <TableRow>
                       <TableHead>用户</TableHead>
@@ -476,7 +591,7 @@ export function AdminConsole({
                   <TableBody>
                     {reviewComments.map((comment) => (
                       <TableRow key={comment.id} data-testid="admin-review-comment-row">
-                        <TableCell>{comment.userId}</TableCell>
+                        <TableCell>{commentUserName(comment)}</TableCell>
                         <TableCell>{comment.content}</TableCell>
                         <TableCell>
                           <Badge variant={commentStatusVariant(comment.status)}>{commentStatusText[comment.status]}</Badge>
@@ -529,7 +644,7 @@ export function AdminConsole({
                 <Card>
                   <CardHeader>
                     <CardTitle>发言查询</CardTitle>
-                    <CardDescription>按用户 ID、留言内容和审核状态筛选当前直播间发言。</CardDescription>
+                    <CardDescription>按用户、留言内容和审核状态筛选当前直播间发言。</CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-4">
                     <div className="grid gap-2 md:grid-cols-[1fr_180px]">
@@ -554,7 +669,7 @@ export function AdminConsole({
                         <option value="deleted">已删除</option>
                       </select>
                     </div>
-                    <Table>
+                    <Table data-testid="admin-comment-search-panel">
                       <TableHeader>
                         <TableRow>
                           <TableHead>用户</TableHead>
@@ -566,7 +681,7 @@ export function AdminConsole({
                       <TableBody>
                         {visibleComments.map((comment) => (
                           <TableRow key={comment.id}>
-                            <TableCell>{comment.userId}</TableCell>
+                            <TableCell>{commentUserName(comment)}</TableCell>
                             <TableCell>{comment.content}</TableCell>
                             <TableCell>
                               <Badge variant={commentStatusVariant(comment.status)}>{commentStatusText[comment.status]}</Badge>
@@ -585,7 +700,7 @@ export function AdminConsole({
                     <CardDescription>按当前直播间内发言次数排序。</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Table>
+                    <Table data-testid="admin-comment-ranking-panel">
                       <TableHeader>
                         <TableRow>
                           <TableHead>用户</TableHead>
@@ -597,7 +712,7 @@ export function AdminConsole({
                       <TableBody>
                         {commentAnalytics.userRanking.map((user) => (
                           <TableRow key={user.userId}>
-                            <TableCell className="font-medium">{user.userId}</TableCell>
+                            <TableCell className="font-medium">{rankingUserName(user)}</TableCell>
                             <TableCell>{user.total}</TableCell>
                             <TableCell>{user.approved}</TableCell>
                             <TableCell>{user.rejected}</TableCell>
@@ -618,7 +733,7 @@ export function AdminConsole({
                 <CardDescription>查看谁进来了、看了多久、问了什么，并分配企微添加、线索转化和直播后跟进。</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
+                <Table data-testid="admin-leads-panel">
                   <TableHeader>
                     <TableRow>
                       <TableHead>客户</TableHead>
@@ -635,7 +750,7 @@ export function AdminConsole({
                   <TableBody>
                     {customerLeads.map((lead) => (
                       <TableRow key={lead.customerId}>
-                        <TableCell className="font-medium">{lead.customerId}</TableCell>
+                        <TableCell className="font-medium">{leadCustomerName(lead)}</TableCell>
                         <TableCell>
                           <Badge
                             variant={
@@ -756,12 +871,12 @@ export function AdminConsole({
                 <CardTitle>连麦申请</CardTitle>
                 <CardDescription>这里查看申请状态；通过和拒绝由主播在开播端处理。</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-3">
+              <CardContent className="grid gap-3" data-testid="admin-mic-panel">
                 {micRequests.length === 0 ? <p className="text-sm text-muted-foreground">暂无连麦申请。</p> : null}
                 {micRequests.map((request) => (
                   <div key={request.id} className="flex flex-col gap-3 rounded-md border border-border p-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <p className="font-medium">{request.userId}</p>
+                      <p className="font-medium">{micRequestUserName(request)}</p>
                       <p className="text-sm text-muted-foreground">{request.reason}</p>
                     </div>
                     <div className="flex gap-2">
@@ -781,7 +896,7 @@ export function AdminConsole({
                 <CardDescription>场控可以静音、踢人，并查看用户是否具备发布权限。</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
+                <Table data-testid="admin-participants-panel">
                   <TableHeader>
                     <TableRow>
                       <TableHead>用户</TableHead>
@@ -793,7 +908,7 @@ export function AdminConsole({
                   <TableBody>
                     {participants.map((participant) => (
                       <TableRow key={participant.id}>
-                        <TableCell>{participant.userId}</TableCell>
+                        <TableCell>{participantUserName(participant)}</TableCell>
                         <TableCell>{participant.role}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">

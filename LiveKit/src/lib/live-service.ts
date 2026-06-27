@@ -11,20 +11,35 @@ export function getLiveSession(store: AppStore, liveId: string) {
   return live;
 }
 
+export function selectHostConsoleLiveSession(store: AppStore) {
+  const live =
+    store.liveSessions.find((item) => item.status === "live") ??
+    store.liveSessions.find((item) => item.status === "scheduled" || item.status === "draft") ??
+    store.liveSessions.find((item) => item.status !== "ended" && item.status !== "closed") ??
+    store.liveSessions[0];
+
+  if (!live) throw new Error("LIVE_NOT_FOUND");
+  return live;
+}
+
 export function getUser(store: AppStore, userId: string) {
   const user = store.users.find((item) => item.id === userId);
   if (!user) throw new Error("USER_NOT_FOUND");
   return user;
 }
 
-function getOrCreateJoinUser(store: AppStore, userId: string, role: UserRole) {
+function getOrCreateJoinUser(store: AppStore, userId: string, role: UserRole, displayName?: string) {
+  const normalizedDisplayName = displayName?.trim();
   const user = store.users.find((item) => item.id === userId);
-  if (user) return user;
+  if (user) {
+    if (role === "audience" && normalizedDisplayName) user.name = normalizedDisplayName;
+    return user;
+  }
   if (role !== "audience") throw new Error("USER_NOT_FOUND");
 
   const guestUser = {
     id: userId,
-    name: `微信观众 ${userId.slice(-6)}`,
+    name: normalizedDisplayName || `微信观众 ${userId.slice(-6)}`,
     role: "audience" as const,
     status: "active" as const,
   };
@@ -34,10 +49,10 @@ function getOrCreateJoinUser(store: AppStore, userId: string, role: UserRole) {
 
 export function joinLiveSession(
   store: AppStore,
-  input: { liveId: string; userId: string; role: UserRole },
+  input: { liveId: string; userId: string; role: UserRole; displayName?: string },
 ): LiveParticipant {
   const live = getLiveSession(store, input.liveId);
-  const user = getOrCreateJoinUser(store, input.userId, input.role);
+  const user = getOrCreateJoinUser(store, input.userId, input.role, input.displayName);
   const existing = store.participants.find(
     (item) => item.liveId === input.liveId && item.userId === input.userId,
   );
@@ -136,6 +151,51 @@ export function endLiveSession(store: AppStore, liveId: string, actorId: string)
   return live;
 }
 
+export function deleteLiveSession(store: AppStore, liveId: string, actorId: string) {
+  const live = getLiveSession(store, liveId);
+  if (live.status === "live") throw new Error("LIVE_SESSION_ACTIVE");
+  store.liveSessions.splice(0, store.liveSessions.length, ...store.liveSessions.filter((item) => item.id !== liveId));
+  store.participants.splice(0, store.participants.length, ...store.participants.filter((item) => item.liveId !== liveId));
+  store.comments.splice(0, store.comments.length, ...store.comments.filter((item) => item.liveId !== liveId));
+  store.micRequests.splice(0, store.micRequests.length, ...store.micRequests.filter((item) => item.liveId !== liveId));
+  store.replays.splice(0, store.replays.length, ...store.replays.filter((item) => item.liveId !== liveId));
+  store.stats.splice(0, store.stats.length, ...store.stats.filter((item) => item.liveId !== liveId));
+  store.shareVisits.splice(0, store.shareVisits.length, ...store.shareVisits.filter((item) => item.liveId !== liveId));
+  store.customerFollowUps.splice(
+    0,
+    store.customerFollowUps.length,
+    ...store.customerFollowUps.filter((item) => item.liveId !== liveId),
+  );
+  addAuditLog(store, actorId, "live.delete", liveId, { title: live.title });
+  persistStoreIfGlobal(store);
+  return { id: liveId };
+}
+
+export function updateLiveSession(
+  store: AppStore,
+  liveId: string,
+  patch: Partial<
+    Pick<
+      ReturnType<typeof getLiveSession>,
+      | "title"
+      | "coverUrl"
+      | "description"
+      | "cdnPlayUrl"
+      | "startTime"
+      | "endTime"
+      | "enableComment"
+      | "commentMode"
+      | "enableMicApply"
+      | "enableRecord"
+    >
+  >,
+) {
+  const live = getLiveSession(store, liveId);
+  Object.assign(live, patch);
+  persistStoreIfGlobal(store);
+  return live;
+}
+
 export function muteParticipant(store: AppStore, liveId: string, participantId: string, actorId: string) {
   const participant = getParticipant(store, liveId, participantId);
   participant.isMuted = true;
@@ -176,6 +236,21 @@ export function getParticipantByUser(store: AppStore, liveId: string, userId: st
   return store.participants.find((item) => item.liveId === liveId && item.userId === userId);
 }
 
+export function withParticipantUserNames(store: AppStore, participants: LiveParticipant[]) {
+  const usersById = new Map(store.users.map((user) => [user.id, user.name]));
+  return participants.map((participant) => ({
+    ...participant,
+    userName: usersById.get(participant.userId) ?? participant.userName ?? participant.userId,
+  }));
+}
+
+export function listOnlineParticipants(store: AppStore, liveId: string) {
+  const live = getLiveSession(store, liveId);
+  if (live.status !== "live") return [];
+  const now = Date.now();
+  return store.participants.filter((participant) => isOnlineParticipant(participant, liveId, now));
+}
+
 export function getStats(store: AppStore, liveId: string) {
   let stats = store.stats.find((item) => item.liveId === liveId);
   if (!stats) {
@@ -196,15 +271,16 @@ export function getStats(store: AppStore, liveId: string) {
     };
     store.stats.push(stats);
   }
-  const now = Date.now();
-  const onlineCount = store.participants.filter((participant) => {
-    if (participant.liveId !== liveId || participant.isBanned || participant.leaveTime) return false;
-    const activeAt = participant.lastActiveAt ?? participant.joinTime;
-    return now - new Date(activeAt).getTime() <= ONLINE_HEARTBEAT_WINDOW_MS;
-  }).length;
+  const onlineCount = listOnlineParticipants(store, liveId).length;
   stats.currentOnline = onlineCount;
   stats.peakOnline = Math.max(stats.peakOnline, onlineCount);
   return stats;
+}
+
+function isOnlineParticipant(participant: LiveParticipant, liveId: string, now: number) {
+  if (participant.liveId !== liveId || participant.isBanned || participant.leaveTime) return false;
+  const activeAt = participant.lastActiveAt ?? participant.joinTime;
+  return now - new Date(activeAt).getTime() <= ONLINE_HEARTBEAT_WINDOW_MS;
 }
 
 export function addAuditLog(

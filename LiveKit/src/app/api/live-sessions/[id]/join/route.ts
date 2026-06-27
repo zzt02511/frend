@@ -6,6 +6,7 @@ import { getStore } from "@/lib/store";
 const joinSchema = z.object({
   userId: z.string().default("audience-1"),
   role: z.enum(["super_admin", "director", "host", "moderator", "audience"]).default("audience"),
+  displayName: z.string().trim().min(1).max(40).optional(),
 });
 
 type Ctx = { params: Promise<{ id: string }> };

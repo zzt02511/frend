@@ -41,6 +41,36 @@ export function listComments(store: AppStore, liveId: string) {
   return store.comments.filter((item) => item.liveId === liveId && item.status !== "deleted");
 }
 
+export function recordAudienceEvent(
+  store: AppStore,
+  input: { liveId: string; userId: string; type: "join" | "like" },
+): LiveComment {
+  getLiveSession(store, input.liveId);
+  const user = store.users.find((item) => item.id === input.userId);
+  const displayName = user?.name?.trim() || input.userId;
+  const content =
+    input.type === "join" ? `${displayName}进入直播间了` : `${displayName}点赞了主播`;
+  const comment: LiveComment = {
+    id: createId("comment"),
+    liveId: input.liveId,
+    userId: input.userId,
+    content,
+    status: "approved",
+    isPinned: false,
+    isHighValueQuestion: false,
+    visibleToSender: false,
+    hitSensitiveWords: [],
+    createdAt: nowIso(),
+  };
+
+  store.comments.push(comment);
+  const stats = getStats(store, input.liveId);
+  stats.commentCount += 1;
+  if (input.type === "like") stats.likeCount += 1;
+  persistStoreIfGlobal(store);
+  return comment;
+}
+
 export function listPublicComments(store: AppStore, liveId: string) {
   return listComments(store, liveId).filter((item) => item.status === "approved");
 }
@@ -65,6 +95,7 @@ export function listPendingComments(store: AppStore, liveId: string) {
 
 export function getCommentAnalytics(store: AppStore, liveId: string): CommentAnalytics {
   const comments = store.comments.filter((item) => item.liveId === liveId);
+  const usersById = new Map(store.users.map((user) => [user.id, user.name]));
   const summary = {
     total: comments.length,
     pending: 0,
@@ -77,9 +108,10 @@ export function getCommentAnalytics(store: AppStore, liveId: string): CommentAna
   };
   const userStats = new Map<
     string,
-    {
-      userId: string;
-      total: number;
+      {
+        userId: string;
+        userName?: string;
+        total: number;
       pending: number;
       approved: number;
       rejected: number;
@@ -98,6 +130,7 @@ export function getCommentAnalytics(store: AppStore, liveId: string): CommentAna
       userStats.get(comment.userId) ??
       {
         userId: comment.userId,
+        userName: usersById.get(comment.userId),
         total: 0,
         pending: 0,
         approved: 0,

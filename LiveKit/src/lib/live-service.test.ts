@@ -7,8 +7,10 @@ import {
   getStats,
   joinLiveSession,
   kickParticipant,
+  listOnlineParticipants,
   muteParticipant,
   recordParticipantHeartbeat,
+  selectHostConsoleLiveSession,
   startLiveSession,
 } from "./live-service";
 import { applyForMic, approveMicRequest } from "./mic-service";
@@ -189,6 +191,7 @@ describe("live service", () => {
 
   it("reports real-time online count from recent participant heartbeats", () => {
     const store = createDemoStore();
+    startLiveSession(store, "demo-live", "host-1");
     const active = joinLiveSession(store, {
       liveId: "demo-live",
       userId: "active-viewer",
@@ -203,5 +206,52 @@ describe("live service", () => {
     stale.lastActiveAt = new Date(Date.now() - 60_000).toISOString();
 
     expect(getStats(store, "demo-live").currentOnline).toBe(1);
+  });
+
+  it("clears current online count and online participant list when the live is not live", () => {
+    const store = createDemoStore();
+    startLiveSession(store, "demo-live", "host-1");
+    const active = joinLiveSession(store, {
+      liveId: "demo-live",
+      userId: "active-before-ended",
+      role: "audience",
+    });
+    active.lastActiveAt = new Date().toISOString();
+
+    expect(getStats(store, "demo-live").currentOnline).toBe(1);
+    expect(listOnlineParticipants(store, "demo-live").map((participant) => participant.userId)).toEqual([
+      "active-before-ended",
+    ]);
+
+    endLiveSession(store, "demo-live", "host-1");
+
+    expect(getStats(store, "demo-live").currentOnline).toBe(0);
+    expect(listOnlineParticipants(store, "demo-live")).toEqual([]);
+  });
+
+  it("selects a non-ended room for the host console instead of an old room where the host was kicked", () => {
+    const store = createDemoStore();
+    const demoLive = store.liveSessions[0];
+    store.liveSessions.unshift({
+      ...demoLive,
+      id: "old-ended-live",
+      title: "old ended live",
+      roomName: "private-old-ended-live",
+      status: "ended",
+    });
+    store.participants.push({
+      id: "participant-old-host",
+      liveId: "old-ended-live",
+      userId: "host-1",
+      livekitIdentity: "private-old-ended-live-host-1",
+      role: "host",
+      joinTime: "2026-06-15T00:00:00.000Z",
+      watchDuration: 0,
+      isMuted: false,
+      isBanned: true,
+      canPublish: false,
+    });
+
+    expect(selectHostConsoleLiveSession(store).id).toBe("demo-live");
   });
 });

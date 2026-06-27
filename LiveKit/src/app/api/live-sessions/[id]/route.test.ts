@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppStore } from "@/lib/domain";
 import { createDemoStore } from "@/lib/store";
 import { setStoreRepository, type StoreRepository } from "@/lib/store-repository";
-import { PATCH } from "./route";
+import { DELETE, PATCH } from "./route";
 
 function useInMemoryStore(store: AppStore) {
   const repository: StoreRepository = {
@@ -51,5 +51,70 @@ describe("live session API", () => {
     expect(live.status).toBe(before.status);
     expect(live.hostUserId).toBe(before.hostUserId);
     expect(live.moderatorIds).toEqual(before.moderatorIds);
+  });
+
+  it("deletes a live session and its related room data", async () => {
+    const store = createDemoStore();
+    store.comments.push({
+      id: "comment-delete-live",
+      liveId: "demo-live",
+      userId: "audience-1",
+      content: "delete with room",
+      status: "approved",
+      isPinned: false,
+      isHighValueQuestion: false,
+      visibleToSender: true,
+      hitSensitiveWords: [],
+      createdAt: "2026-06-15T00:00:00.000Z",
+    });
+    store.micRequests.push({
+      id: "mic-delete-live",
+      liveId: "demo-live",
+      userId: "audience-1",
+      status: "applied",
+      reason: "delete with room",
+      createdAt: "2026-06-15T00:00:00.000Z",
+    });
+    store.participants.push({
+      id: "participant-delete-live",
+      liveId: "demo-live",
+      userId: "audience-1",
+      livekitIdentity: "private-demo-live-audience-1",
+      role: "audience",
+      joinTime: "2026-06-15T00:00:00.000Z",
+      watchDuration: 0,
+      isMuted: false,
+      isBanned: false,
+      canPublish: false,
+    });
+    useInMemoryStore(store);
+
+    const response = await DELETE(new Request("http://local.test/api/live-sessions/demo-live", { method: "DELETE" }), {
+      params: Promise.resolve({ id: "demo-live" }),
+    });
+    const payload = await response.json();
+
+    expect(payload.ok).toBe(true);
+    expect(store.liveSessions.some((item) => item.id === "demo-live")).toBe(false);
+    expect(store.comments.some((item) => item.liveId === "demo-live")).toBe(false);
+    expect(store.micRequests.some((item) => item.liveId === "demo-live")).toBe(false);
+    expect(store.participants.some((item) => item.liveId === "demo-live")).toBe(false);
+    expect(store.stats.some((item) => item.liveId === "demo-live")).toBe(false);
+    expect(store.shareVisits.some((item) => item.liveId === "demo-live")).toBe(false);
+  });
+
+  it("does not delete a live session while it is live", async () => {
+    const store = createDemoStore();
+    store.liveSessions[0].status = "live";
+    useInMemoryStore(store);
+
+    const response = await DELETE(new Request("http://local.test/api/live-sessions/demo-live", { method: "DELETE" }), {
+      params: Promise.resolve({ id: "demo-live" }),
+    });
+    const payload = await response.json();
+
+    expect(payload.ok).toBe(false);
+    expect(payload.error).toBe("LIVE_SESSION_ACTIVE");
+    expect(store.liveSessions.some((item) => item.id === "demo-live")).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { applyForMic } from "@/lib/mic-service";
+import { applyForMic, withMicRequestUserNames } from "@/lib/mic-service";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
 import { getStore } from "@/lib/store";
 
@@ -13,8 +13,12 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(request: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const userId = new URL(request.url).searchParams.get("userId");
+  const store = getStore();
   return jsonOk(
-    getStore().micRequests.filter((item) => item.liveId === id && (!userId || item.userId === userId)),
+    withMicRequestUserNames(
+      store,
+      store.micRequests.filter((item) => item.liveId === id && (!userId || item.userId === userId)),
+    ),
   );
 }
 
@@ -22,7 +26,8 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     const input = micSchema.parse(await readJson(request));
     const { id } = await ctx.params;
-    return jsonOk(applyForMic(getStore(), { liveId: id, ...input }), { status: 201 });
+    const store = getStore();
+    return jsonOk(withMicRequestUserNames(store, [applyForMic(store, { liveId: id, ...input })])[0], { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

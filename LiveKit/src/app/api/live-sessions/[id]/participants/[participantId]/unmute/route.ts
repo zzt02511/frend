@@ -1,5 +1,5 @@
 import { jsonError, jsonOk, readJson } from "@/lib/http";
-import { unmuteParticipant } from "@/lib/live-service";
+import { unmuteParticipant, withParticipantUserNames } from "@/lib/live-service";
 import { getStore } from "@/lib/store";
 
 type Ctx = { params: Promise<{ id: string; participantId: string }> };
@@ -8,7 +8,8 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     const { actorId = "moderator-1" } = await readJson<{ actorId?: string }>(request);
     const { id, participantId } = await ctx.params;
-    return jsonOk(unmuteParticipant(getStore(), id, participantId, actorId));
+    const store = getStore();
+    return jsonOk(withParticipantUserNames(store, [unmuteParticipant(store, id, participantId, actorId)])[0]);
   } catch (error) {
     return jsonError(error);
   }

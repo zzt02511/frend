@@ -16,6 +16,8 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_URL: ${LIVEKIT_URL:-wss://live.fuguilong.cn}
+      WECHAT_OAUTH_APP_ID: ${WECHAT_OAUTH_APP_ID:-}
+      WECHAT_OAUTH_APP_SECRET: ${WECHAT_OAUTH_APP_SECRET:-}
     volumes:
       - app-data:/app/.data
     depends_on:

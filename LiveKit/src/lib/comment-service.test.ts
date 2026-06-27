@@ -4,6 +4,7 @@ import {
   listAudienceComments,
   listPublicComments,
   markHighValueQuestion,
+  recordAudienceEvent,
   sendComment,
   withCommentUserNames,
 } from "./comment-service";
@@ -129,5 +130,38 @@ describe("comment service", () => {
     });
 
     expect(withCommentUserNames(store, [comment])[0].userName).toBe("微信昵称小王");
+  });
+
+  it("records audience join and like events as approved comments without review", () => {
+    const store = createDemoStore();
+    const initialLikeCount = store.stats.find((item) => item.liveId === "demo-live")?.likeCount ?? 0;
+    store.users.push({
+      id: "wx-viewer-event",
+      name: "微信昵称小李",
+      role: "audience",
+      status: "active",
+    });
+
+    const joinEvent = recordAudienceEvent(store, {
+      liveId: "demo-live",
+      userId: "wx-viewer-event",
+      type: "join",
+    });
+    const likeEvent = recordAudienceEvent(store, {
+      liveId: "demo-live",
+      userId: "wx-viewer-event",
+      type: "like",
+    });
+
+    expect(joinEvent.status).toBe("approved");
+    expect(joinEvent.visibleToSender).toBe(false);
+    expect(joinEvent.content).toBe("微信昵称小李进入直播间了");
+    expect(likeEvent.status).toBe("approved");
+    expect(likeEvent.content).toBe("微信昵称小李点赞了主播");
+    expect(listPublicComments(store, "demo-live").map((comment) => comment.id)).toEqual([
+      joinEvent.id,
+      likeEvent.id,
+    ]);
+    expect(store.stats.find((item) => item.liveId === "demo-live")?.likeCount).toBe(initialLikeCount + 1);
   });
 });

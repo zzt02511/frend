@@ -12,6 +12,7 @@ import {
   type RemoteTrackPublication,
 } from "livekit-client";
 import type { LiveKitAccessToken } from "@/lib/domain";
+import { TencentCloudLivePlayer } from "@/components/tencent-cloud-live-player";
 
 type Props = {
   liveId: string;
@@ -19,9 +20,18 @@ type Props = {
   viewerId: string;
   micApproved: boolean;
   hostIdentity: string;
+  cdnPlayUrl?: string;
 };
 
 type MicVideoTrack = { identity: string; track: RemoteTrack };
+
+function isAppleMobile(userAgent: string) {
+  return /iPhone|iPad|iPod/i.test(userAgent);
+}
+
+function isAudienceCdnEnabled() {
+  return process.env.NEXT_PUBLIC_AUDIENCE_CDN_ENABLED === "true";
+}
 
 function prepareInlineVideo(videoElement: HTMLVideoElement, muted: boolean) {
   videoElement.autoplay = true;
@@ -77,7 +87,7 @@ function MicVideoTile({ track }: { track: RemoteTrack }) {
   );
 }
 
-export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApproved, hostIdentity }: Props) {
+export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApproved, hostIdentity, cdnPlayUrl }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const lastVideoTrackRef = useRef<RemoteTrack | null>(null);
@@ -85,9 +95,16 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
   const localPreviewRef = useRef<HTMLVideoElement>(null);
   const [micVideoTracks, setMicVideoTracks] = useState<MicVideoTrack[]>([]);
   const [showMicPreview, setShowMicPreview] = useState(false);
+  const [playbackMode] = useState<"cdn" | "livekit">(() => {
+    if (typeof window === "undefined") return "livekit";
+    return isAudienceCdnEnabled() && Boolean(cdnPlayUrl?.trim()) && !isAppleMobile(window.navigator.userAgent)
+      ? "cdn"
+      : "livekit";
+  });
   const [playerState, setPlayerState] = useState(
     liveStatus === "live" ? "正在准备进入直播间..." : "主播未开播，稍后刷新即可观看。",
   );
+  const useCdnPlayback = playbackMode === "cdn";
 
   function playHostVideo() {
     const videoElement = videoRef.current;
@@ -125,12 +142,16 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
     ) {
       const isHostTrack = isHostParticipant(participant);
 
-      if (track.kind === Track.Kind.Video && isHostTrack && videoElement) {
+      if (track.kind === Track.Kind.Video && isHostTrack && videoElement && !useCdnPlayback) {
         lastVideoTrackRef.current = track;
         prepareInlineVideo(videoElement, true);
         track.attach(videoElement);
         playHostVideo();
         setPlayerState("正在播放主播画面");
+        return;
+      }
+
+      if (track.kind === Track.Kind.Video && isHostTrack && useCdnPlayback) {
         return;
       }
 
@@ -160,7 +181,7 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
       if (track.kind === Track.Kind.Video && isHostTrack) {
         if (videoElement) videoElement.srcObject = null;
         lastVideoTrackRef.current = null;
-        if (isMounted) setPlayerState("主播画面已断开，等待重新推流");
+        if (isMounted && !useCdnPlayback) setPlayerState("主播画面已断开，等待重新推流");
         return;
       }
 
@@ -250,24 +271,28 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
       setShowMicPreview(false);
       setMicVideoTracks([]);
     };
-  }, [liveId, liveStatus, viewerId, micApproved, hostIdentity]);
+  }, [liveId, liveStatus, viewerId, micApproved, hostIdentity, useCdnPlayback, playbackMode]);
 
   return (
     <>
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        preload="auto"
-        playsInline
-        onClick={() => {
-          if (lastVideoTrackRef.current && videoRef.current) {
-            lastVideoTrackRef.current.attach(videoRef.current);
-          }
-          playHostVideo();
-        }}
-        className="h-full w-full object-cover"
-      />
+      {useCdnPlayback && cdnPlayUrl ? (
+        <TencentCloudLivePlayer playUrl={cdnPlayUrl} />
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          preload="auto"
+          playsInline
+          onClick={() => {
+            if (lastVideoTrackRef.current && videoRef.current) {
+              lastVideoTrackRef.current.attach(videoRef.current);
+            }
+            playHostVideo();
+          }}
+          className="h-full w-full object-cover"
+        />
+      )}
       <div className="absolute bottom-5 right-5 z-20 flex max-w-[76%] gap-2 overflow-x-auto">
         {micVideoTracks.map((item) => (
           <MicVideoTile key={item.identity} track={item.track} />
@@ -284,9 +309,11 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
         }`}
       />
       <div ref={audioContainerRef} className="hidden" />
-      <div className="absolute inset-x-5 top-16 rounded-md bg-black/45 p-3 text-sm text-white backdrop-blur">
-        {playerState}
-      </div>
+      {!useCdnPlayback ? (
+        <div className="absolute inset-x-5 top-16 rounded-md bg-black/45 p-3 text-sm text-white backdrop-blur">
+          {playerState}
+        </div>
+      ) : null}
     </>
   );
 }

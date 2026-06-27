@@ -104,6 +104,14 @@ export function endMicRequest(store: AppStore, liveId: string, requestId: string
   return request;
 }
 
+export function withMicRequestUserNames(store: AppStore, requests: MicRequest[]) {
+  const usersById = new Map(store.users.map((user) => [user.id, user.name]));
+  return requests.map((request) => ({
+    ...request,
+    userName: usersById.get(request.userId) ?? request.userName ?? request.userId,
+  }));
+}
+
 function getMicRequest(store: AppStore, liveId: string, requestId: string) {
   const request = store.micRequests.find((item) => item.liveId === liveId && item.id === requestId);
   if (!request) throw new Error("MIC_REQUEST_NOT_FOUND");
