@@ -36,3 +36,7 @@ export function getStoreRepository() {
 export function setStoreRepository(nextRepository: StoreRepository | undefined) {
   repository = nextRepository;
 }
+
+export function usePgStorage() {
+  return process.env.DATABASE_STORAGE === "enabled";
+}

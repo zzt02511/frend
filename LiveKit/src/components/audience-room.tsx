@@ -13,6 +13,7 @@ type Props = {
   comments: LiveComment[];
   stats: LiveStats;
   initialViewerId?: string;
+  hasAccessPassword?: boolean;
 };
 
 const VIEWER_NAME_KEY = "wechat-live-viewer-name";
@@ -41,7 +42,8 @@ function mergeVisibleComments(current: LiveComment[], incoming: LiveComment[], v
   return sortCommentsByTime([...ownPendingComments, ...incoming]);
 }
 
-export function AudienceRoom({ live, comments: initialComments, stats, initialViewerId }: Props) {
+
+export function AudienceRoom({ live, comments: initialComments, stats, initialViewerId, hasAccessPassword }: Props) {
   const commentInputRef = useRef<HTMLInputElement>(null);
   const commentsPanelRef = useRef<HTMLDivElement>(null);
   const [viewerId, setViewerId] = useState(initialViewerId && initialViewerId !== "audience-1" ? initialViewerId : "");
@@ -56,6 +58,10 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   const [isApplyingMic, setIsApplyingMic] = useState(false);
   const [isSendingLike, setIsSendingLike] = useState(false);
   const [liveStats, setLiveStats] = useState(stats);
+  const [accessPasswordValue, setAccessPasswordValue] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordVerified, setPasswordVerified] = useState(!hasAccessPassword);
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
 
   useEffect(() => {
     if (!commentsPanelRef.current) return;
@@ -239,7 +245,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
       const storedName = window.localStorage.getItem(VIEWER_NAME_KEY)?.trim();
       const storedNameSource = window.localStorage.getItem(VIEWER_NAME_SOURCE_KEY)?.trim();
       setViewerId(nextViewerId);
-      if (storedName && storedNameSource === "wechat") {
+      if (storedName && (storedNameSource === "wechat" || storedNameSource === "fallback")) {
         setIsAuthorized(true);
         return;
       }
@@ -343,9 +349,57 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
 
   const isMicConnected = micStatus === "连麦中";
   const micButtonText = isApplyingMic || micStatus === "申请中" ? "申请中" : isMicConnected ? "连麦中" : "申请连麦";
+  async function submitAccessPassword() {
+  if (!accessPasswordValue.trim() || isVerifyingPassword) return;
+  setIsVerifyingPassword(true);
+  setPasswordError("");
+  try {
+    const response = await fetch(`/api/live-sessions/${live.id}/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: `pwd-${Date.now()}`, role: "audience", accessPassword: accessPasswordValue }),
+    });
+    const payload = await response.json();
+    if (payload.ok) {
+      setPasswordVerified(true);
+    } else if (payload.error === "ACCESS_PASSWORD_INCORRECT") {
+      setPasswordError("访问密码错误，请重试");
+    } else {
+      setPasswordError("验证失败，请稍后重试");
+    }
+  } catch {
+    setPasswordError("网络异常，请稍后重试");
+  } finally {
+    setIsVerifyingPassword(false);
+  }
+}
 
   return (
+    <>
     <main className="mx-auto min-h-screen max-w-md bg-background">
+    {!passwordVerified && hasAccessPassword ? (
+      <section className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
+        <div className="grid w-full max-w-xs gap-3 rounded-md bg-background p-4 text-foreground shadow-xl">
+      <h2 className="text-base font-semibold">请输入访问密码</h2>
+      <p className="text-sm leading-6 text-muted-foreground">该直播房间需要密码才能进入</p>
+      <input
+        type="password"
+        value={accessPasswordValue}
+        onChange={(event) => { setAccessPasswordValue(event.target.value); setPasswordError(""); }}
+        placeholder="输入密码"
+        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        autoFocus
+        disabled={isVerifyingPassword}
+        onKeyDown={(event) => { if (event.key === "Enter") void submitAccessPassword(); }}
+      />
+      {passwordError ? <p className="text-xs text-destructive">{passwordError}</p> : null}
+      <Button onClick={() => void submitAccessPassword()}
+              disabled={isVerifyingPassword || !accessPasswordValue.trim()}>
+        {isVerifyingPassword ? "验证中…" : "确认"}
+      </Button>
+        </div>
+      </section>
+    ) : null}
       <section className="video-grid relative aspect-[9/16] min-h-[520px] overflow-hidden bg-black text-white">
         <LiveKitAudiencePlayer
           liveId={live.id}
@@ -455,5 +509,6 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
         <p className="text-xs text-muted-foreground">连麦状态：{micStatus}</p>
       </section>
     </main>
+    </>
   );
 }

@@ -148,14 +148,16 @@ export function AdminConsole({
   const [shareRanking, setShareRanking] = useState(initialShareRanking);
   const [commentAnalytics, setCommentAnalytics] = useState(initialCommentAnalytics);
   const [customerLeads, setCustomerLeads] = useState(initialCustomerLeads);
-  const [title, setTitle] = useState("");
+const [title, setTitle] = useState("");
+const [newLivePassword, setNewLivePassword] = useState("");
   const [sharedBy, setSharedBy] = useState("moderator-1");
   const [commentQuery, setCommentQuery] = useState("");
   const [commentStatusFilter, setCommentStatusFilter] = useState<CommentStatus | "all">("all");
   const [origin, setOrigin] = useState("");
-  const [editingLiveId, setEditingLiveId] = useState("");
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
+const [editingLiveId, setEditingLiveId] = useState("");
+const [editTitle, setEditTitle] = useState("");
+const [editDescription, setEditDescription] = useState("");
+const [editAccessPassword, setEditAccessPassword] = useState("");
   const activeLive = sessions.find((item) => item.id === activeLiveId) ?? sessions[0];
   const reviewComments = useMemo(
     () =>
@@ -256,7 +258,7 @@ export function AdminConsole({
     const suffix = action === "delete" ? "" : `/${action}`;
     const response = await fetch(`/api/live-sessions/${activeLive.id}/comments/${commentId}${suffix}`, {
       method,
-      body: JSON.stringify({ actorId: "moderator-1" }),
+      headers: { "Content-Type": "application/json" },
     });
     const payload = (await response.json()) as ApiPayload<LiveComment>;
     if (payload.ok) await loadLiveData(activeLive.id);
@@ -266,7 +268,7 @@ export function AdminConsole({
     if (!activeLive) return;
     const response = await fetch(`/api/live-sessions/${activeLive.id}/participants/${participantId}/kick`, {
       method: "POST",
-      body: JSON.stringify({ actorId: "moderator-1" }),
+      headers: { "Content-Type": "application/json" },
     });
     const payload = (await response.json()) as ApiPayload<LiveParticipant>;
     if (payload.ok) await loadLiveData(activeLive.id);
@@ -288,7 +290,7 @@ export function AdminConsole({
     if (!title.trim()) return;
     const response = await fetch("/api/live-sessions", {
       method: "POST",
-      body: JSON.stringify({ title, description: "新建私域直播，可分享给微信好友进入观看。" }),
+      body: JSON.stringify({ title, description: "新建私域直播，可分享给微信好友进入观看。", accessPassword: newLivePassword || undefined }),
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -298,26 +300,29 @@ export function AdminConsole({
       setCommentStatusFilter("all");
       await loadLiveData(payload.data.id);
       setTitle("");
+      setNewLivePassword("");
     }
   }
 
-  function startEditLive(session: LiveSession) {
+function startEditLive(session: LiveSession) {
     setEditingLiveId(session.id);
     setEditTitle(session.title);
     setEditDescription(session.description);
+    setEditAccessPassword(session.accessPassword ?? "");
   }
 
-  function cancelEditLive() {
+function cancelEditLive() {
     setEditingLiveId("");
     setEditTitle("");
     setEditDescription("");
+    setEditAccessPassword("");
   }
 
   async function saveLiveSession(liveId: string) {
     if (!editTitle.trim()) return;
     const response = await fetch(`/api/live-sessions/${liveId}`, {
       method: "PATCH",
-      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim() }),
+      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim(), accessPassword: editAccessPassword || undefined }),
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -351,10 +356,9 @@ export function AdminConsole({
 
   async function changeLiveStatus(action: "start" | "end") {
     if (!activeLive) return;
-    const actorId = action === "start" ? "host-1" : "moderator-1";
     const response = await fetch(`/api/live-sessions/${activeLive.id}/${action}`, {
       method: "POST",
-      body: JSON.stringify({ actorId }),
+      headers: { "Content-Type": "application/json" },
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -371,7 +375,8 @@ export function AdminConsole({
             <h1 className="text-3xl font-semibold tracking-normal">直播列表、分享与互动审核</h1>
           </div>
           <div className="flex gap-2">
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="输入新直播标题" />
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="输入新直播标题" className="max-w-[200px]" />
+            <Input type="password" value={newLivePassword} onChange={(event) => setNewLivePassword(event.target.value)} placeholder="访问密码(可选)" className="max-w-[140px]" />
             <Button onClick={createLive}>创建直播</Button>
           </div>
         </header>
@@ -417,9 +422,15 @@ export function AdminConsole({
                               <Input
                                 value={editDescription}
                                 onChange={(event) => setEditDescription(event.target.value)}
-                                placeholder="直播说明"
-                              />
-                            </div>
+              placeholder="直播说明"
+            />
+            <Input
+              type="password"
+              value={editAccessPassword}
+              onChange={(event) => setEditAccessPassword(event.target.value)}
+              placeholder="访问密码（留空则不设密码）"
+            />
+          </div>
                           ) : (
                             <>
                               <button className="text-left font-medium hover:text-primary" onClick={() => void selectLive(session.id)}>

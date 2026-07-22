@@ -7,11 +7,13 @@ const createLiveSchema = z.object({
   title: z.string().min(2),
   description: z.string().optional().default(""),
   startTime: z.string().optional(),
+  accessPassword: z.string().optional(),
   hostUserId: z.string().optional().default("host-1"),
 });
 
 export async function GET() {
-  return jsonOk(getStore().liveSessions);
+  const sessions = getStore().liveSessions.map((item) => ({ ...item, accessPassword: undefined }));
+  return jsonOk(sessions);
 }
 
 export async function POST(request: Request) {
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
       commentMode: "review" as const,
       enableMicApply: true,
       enableRecord: true,
+      ...(input.accessPassword ? { accessPassword: input.accessPassword } : {}),
     };
     store.liveSessions.unshift(live);
     store.stats.push({

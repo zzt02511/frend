@@ -137,7 +137,7 @@ export function endLiveSession(store: AppStore, liveId: string, actorId: string)
   const live = getLiveSession(store, liveId);
   live.status = "ended";
   live.actualEndTime = nowIso();
-  live.replayUrl = `/replays/${liveId}.mp4`;
+  live.replayUrl = `/api/live-sessions/${liveId}/replay`;
   store.replays.push({
     id: createId("replay"),
     liveId,
@@ -187,6 +187,7 @@ export function updateLiveSession(
       | "commentMode"
       | "enableMicApply"
       | "enableRecord"
+      | "accessPassword"
     >
   >,
 ) {

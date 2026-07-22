@@ -415,7 +415,6 @@ export function MobileHostConsole({
       const response = await fetch(`/api/live-sessions/${live.id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: live.hostUserId }),
       });
       const payload = await response.json();
 
@@ -446,7 +445,6 @@ export function MobileHostConsole({
       const response = await fetch(`/api/live-sessions/${live.id}/mic-requests/${requestId}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: live.hostUserId }),
       });
       const payload = await response.json();
 

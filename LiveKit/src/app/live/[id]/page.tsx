@@ -31,10 +31,11 @@ export default async function LivePage({
 
   return (
     <AudienceRoom
-      live={live}
+      live={{ ...live, accessPassword: undefined }}
       comments={withCommentUserNames(store, listAudienceComments(store, id, viewerId))}
       stats={getStats(store, id)}
       initialViewerId={viewerId}
+      hasAccessPassword={Boolean(live.accessPassword)}
     />
   );
 }

@@ -144,7 +144,6 @@ describe("MobileHostConsole", () => {
       expect(fetch).toHaveBeenCalledWith("/api/live-sessions/demo-live/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: "host-1" }),
       }),
     );
   });
@@ -170,7 +169,6 @@ describe("MobileHostConsole", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/mic-requests/mic-1/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actorId: "host-1" }),
     });
   });
 
@@ -263,7 +261,6 @@ describe("MobileHostConsole", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/mic-requests/mic-connected-1/end", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actorId: "host-1" }),
     });
   });
 

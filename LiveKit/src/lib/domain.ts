@@ -17,6 +17,7 @@ export type User = {
   id: string;
   name: string;
   role: UserRole;
+  passwordHash?: string;
   status: UserStatus;
   avatarUrl?: string;
   mobile?: string;
@@ -43,6 +44,7 @@ export type LiveSession = {
   enableRecord: boolean;
   cdnPlayUrl?: string;
   replayUrl?: string;
+  accessPassword?: string;
 };
 
 export type LiveParticipant = {

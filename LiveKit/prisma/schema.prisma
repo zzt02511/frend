@@ -92,6 +92,7 @@ model User {
   mobile    String?
   role      UserRole   @default(audience)
   status    UserStatus @default(active)
+  passwordHash String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -114,6 +115,8 @@ model LiveSession {
   enableMicApply  Boolean     @default(true)
   enableRecord    Boolean     @default(true)
   replayUrl       String?
+  cdnPlayUrl      String?
+  accessPassword  String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }

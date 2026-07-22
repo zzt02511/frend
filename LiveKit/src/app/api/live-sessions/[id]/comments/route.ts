@@ -5,7 +5,7 @@ import { getStore } from "@/lib/store";
 
 const commentSchema = z.object({
   userId: z.string().default("audience-1"),
-  content: z.string().refine((value) => value.trim().length > 0, "COMMENT_EMPTY"),
+  content: z.string().max(500).refine((value) => value.trim().length > 0, "COMMENT_EMPTY"),
 });
 
 type Ctx = { params: Promise<{ id: string }> };

@@ -1,14 +1,15 @@
 import { deleteComment } from "@/lib/comment-service";
-import { jsonError, jsonOk, readJson } from "@/lib/http";
+import { requireAuth } from "@/lib/auth-helpers";
+import { jsonError, jsonOk } from "@/lib/http";
 import { getStore } from "@/lib/store";
 
 type Ctx = { params: Promise<{ id: string; commentId: string }> };
 
-export async function DELETE(request: Request, ctx: Ctx) {
+export async function DELETE(_request: Request, ctx: Ctx) {
   try {
-    const { actorId = "moderator-1" } = await readJson<{ actorId?: string }>(request);
+    const { userId } = await requireAuth(["moderator", "director", "super_admin"]);
     const { id, commentId } = await ctx.params;
-    return jsonOk(deleteComment(getStore(), id, commentId, actorId));
+    return jsonOk(deleteComment(getStore(), id, commentId, userId));
   } catch (error) {
     return jsonError(error);
   }

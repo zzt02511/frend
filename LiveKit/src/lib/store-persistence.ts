@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { AppStore } from "./domain";
 import { createDemoStore } from "./store";
+import { hashPassword } from "./password";
 
 export const defaultStorePath = join(process.cwd(), ".data", "app-store.json");
 let demoStoreTemplate: AppStore | undefined;
@@ -24,6 +25,21 @@ function normalizeLiveSessions(store: Partial<AppStore>, demo: AppStore) {
   return sessions;
 }
 
+function normalizeUsers(store: Partial<AppStore>, demo: AppStore) {
+  const users = store.users ?? cloneDefault(demo.users);
+  for (const user of users) {
+    if (!user.passwordHash) {
+      const demoUser = demo.users.find((item) => item.id === user.id);
+      if (demoUser?.passwordHash) {
+        user.passwordHash = demoUser.passwordHash;
+      } else {
+        user.passwordHash = hashPassword("changeme");
+      }
+    }
+  }
+  return users;
+}
+
 export function loadStoreFromFile(filePath = defaultStorePath): AppStore {
   if (!existsSync(filePath)) return createDemoStore();
 
@@ -39,7 +55,7 @@ export function saveStoreToFile(store: AppStore, filePath = defaultStorePath) {
 export function normalizeStore(store: Partial<AppStore>): AppStore {
   const demo = getDemoStoreTemplate();
   return {
-    users: store.users ?? cloneDefault(demo.users),
+    users: normalizeUsers(store, demo),
     liveSessions: normalizeLiveSessions(store, demo),
     participants: store.participants ?? [],
     comments: store.comments ?? [],

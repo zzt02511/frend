@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
+import { requireAuth } from "@/lib/auth-helpers";
 import { deleteLiveSession, getLiveSession, updateLiveSession } from "@/lib/live-service";
 import { getStore } from "@/lib/store";
 
@@ -16,12 +17,15 @@ const livePatchSchema = z.object({
   commentMode: z.enum(["free", "review", "host_only", "closed"]).optional(),
   enableMicApply: z.boolean().optional(),
   enableRecord: z.boolean().optional(),
+  accessPassword: z.string().optional(),
+  clearPassword: z.boolean().optional(),
 });
 
 export async function GET(_request: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
-    return jsonOk(getLiveSession(getStore(), id));
+    const live = getLiveSession(getStore(), id);
+    return jsonOk({ ...live, accessPassword: undefined });
   } catch (error) {
     return jsonError(error, 404);
   }
@@ -38,9 +42,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
 export async function DELETE(request: Request, ctx: Ctx) {
   try {
+    const { userId } = await requireAuth(["director", "super_admin", "moderator"]);
     const { id } = await ctx.params;
-    const body = await readJson<{ actorId?: string }>(request);
-    return jsonOk(deleteLiveSession(getStore(), id, body.actorId ?? "moderator-1"));
+    return jsonOk(deleteLiveSession(getStore(), id, userId));
   } catch (error) {
     return jsonError(error);
   }

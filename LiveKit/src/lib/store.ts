@@ -1,6 +1,7 @@
 import type { AppStore } from "./domain";
 import { getStoreRepository } from "./store-repository";
 import { normalizeStore } from "./store-persistence";
+import { hashPassword } from "./password";
 
 export function createDemoStore(): AppStore {
   return {
@@ -10,24 +11,28 @@ export function createDemoStore(): AppStore {
         name: "超级管理员",
         role: "super_admin",
         status: "active",
+        passwordHash: hashPassword("admin123"),
       },
       {
         id: "director-1",
         name: "营销总监",
         role: "director",
         status: "active",
+        passwordHash: hashPassword("director123"),
       },
       {
         id: "host-1",
         name: "移动主播",
         role: "host",
         status: "active",
+        passwordHash: hashPassword("host123"),
       },
       {
         id: "moderator-1",
         name: "直播场控",
         role: "moderator",
         status: "active",
+        passwordHash: hashPassword("mod123"),
       },
       {
         id: "audience-1",
