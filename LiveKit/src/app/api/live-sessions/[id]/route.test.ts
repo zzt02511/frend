@@ -4,6 +4,14 @@ import { createDemoStore } from "@/lib/store";
 import { setStoreRepository, type StoreRepository } from "@/lib/store-repository";
 import { DELETE, PATCH } from "./route";
 
+const { requireAuthMock } = vi.hoisted(() => ({
+  requireAuthMock: vi.fn(),
+}));
+
+vi.mock("@/lib/auth-helpers", () => ({
+  requireAuth: requireAuthMock,
+}));
+
 function useInMemoryStore(store: AppStore) {
   const repository: StoreRepository = {
     load: () => store,
@@ -18,9 +26,11 @@ describe("live session API", () => {
   afterEach(() => {
     delete (globalThis as typeof globalThis & { __wechatLiveStore?: AppStore }).__wechatLiveStore;
     setStoreRepository(undefined);
+    requireAuthMock.mockReset();
   });
 
   it("updates only editable live session fields", async () => {
+    requireAuthMock.mockResolvedValue({ userId: "moderator-1", role: "moderator", userName: "直播场控" });
     const store = createDemoStore();
     useInMemoryStore(store);
     const before = { ...store.liveSessions[0] };
@@ -53,7 +63,28 @@ describe("live session API", () => {
     expect(live.moderatorIds).toEqual(before.moderatorIds);
   });
 
+  it("rejects unauthenticated live updates without mutating the room", async () => {
+    const store = createDemoStore();
+    useInMemoryStore(store);
+    requireAuthMock.mockRejectedValue(new Error("AUTH_REQUIRED"));
+
+    const response = await PATCH(
+      new Request("http://local.test/api/live-sessions/demo-live", {
+        method: "PATCH",
+        body: JSON.stringify({ title: "Unauthorized title", accessPassword: "leaked" }),
+      }),
+      { params: Promise.resolve({ id: "demo-live" }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload).toEqual({ ok: false, error: "AUTH_REQUIRED" });
+    expect(store.liveSessions[0].title).not.toBe("Unauthorized title");
+    expect(store.liveSessions[0].accessPassword).toBeUndefined();
+  });
+
   it("deletes a live session and its related room data", async () => {
+    requireAuthMock.mockResolvedValue({ userId: "moderator-1", role: "moderator", userName: "直播场控" });
     const store = createDemoStore();
     store.comments.push({
       id: "comment-delete-live",
@@ -104,6 +135,7 @@ describe("live session API", () => {
   });
 
   it("does not delete a live session while it is live", async () => {
+    requireAuthMock.mockResolvedValue({ userId: "moderator-1", role: "moderator", userName: "直播场控" });
     const store = createDemoStore();
     store.liveSessions[0].status = "live";
     useInMemoryStore(store);

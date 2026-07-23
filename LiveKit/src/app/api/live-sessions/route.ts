@@ -2,6 +2,7 @@ import { z } from "zod";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
 import { createId } from "@/lib/domain";
 import { getStore, persistStore } from "@/lib/store";
+import { requireAuth } from "@/lib/auth-helpers";
 
 const createLiveSchema = z.object({
   title: z.string().min(2),
@@ -18,6 +19,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireAuth(["super_admin", "director", "moderator"]);
     const input = createLiveSchema.parse(await readJson(request));
     const store = getStore();
     const id = createId("live");
@@ -56,6 +58,7 @@ export async function POST(request: Request) {
     persistStore(store);
     return jsonOk(live, { status: 201 });
   } catch (error) {
-    return jsonError(error);
+    const code = error instanceof Error ? error.message : String(error);
+    return jsonError(error, code === "AUTH_REQUIRED" ? 401 : code === "AUTH_INSUFFICIENT_ROLE" ? 403 : 400);
   }
 }

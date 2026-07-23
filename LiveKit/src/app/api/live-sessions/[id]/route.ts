@@ -6,6 +6,13 @@ import { getStore } from "@/lib/store";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+function routeErrorStatus(error: unknown) {
+  const code = error instanceof Error ? error.message : String(error);
+  if (code === "AUTH_REQUIRED") return 401;
+  if (code === "AUTH_INSUFFICIENT_ROLE") return 403;
+  return 400;
+}
+
 const livePatchSchema = z.object({
   title: z.string().min(1).optional(),
   coverUrl: z.string().min(1).optional(),
@@ -33,10 +40,11 @@ export async function GET(_request: Request, ctx: Ctx) {
 
 export async function PATCH(request: Request, ctx: Ctx) {
   try {
+    await requireAuth(["director", "super_admin", "moderator"]);
     const { id } = await ctx.params;
     return jsonOk(updateLiveSession(getStore(), id, livePatchSchema.parse(await readJson(request))));
   } catch (error) {
-    return jsonError(error);
+    return jsonError(error, routeErrorStatus(error));
   }
 }
 
@@ -46,6 +54,6 @@ export async function DELETE(request: Request, ctx: Ctx) {
     const { id } = await ctx.params;
     return jsonOk(deleteLiveSession(getStore(), id, userId));
   } catch (error) {
-    return jsonError(error);
+    return jsonError(error, routeErrorStatus(error));
   }
 }
