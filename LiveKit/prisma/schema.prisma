@@ -116,7 +116,8 @@ model LiveSession {
   enableRecord    Boolean     @default(true)
   replayUrl       String?
   cdnPlayUrl      String?
-  accessPassword  String?
+  accessPasswordCiphertext String?
+  accessPasswordVersion    Int         @default(0)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
@@ -125,9 +126,11 @@ model LiveParticipant {
   id              String   @id @default(cuid())
   liveId          String
   userId          String
+  userName        String?
   livekitIdentity String
   role            UserRole
   joinTime        DateTime @default(now())
+  lastActiveAt    DateTime?
   leaveTime       DateTime?
   watchDuration   Int      @default(0)
   isMuted         Boolean  @default(false)
@@ -143,6 +146,7 @@ model LiveComment {
   id                  String        @id @default(cuid())
   liveId              String
   userId              String
+  userName            String?
   content             String
   status              CommentStatus @default(pending)
   isPinned            Boolean       @default(false)
@@ -160,6 +164,7 @@ model MicRequest {
   id          String           @id @default(cuid())
   liveId      String
   userId      String
+  userName    String?
   status      MicRequestStatus @default(applied)
   reason      String?
   approvedBy  String?

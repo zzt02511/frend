@@ -1,25 +1,15 @@
-// @ts-nocheck – Prisma client not regenerated with updated schema yet
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import type {
   AppStore,
-  AuditLog,
   CommentMode,
   CommentStatus,
   CustomerFollowUp,
-  LiveComment,
-  LiveParticipant,
-  LiveSession,
   LiveStatus,
-  LiveStats,
   MicRequest,
-  ReplayRecord,
   ReplayStatus,
-  ShareVisit,
-  User,
   UserRole,
   UserStatus,
 } from "./domain";
-import { nowIso } from "./domain";
 import type { StoreRepository } from "./store-repository";
 import { JsonStoreRepository } from "./store-repository";
 import { normalizeStore } from "./store-persistence";
@@ -30,8 +20,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
 
   private getPrisma() {
     if (!this.prisma) {
-      const { PrismaClient: PgClient } = require("@prisma/client") as { PrismaClient: new () => PrismaClient };
-      this.prisma = new PgClient();
+      this.prisma = new PrismaClient();
     }
     return this.prisma;
   }
@@ -58,7 +47,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
       this.pgReady = true;
 
       const store: AppStore = {
-        users: users.map((user: Record<string, unknown>) => ({
+        users: users.map((user) => ({
           id: user.id,
           name: user.name,
           role: user.role as UserRole,
@@ -69,7 +58,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           openid: user.openid ?? undefined,
           unionid: user.unionid ?? undefined,
         })),
-        liveSessions: liveSessions.map((session: Record<string, unknown>) => ({
+        liveSessions: liveSessions.map((session) => ({
           id: session.id,
           title: session.title,
           coverUrl: session.coverUrl ?? "/window.svg",
@@ -87,10 +76,11 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           enableMicApply: session.enableMicApply,
           enableRecord: session.enableRecord,
           cdnPlayUrl: session.cdnPlayUrl ?? undefined,
-          accessPassword: session.accessPassword ?? undefined,
+          accessPasswordCiphertext: session.accessPasswordCiphertext ?? undefined,
+          accessPasswordVersion: session.accessPasswordVersion,
           replayUrl: session.replayUrl ?? undefined,
         })),
-        participants: participants.map((participant: Record<string, unknown>) => ({
+        participants: participants.map((participant) => ({
           id: participant.id,
           liveId: participant.liveId,
           userId: participant.userId,
@@ -105,7 +95,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           isBanned: participant.isBanned,
           canPublish: participant.canPublish,
         })),
-        comments: comments.map((comment: Record<string, unknown>) => ({
+        comments: comments.map((comment) => ({
           id: comment.id,
           liveId: comment.liveId,
           userId: comment.userId,
@@ -120,7 +110,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           reviewedAt: comment.reviewedAt?.toISOString(),
           createdAt: comment.createdAt.toISOString(),
         })),
-        micRequests: micRequests.map((request: Record<string, unknown>) => ({
+        micRequests: micRequests.map((request) => ({
           id: request.id,
           liveId: request.liveId,
           userId: request.userId,
@@ -133,7 +123,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           endedAt: request.endedAt?.toISOString(),
           createdAt: request.createdAt.toISOString(),
         })),
-        replays: replays.map((replay: Record<string, unknown>) => ({
+        replays: replays.map((replay) => ({
           id: replay.id,
           liveId: replay.liveId,
           status: replay.status as ReplayStatus,
@@ -141,7 +131,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           visible: replay.visible,
           createdAt: replay.createdAt.toISOString(),
         })),
-        stats: stats.map((stat: Record<string, unknown>) => ({
+        stats: stats.map((stat) => ({
           id: stat.id,
           liveId: stat.liveId,
           pv: stat.pv,
@@ -156,15 +146,18 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           leadCount: stat.leadCount,
           replayViewCount: stat.replayViewCount,
         })),
-        auditLogs: auditLogs.map((log: Record<string, unknown>) => ({
+        auditLogs: auditLogs.map((log) => ({
           id: log.id,
           actorId: log.actorId,
           action: log.action,
           targetId: log.targetId,
-          metadata: (log.metadata as Record<string, unknown>) ?? undefined,
+          metadata:
+            log.metadata && typeof log.metadata === "object" && !Array.isArray(log.metadata)
+              ? (log.metadata as Record<string, unknown>)
+              : undefined,
           createdAt: log.createdAt.toISOString(),
         })),
-        shareVisits: shareVisits.map((visit: Record<string, unknown>) => ({
+        shareVisits: shareVisits.map((visit) => ({
           id: visit.id,
           liveId: visit.liveId,
           viewerId: visit.viewerId,
@@ -172,7 +165,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
           sharedBy: visit.sharedBy,
           createdAt: visit.createdAt.toISOString(),
         })),
-        customerFollowUps: followUps.map((followUp: Record<string, unknown>) => ({
+        customerFollowUps: followUps.map((followUp) => ({
           liveId: followUp.liveId,
           customerId: followUp.customerId,
           wecomStatus: followUp.wecomStatus as CustomerFollowUp["wecomStatus"],
@@ -254,7 +247,8 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               enableMicApply: session.enableMicApply,
               enableRecord: session.enableRecord,
               cdnPlayUrl: session.cdnPlayUrl ?? null,
-              accessPassword: session.accessPassword ?? null,
+              accessPasswordCiphertext: session.accessPasswordCiphertext ?? null,
+              accessPasswordVersion: session.accessPasswordVersion ?? 0,
               replayUrl: session.replayUrl ?? null,
             })),
           });
@@ -297,15 +291,6 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               reviewedAt: comment.reviewedAt ? new Date(comment.reviewedAt) : null,
             })),
           });
-        }
-
-        const rest = normalized as Record<string, unknown[]>;
-        const tables = ["micRequest", "replayRecord", "liveStats", "auditLog", "shareVisit", "customerFollowUp"] as const;
-        for (const table of tables) {
-          const rows = rest[table === "micRequest" ? "micRequests" : table === "replayRecord" ? "replays" : table === "liveStats" ? "stats" : table === "auditLog" ? "auditLogs" : table === "shareVisit" ? "shareVisits" : "customerFollowUps"];
-          if (Array.isArray(rows) && rows.length > 0) {
-            // Fall-through to individual table sync
-          }
         }
 
         if (normalized.micRequests.length > 0) {
@@ -363,7 +348,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               actorId: log.actorId,
               action: log.action,
               targetId: log.targetId,
-              metadata: log.metadata ?? null,
+              metadata: log.metadata ? (log.metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
             })),
           });
         }

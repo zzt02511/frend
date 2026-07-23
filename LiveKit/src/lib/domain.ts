@@ -44,6 +44,9 @@ export type LiveSession = {
   enableRecord: boolean;
   cdnPlayUrl?: string;
   replayUrl?: string;
+  accessPasswordCiphertext?: string;
+  accessPasswordVersion?: number;
+  /** Legacy JSON-only plaintext, migrated before PostgreSQL cutover. */
   accessPassword?: string;
 };
 
