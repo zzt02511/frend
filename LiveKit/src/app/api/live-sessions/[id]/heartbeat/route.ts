@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
-import { recordParticipantHeartbeat } from "@/lib/live-service";
+import { getLiveSession, recordParticipantHeartbeat } from "@/lib/live-service";
+import { requireRoomAccess } from "@/lib/room-access-request";
 import { getStore } from "@/lib/store";
 
 const heartbeatSchema = z.object({
@@ -14,8 +15,12 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
     const input = heartbeatSchema.parse(await readJson(request));
-    return jsonOk(recordParticipantHeartbeat(getStore(), { liveId: id, ...input }));
+    const store = getStore();
+    const live = getLiveSession(store, id);
+    requireRoomAccess(request, { live, liveId: id, viewerId: input.userId });
+    return jsonOk(recordParticipantHeartbeat(store, { liveId: id, ...input }));
   } catch (error) {
-    return jsonError(error);
+    const code = error instanceof Error ? error.message : String(error);
+    return jsonError(error, code.startsWith("ROOM_ACCESS_") ? 403 : 400);
   }
 }

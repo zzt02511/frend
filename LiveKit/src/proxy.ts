@@ -17,13 +17,11 @@ function hasSessionCookie(request: NextRequest) {
   );
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-
   const isProtectedPage = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-
   const isProtectedApi = API_PROTECTED_PATTERNS.some((pattern) => pattern.test(pathname));
 
   if ((isProtectedPage || isProtectedApi) && !hasSessionCookie(request)) {

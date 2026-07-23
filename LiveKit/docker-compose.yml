@@ -19,6 +19,8 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL:-https://live.fuguilong.cn}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/wechat_private_live}
+      DATABASE_STORAGE: ${DATABASE_STORAGE:-enabled}
+      ROOM_PASSWORD_ENCRYPTION_KEY: ${ROOM_PASSWORD_ENCRYPTION_KEY}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_URL: ${LIVEKIT_URL:-wss://live.fuguilong.cn}

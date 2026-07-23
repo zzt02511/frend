@@ -1,16 +1,32 @@
-import { requireAuth } from "@/lib/auth-helpers";
+import { getOptionalAuth } from "@/lib/auth-helpers";
 import { jsonError, jsonOk } from "@/lib/http";
 import { endMicRequest } from "@/lib/mic-service";
+import { getLiveSession } from "@/lib/live-service";
+import { requireRoomAccess } from "@/lib/room-access-request";
 import { getStore } from "@/lib/store";
 
 type Ctx = { params: Promise<{ id: string; requestId: string }> };
 
 export async function POST(request: Request, ctx: Ctx) {
   try {
-    const { userId } = await requireAuth();
     const { id, requestId } = await ctx.params;
-    return jsonOk(endMicRequest(getStore(), id, requestId, userId));
+    const store = getStore();
+    const micRequest = store.micRequests.find((item) => item.id === requestId && item.liveId === id);
+    if (!micRequest) throw new Error("MIC_REQUEST_NOT_FOUND");
+
+    const auth = await getOptionalAuth();
+    const isStaff = auth && ["super_admin", "director", "host", "moderator"].includes(auth.role);
+    if (!isStaff) {
+      requireRoomAccess(request, {
+        live: getLiveSession(store, id),
+        liveId: id,
+        viewerId: micRequest.userId,
+      });
+    }
+
+    return jsonOk(endMicRequest(store, id, requestId, isStaff ? auth.userId : micRequest.userId));
   } catch (error) {
-    return jsonError(error);
+    const code = error instanceof Error ? error.message : String(error);
+    return jsonError(error, code.startsWith("ROOM_ACCESS_") ? 403 : 400);
   }
 }

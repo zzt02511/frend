@@ -28,6 +28,32 @@ describe("live session collection API", () => {
     delete (globalThis as typeof globalThis & { __wechatLiveStore?: AppStore }).__wechatLiveStore;
     setStoreRepository(undefined);
     requireAuthMock.mockReset();
+    vi.unstubAllEnvs();
+  });
+
+  it("encrypts a new room password and returns only the public password flag", async () => {
+    const key = Buffer.alloc(32, 9).toString("base64");
+    vi.stubEnv("ROOM_PASSWORD_ENCRYPTION_KEY", key);
+    const store = createDemoStore();
+    useInMemoryStore(store);
+    requireAuthMock.mockResolvedValue({ userId: "moderator-1", role: "moderator", userName: "直播场控" });
+
+    const response = await POST(
+      new Request("http://local.test/api/live-sessions", {
+        method: "POST",
+        body: JSON.stringify({ title: "Password live", accessPassword: "sale-2026" }),
+      }),
+    );
+    const payload = await response.json();
+    const created = store.liveSessions[0];
+
+    expect(response.status).toBe(201);
+    expect(created.accessPassword).toBeUndefined();
+    expect(created.accessPasswordCiphertext).toMatch(/^v1\./);
+    expect(created.accessPasswordVersion).toBe(1);
+    expect(payload.data).not.toHaveProperty("accessPassword");
+    expect(payload.data).not.toHaveProperty("accessPasswordCiphertext");
+    expect(payload.data.hasAccessPassword).toBe(true);
   });
 
   it("rejects unauthenticated live creation without mutating the store", async () => {

@@ -212,7 +212,7 @@ Build a WeChat private-domain live streaming MVP for product sales:
   - `src/lib/password.ts`: scrypt password hashing and verification (zero deps, uses `node:crypto`).
   - `src/auth.ts`: NextAuth Credentials provider verifies password against `passwordHash`.
   - `src/lib/auth-helpers.ts`: `requireAuth(roles?)` extracts authenticated userId from server-side JWT session.
-  - `src/middleware.ts`: protects `/admin`, `/host` (redirect to login) and management API patterns (401). Uses lightweight cookie check to avoid Edge Runtime Node.js API conflicts.
+  - `src/proxy.ts`: protects `/admin`, `/host` (redirect to login) and management API patterns (401). Authoritative role checks remain in pages and route handlers.
   - Demo user passwords seeded: `admin-1/admin123` (super_admin), `host-1/host123` (host), `moderator-1/mod123` (moderator), `director-1/director123` (director).
   - `normalizeStore` auto-assigns default password hashes to existing JSON store users without `passwordHash`.
   - 14 management API routes (start, end, DELETE room, comment approve/reject/pin/mark-question/delete, mic approve/reject/end, participant kick/mute/unmute) now use `requireAuth()`.
@@ -251,11 +251,24 @@ Build a WeChat private-domain live streaming MVP for product sales:
 
 ## Next Development Queue
 
-1. Replace local JSON persistence with Prisma-backed database storage.
-   - PrismaStoreRepository and PG schema sync are ready; deploy `DATABASE_STORAGE=enabled` to activate dual-write mode.
+1. Replace the single-process PostgreSQL snapshot repository with request-scoped incremental Prisma queries before horizontal scaling.
+   - Production mode now uses PostgreSQL only when `DATABASE_STORAGE=enabled`; JSON is local-development storage only.
 2. Add WeChat JS-SDK/share landing integration.
 3. Add export and search for comments, share ranking, and customer leads.
 4. Rotate LiveKit API key/secret for production and add TURN/TLS if WeChat/corporate networks need stronger connectivity.
+
+## 2026-07-23 Authentication, Password Room, and PostgreSQL Closure
+
+- Management room creation and PATCH now require authenticated `super_admin`, `director`, or `moderator`; authorization uses the current database user role rather than trusting the role embedded in an old session.
+- Staff LiveKit token requests must match the authenticated user ID and role, preventing callers from selecting `host` or `moderator` in the request body.
+- Room passwords are encrypted with AES-256-GCM using `ROOM_PASSWORD_ENCRYPTION_KEY`; public DTOs expose only `hasAccessPassword`. The authenticated management endpoint decrypts the password for authorized staff.
+- Password verification issues a two-hour HttpOnly room-access cookie bound to live ID, viewer ID, and password version. Join, heartbeat, comments, audience events, mic application/end, and audience token issuance enforce it.
+- Password edits preserve the current password when unchanged, support explicit clearing, increment the password version, and invalidate earlier room cookies.
+- `prisma/migrations/20260723000000_auth_room_password_closure/migration.sql` adds authentication, encrypted-password, CDN, nickname, and activity fields needed by the runtime domain.
+- `src/instrumentation.ts` initializes `PrismaStoreRepository` before serving requests when `DATABASE_STORAGE=enabled`. PostgreSQL connection failure is fatal and no JSON fallback occurs in this mode. JSON remains the local-development repository.
+- The current PostgreSQL repository keeps one in-process domain snapshot and persists it in a transaction. This is acceptable only for the current single-instance MVP; request-scoped incremental Prisma operations are required before horizontal scaling.
+- Next.js 16 routing protection moved from deprecated `src/middleware.ts` to `src/proxy.ts`; route/page authorization remains authoritative.
+- Operational documentation was rewritten in `README.md`, including required environment variables, migration order, password-key handling, validation, smoke tests, rollback, and the remaining single-instance constraint.
 
 ## Verification Rule
 
@@ -275,7 +288,7 @@ Also smoke-test the touched API/page when a local dev server is available.
 **修复**：用 Git Bash 的 `tar` 从项目根目录以相对路径打包：
 ```bash
 cd /d/AI/LiveKit
-tar -cf deploy-package.tar Dockerfile docker-compose.yml AGENTS.md .next/standalone .next/static src/components src/lib src/app src/types src/middleware.ts src/auth.ts prisma/schema.prisma
+tar -cf deploy-package.tar Dockerfile docker-compose.yml AGENTS.md README.md .next/standalone .next/static src/components src/lib src/app src/types src/proxy.ts src/instrumentation.ts src/auth.ts prisma
 ```
 然后用 7z 压缩为 gzip：`7z a -tgzip deploy-package.tar.gz deploy-package.tar`
 

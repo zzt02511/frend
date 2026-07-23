@@ -69,6 +69,34 @@ describe("AudienceRoom", () => {
     vi.unstubAllGlobals();
   });
 
+  it("verifies a protected room through the room-access endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ ok: true, data: { verified: true } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AudienceRoom
+        live={live}
+        comments={[]}
+        stats={stats}
+        initialViewerId="viewer-password"
+        hasAccessPassword
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("输入密码"), { target: { value: "sale-2026" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "确认" }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/room-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewerId: "viewer-password", password: "sale-2026" }),
+    });
+  });
+
   it("does not expose moderation status labels beside comments", () => {
     render(<AudienceRoom live={live} comments={[approvedComment]} stats={stats} initialViewerId="audience-1" />);
 

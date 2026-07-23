@@ -2,6 +2,8 @@ import { z } from "zod";
 import { listAudienceComments, listComments, sendComment, withCommentUserNames } from "@/lib/comment-service";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
 import { getStore } from "@/lib/store";
+import { getLiveSession } from "@/lib/live-service";
+import { requireRoomAccess } from "@/lib/room-access-request";
 
 const commentSchema = z.object({
   userId: z.string().default("audience-1"),
@@ -23,8 +25,11 @@ export async function POST(request: Request, ctx: Ctx) {
     const input = commentSchema.parse(await readJson(request));
     const { id } = await ctx.params;
     const store = getStore();
+    const live = getLiveSession(store, id);
+    requireRoomAccess(request, { live, liveId: id, viewerId: input.userId });
     return jsonOk(withCommentUserNames(store, [sendComment(store, { liveId: id, ...input })])[0], { status: 201 });
   } catch (error) {
-    return jsonError(error);
+    const code = error instanceof Error ? error.message : String(error);
+    return jsonError(error, code.startsWith("ROOM_ACCESS_") ? 403 : 400);
   }
 }

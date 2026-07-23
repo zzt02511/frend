@@ -15,7 +15,7 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<AuthContex
   const user = getStore().users.find((item) => item.id === session.user.id);
   if (!user || user.status !== "active") throw new Error("USER_NOT_FOUND_OR_DISABLED");
 
-  const role = (session.user.role as UserRole) ?? user.role;
+  const role = user.role;
 
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
     throw new Error("AUTH_INSUFFICIENT_ROLE");

@@ -29,7 +29,10 @@ export class JsonStoreRepository implements StoreRepository {
 let repository: StoreRepository | undefined;
 
 export function getStoreRepository() {
-  if (!repository) repository = new JsonStoreRepository();
+  if (!repository) {
+    if (isPgStorageEnabled()) throw new Error("POSTGRES_REPOSITORY_NOT_INITIALIZED");
+    repository = new JsonStoreRepository();
+  }
   return repository;
 }
 
@@ -37,6 +40,6 @@ export function setStoreRepository(nextRepository: StoreRepository | undefined) 
   repository = nextRepository;
 }
 
-export function usePgStorage() {
+export function isPgStorageEnabled() {
   return process.env.DATABASE_STORAGE === "enabled";
 }

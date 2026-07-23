@@ -71,7 +71,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   const statusText = live.status === "live" ? "直播中" : live.status === "ended" ? "已结束" : "未开播";
 
   useEffect(() => {
-    if (!viewerId) return;
+    if (!viewerId || !passwordVerified) return;
 
     const sendHeartbeat = () => {
       void Promise.resolve(
@@ -96,7 +96,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [live.id, viewerId]);
+  }, [live.id, passwordVerified, viewerId]);
 
   useEffect(() => {
     if (!viewerId) return;
@@ -350,14 +350,14 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   const isMicConnected = micStatus === "连麦中";
   const micButtonText = isApplyingMic || micStatus === "申请中" ? "申请中" : isMicConnected ? "连麦中" : "申请连麦";
   async function submitAccessPassword() {
-  if (!accessPasswordValue.trim() || isVerifyingPassword) return;
+  if (!viewerId || !accessPasswordValue.trim() || isVerifyingPassword) return;
   setIsVerifyingPassword(true);
   setPasswordError("");
   try {
-    const response = await fetch(`/api/live-sessions/${live.id}/join`, {
+    const response = await fetch(`/api/live-sessions/${live.id}/room-access`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: `pwd-${Date.now()}`, role: "audience", accessPassword: accessPasswordValue }),
+      body: JSON.stringify({ viewerId, password: accessPasswordValue }),
     });
     const payload = await response.json();
     if (payload.ok) {

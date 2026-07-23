@@ -3,6 +3,8 @@ import { jsonError, jsonOk, readJson } from "@/lib/http";
 import { createId } from "@/lib/domain";
 import { getStore, persistStore } from "@/lib/store";
 import { requireAuth } from "@/lib/auth-helpers";
+import { encryptRoomPassword } from "@/lib/room-password";
+import { toPublicLiveSession } from "@/lib/live-dto";
 
 const createLiveSchema = z.object({
   title: z.string().min(2),
@@ -13,7 +15,7 @@ const createLiveSchema = z.object({
 });
 
 export async function GET() {
-  const sessions = getStore().liveSessions.map((item) => ({ ...item, accessPassword: undefined }));
+  const sessions = getStore().liveSessions.map(toPublicLiveSession);
   return jsonOk(sessions);
 }
 
@@ -37,7 +39,15 @@ export async function POST(request: Request) {
       commentMode: "review" as const,
       enableMicApply: true,
       enableRecord: true,
-      ...(input.accessPassword ? { accessPassword: input.accessPassword } : {}),
+      ...(input.accessPassword
+        ? {
+            accessPasswordCiphertext: encryptRoomPassword(
+              input.accessPassword,
+              process.env.ROOM_PASSWORD_ENCRYPTION_KEY ?? "",
+            ),
+            accessPasswordVersion: 1,
+          }
+        : {}),
     };
     store.liveSessions.unshift(live);
     store.stats.push({
@@ -56,7 +66,7 @@ export async function POST(request: Request) {
       replayViewCount: 0,
     });
     persistStore(store);
-    return jsonOk(live, { status: 201 });
+    return jsonOk(toPublicLiveSession(live), { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : String(error);
     return jsonError(error, code === "AUTH_REQUIRED" ? 401 : code === "AUTH_INSUFFICIENT_ROLE" ? 403 : 400);

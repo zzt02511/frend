@@ -3,6 +3,7 @@ import type { AppStore } from "@/lib/domain";
 import { createDemoStore } from "@/lib/store";
 import { setStoreRepository, type StoreRepository } from "@/lib/store-repository";
 import { DELETE, PATCH } from "./route";
+import { encryptRoomPassword } from "@/lib/room-password";
 
 const { requireAuthMock } = vi.hoisted(() => ({
   requireAuthMock: vi.fn(),
@@ -27,6 +28,49 @@ describe("live session API", () => {
     delete (globalThis as typeof globalThis & { __wechatLiveStore?: AppStore }).__wechatLiveStore;
     setStoreRepository(undefined);
     requireAuthMock.mockReset();
+    vi.unstubAllEnvs();
+  });
+
+  it("preserves, replaces, and clears encrypted passwords without exposing them", async () => {
+    const key = Buffer.alloc(32, 4).toString("base64");
+    vi.stubEnv("ROOM_PASSWORD_ENCRYPTION_KEY", key);
+    const store = createDemoStore();
+    store.liveSessions[0].accessPasswordCiphertext = encryptRoomPassword("old-password", key);
+    store.liveSessions[0].accessPasswordVersion = 2;
+    useInMemoryStore(store);
+    requireAuthMock.mockResolvedValue({ userId: "moderator-1", role: "moderator", userName: "直播场控" });
+
+    await PATCH(
+      new Request("http://local.test/api/live-sessions/demo-live", {
+        method: "PATCH",
+        body: JSON.stringify({ title: "Title only" }),
+      }),
+      { params: Promise.resolve({ id: "demo-live" }) },
+    );
+    expect(store.liveSessions[0].accessPasswordVersion).toBe(2);
+
+    const replaceResponse = await PATCH(
+      new Request("http://local.test/api/live-sessions/demo-live", {
+        method: "PATCH",
+        body: JSON.stringify({ accessPassword: "new-password" }),
+      }),
+      { params: Promise.resolve({ id: "demo-live" }) },
+    );
+    const replacePayload = await replaceResponse.json();
+    expect(store.liveSessions[0].accessPasswordVersion).toBe(3);
+    expect(store.liveSessions[0].accessPassword).toBeUndefined();
+    expect(store.liveSessions[0].accessPasswordCiphertext).toMatch(/^v1\./);
+    expect(replacePayload.data).not.toHaveProperty("accessPasswordCiphertext");
+
+    await PATCH(
+      new Request("http://local.test/api/live-sessions/demo-live", {
+        method: "PATCH",
+        body: JSON.stringify({ clearPassword: true }),
+      }),
+      { params: Promise.resolve({ id: "demo-live" }) },
+    );
+    expect(store.liveSessions[0].accessPasswordCiphertext).toBeUndefined();
+    expect(store.liveSessions[0].accessPasswordVersion).toBe(4);
   });
 
   it("updates only editable live session fields", async () => {

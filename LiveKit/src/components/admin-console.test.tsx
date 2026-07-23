@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminConsole } from "./admin-console";
@@ -272,9 +272,16 @@ describe("AdminConsole", () => {
   });
 
   it("edits and deletes live sessions from the live list", async () => {
+    vi.useRealTimers();
     const scheduledLive: LiveSession = { ...live, status: "scheduled" };
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/live-sessions/demo-live/manage") && !init?.method) {
+        return payload<LiveSession & { accessPassword: string }>({
+          ...scheduledLive,
+          accessPassword: "sale-2026",
+        });
+      }
       if (url.endsWith("/api/live-sessions/demo-live") && init?.method === "PATCH") {
         return payload<LiveSession>({ ...scheduledLive, title: "修改后的直播", description: "修改后的说明" });
       }
@@ -299,6 +306,9 @@ describe("AdminConsole", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("访问密码（留空则不设密码）")).toHaveValue("sale-2026"),
+    );
     fireEvent.change(screen.getByPlaceholderText("直播标题"), { target: { value: "修改后的直播" } });
     fireEvent.change(screen.getByPlaceholderText("直播说明"), { target: { value: "修改后的说明" } });
 

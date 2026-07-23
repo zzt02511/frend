@@ -11,12 +11,12 @@ import type {
   UserStatus,
 } from "./domain";
 import type { StoreRepository } from "./store-repository";
-import { JsonStoreRepository } from "./store-repository";
 import { normalizeStore } from "./store-persistence";
 
-export class PrismaStoreRepository extends JsonStoreRepository implements StoreRepository {
+export class PrismaStoreRepository implements StoreRepository {
   private prisma?: PrismaClient;
   private pgReady = false;
+  private cache?: AppStore;
 
   private getPrisma() {
     if (!this.prisma) {
@@ -26,7 +26,6 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
   }
 
   async initFromPostgres() {
-    try {
       const prisma = this.getPrisma();
       await prisma.$connect();
 
@@ -177,20 +176,26 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
         })),
       };
 
-      return store;
-    } catch {
-      console.warn("[PrismaStoreRepository] PostgreSQL unavailable, falling back to JSON file storage.");
-      return undefined;
-    }
+      this.cache = normalizeStore(store);
+      return this.cache;
   }
 
-  override load(): AppStore {
-    return super.load();
+  load(): AppStore {
+    if (!this.pgReady || !this.cache) throw new Error("POSTGRES_REPOSITORY_NOT_INITIALIZED");
+    return this.cache;
   }
 
-  override save(store: AppStore): void {
-    super.save(store);
-    this.syncToPostgres(store);
+  save(store: AppStore): void {
+    if (!this.pgReady) throw new Error("POSTGRES_REPOSITORY_NOT_INITIALIZED");
+    this.cache = normalizeStore(store);
+    void this.syncToPostgres(this.cache);
+  }
+
+  mutate<T>(mutator: (store: AppStore) => T): T {
+    const store = this.load();
+    const result = mutator(store);
+    this.save(store);
+    return result;
   }
 
   private async syncToPostgres(store: AppStore) {
@@ -289,6 +294,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               hitSensitiveWords: comment.hitSensitiveWords,
               reviewedBy: comment.reviewedBy ?? null,
               reviewedAt: comment.reviewedAt ? new Date(comment.reviewedAt) : null,
+              createdAt: new Date(comment.createdAt),
             })),
           });
         }
@@ -299,12 +305,14 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               id: request.id,
               liveId: request.liveId,
               userId: request.userId,
+              userName: request.userName ?? null,
               status: request.status,
               reason: request.reason,
               approvedBy: request.approvedBy ?? null,
               approvedAt: request.approvedAt ? new Date(request.approvedAt) : null,
               connectedAt: request.connectedAt ? new Date(request.connectedAt) : null,
               endedAt: request.endedAt ? new Date(request.endedAt) : null,
+              createdAt: new Date(request.createdAt),
             })),
           });
         }
@@ -317,6 +325,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               status: replay.status,
               url: replay.url,
               visible: replay.visible,
+              createdAt: new Date(replay.createdAt),
             })),
           });
         }
@@ -349,6 +358,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               action: log.action,
               targetId: log.targetId,
               metadata: log.metadata ? (log.metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
+              createdAt: new Date(log.createdAt),
             })),
           });
         }
@@ -361,6 +371,7 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               viewerId: visit.viewerId,
               source: visit.source,
               sharedBy: visit.sharedBy,
+              createdAt: new Date(visit.createdAt),
             })),
           });
         }
@@ -375,12 +386,13 @@ export class PrismaStoreRepository extends JsonStoreRepository implements StoreR
               followUpOwnerId: followUp.followUpOwnerId ?? null,
               followUpStatus: followUp.followUpStatus,
               followUpNote: followUp.followUpNote ?? null,
+              updatedAt: new Date(followUp.updatedAt),
             })),
           });
         }
       });
     } catch (error) {
-      console.error("[PrismaStoreRepository] PG sync failed:", (error as Error).message);
+      console.error("[PrismaStoreRepository] PostgreSQL transaction failed:", (error as Error).message);
     }
   }
 }

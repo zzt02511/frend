@@ -3,6 +3,8 @@ import { jsonError, jsonOk, readJson } from "@/lib/http";
 import { requireAuth } from "@/lib/auth-helpers";
 import { deleteLiveSession, getLiveSession, updateLiveSession } from "@/lib/live-service";
 import { getStore } from "@/lib/store";
+import { encryptRoomPassword } from "@/lib/room-password";
+import { toPublicLiveSession } from "@/lib/live-dto";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,7 +34,7 @@ export async function GET(_request: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
     const live = getLiveSession(getStore(), id);
-    return jsonOk({ ...live, accessPassword: undefined });
+    return jsonOk(toPublicLiveSession(live));
   } catch (error) {
     return jsonError(error, 404);
   }
@@ -42,7 +44,26 @@ export async function PATCH(request: Request, ctx: Ctx) {
   try {
     await requireAuth(["director", "super_admin", "moderator"]);
     const { id } = await ctx.params;
-    return jsonOk(updateLiveSession(getStore(), id, livePatchSchema.parse(await readJson(request))));
+    const store = getStore();
+    const live = getLiveSession(store, id);
+    const { accessPassword, clearPassword, ...editablePatch } = livePatchSchema.parse(await readJson(request));
+    const passwordPatch = clearPassword
+      ? {
+          accessPassword: undefined,
+          accessPasswordCiphertext: undefined,
+          accessPasswordVersion: (live.accessPasswordVersion ?? 0) + 1,
+        }
+      : accessPassword
+        ? {
+            accessPassword: undefined,
+            accessPasswordCiphertext: encryptRoomPassword(
+              accessPassword,
+              process.env.ROOM_PASSWORD_ENCRYPTION_KEY ?? "",
+            ),
+            accessPasswordVersion: (live.accessPasswordVersion ?? 0) + 1,
+          }
+        : {};
+    return jsonOk(toPublicLiveSession(updateLiveSession(store, id, { ...editablePatch, ...passwordPatch })));
   } catch (error) {
     return jsonError(error, routeErrorStatus(error));
   }

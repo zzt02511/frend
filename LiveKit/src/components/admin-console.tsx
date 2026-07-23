@@ -158,6 +158,7 @@ const [editingLiveId, setEditingLiveId] = useState("");
 const [editTitle, setEditTitle] = useState("");
 const [editDescription, setEditDescription] = useState("");
 const [editAccessPassword, setEditAccessPassword] = useState("");
+const [originalEditAccessPassword, setOriginalEditAccessPassword] = useState("");
   const activeLive = sessions.find((item) => item.id === activeLiveId) ?? sessions[0];
   const reviewComments = useMemo(
     () =>
@@ -304,11 +305,20 @@ const [editAccessPassword, setEditAccessPassword] = useState("");
     }
   }
 
-function startEditLive(session: LiveSession) {
+async function startEditLive(session: LiveSession) {
     setEditingLiveId(session.id);
     setEditTitle(session.title);
     setEditDescription(session.description);
-    setEditAccessPassword(session.accessPassword ?? "");
+    setEditAccessPassword("");
+    setOriginalEditAccessPassword("");
+
+    const response = await fetch(`/api/live-sessions/${session.id}/manage`);
+    const payload = (await response.json()) as ApiPayload<LiveSession & { accessPassword?: string }>;
+    if (payload.ok) {
+      const password = payload.data.accessPassword ?? "";
+      setEditAccessPassword(password);
+      setOriginalEditAccessPassword(password);
+    }
   }
 
 function cancelEditLive() {
@@ -316,13 +326,20 @@ function cancelEditLive() {
     setEditTitle("");
     setEditDescription("");
     setEditAccessPassword("");
+    setOriginalEditAccessPassword("");
   }
 
   async function saveLiveSession(liveId: string) {
     if (!editTitle.trim()) return;
+    const passwordPatch =
+      editAccessPassword === originalEditAccessPassword
+        ? {}
+        : editAccessPassword
+          ? { accessPassword: editAccessPassword }
+          : { clearPassword: true };
     const response = await fetch(`/api/live-sessions/${liveId}`, {
       method: "PATCH",
-      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim(), accessPassword: editAccessPassword || undefined }),
+      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim(), ...passwordPatch }),
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -464,7 +481,7 @@ function cancelEditLive() {
                               <Button size="sm" variant={selected ? "secondary" : "outline"} onClick={() => void selectLive(session.id)}>
                                 {selected ? "当前控制" : "切换控制"}
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => startEditLive(session)}>
+                              <Button size="sm" variant="outline" onClick={() => void startEditLive(session)}>
                                 编辑
                               </Button>
                               <Button
