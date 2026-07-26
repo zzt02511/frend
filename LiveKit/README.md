@@ -34,7 +34,7 @@ npm run dev
 从 `.env.example` 创建 `.env`。以下变量不可使用示例值：
 
 ```dotenv
-DATABASE_STORAGE=enabled
+DATABASE_STORAGE=true
 DATABASE_URL=postgresql://USER:PASSWORD@postgres:5432/wechat_private_live
 AUTH_SECRET=<至少 32 字节的随机值>
 AUTH_URL=https://live.example.com
@@ -65,7 +65,7 @@ npm run prisma:deploy
 docker compose up -d --build
 ```
 
-当前生产模式以 PostgreSQL 为唯一持久化来源。`.data/app-store.json` 只用于本地开发和迁移前备份，生产数据库为空时不会自动用演示 JSON 填充。
+当前生产模式在 `DATABASE_STORAGE=true`（兼容旧值 `enabled`）时以 PostgreSQL 为唯一持久化来源。`.data/app-store.json` 只用于本地开发和迁移前备份，生产数据库为空时不会自动用演示 JSON 填充。
 
 上线前应先备份 PostgreSQL。数据库迁移回滚采用“恢复数据库备份 + 切回上一版应用镜像”，不要手工删除迁移记录。应用入口会在镜像包含 Prisma CLI 时尝试执行迁移；部署流程仍必须显式执行 `npm run prisma:deploy` 并检查退出码。
 

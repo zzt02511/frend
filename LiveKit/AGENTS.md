@@ -270,6 +270,15 @@ Build a WeChat private-domain live streaming MVP for product sales:
 - Next.js 16 routing protection moved from deprecated `src/middleware.ts` to `src/proxy.ts`; route/page authorization remains authoritative.
 - Operational documentation was rewritten in `README.md`, including required environment variables, migration order, password-key handling, validation, smoke tests, rollback, and the remaining single-instance constraint.
 
+## 2026-07-26 PostgreSQL Primary Storage Activation Fix
+
+- Production activation initially failed with `POSTGRES_REPOSITORY_NOT_INITIALIZED` because Next/Turbopack loaded instrumentation and route code as isolated module instances while the selected repository was stored in a file-local variable.
+- `StoreRepository` selection now lives on `globalThis`, so instrumentation and route bundles share the initialized Prisma repository in the same Node process.
+- `DATABASE_STORAGE=true` is now the documented production value; legacy `enabled` remains accepted.
+- Prisma generates both the local native engine and `linux-musl-openssl-3.0.x`, matching the Alpine production image.
+- Windows Turbopack builds emit a hashed Prisma external package name but omit its standalone forwarder. `scripts/fix-standalone-prisma-alias.mjs` now runs after every build and creates the required forwarder automatically.
+- Production JSON data was backed up and imported into PostgreSQL before activation: 37 users, 3 rooms, 12 participants, 38 comments, 3 mic requests, 2 replays, 8 stats rows, 410 audit logs, and 25 share visits.
+
 ## Verification Rule
 
 Before reporting development complete, run:

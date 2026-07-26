@@ -8,3 +8,9 @@ test("Prisma stores encrypted room passwords with a revocation version", () => {
   expect(schema).toContain("accessPasswordVersion");
   expect(schema).not.toMatch(/\n\s*accessPassword\s+String\?/);
 });
+
+test("Prisma client includes the Alpine Linux engine used by production", () => {
+  const schema = readFileSync("prisma/schema.prisma", "utf8");
+
+  expect(schema).toContain('binaryTargets = ["native", "linux-musl-openssl-3.0.x"]');
+});
