@@ -4,6 +4,10 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Mandatory playback-change prerequisite
+
+Before changing audience playback, Tencent Cloud URLs, iOS/Android routing, LiveKit tracks, mic tiles, certificates, or production deployment, read `docs/PLAYBACK-ROUTING-AND-DEPLOYMENT.md` completely. The production routing and certificate constraints in that document are intentional; do not reintroduce an iPhone LiveKit main-video fallback or send Android main video through LiveKit unless the product owner explicitly changes the architecture.
+
 # Agent Development Status
 ##  Subagent的使用纪律
 1 未经批准，禁止开 Subagent。

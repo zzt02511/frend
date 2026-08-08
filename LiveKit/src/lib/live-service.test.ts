@@ -136,6 +136,17 @@ describe("live service", () => {
     expect(ended.status).toBe("ended");
     expect(ended.actualEndTime).toBeTruthy();
     expect(replay?.status).toBe("ready");
+    expect(ended.replayUrl).toContain("download=1");
+  });
+
+  it("does not create a replay when recording is disabled", () => {
+    const store = createDemoStore();
+    store.liveSessions[0].enableRecord = false;
+
+    const ended = endLiveSession(store, "demo-live", "host-1");
+
+    expect(ended.replayUrl).toBeUndefined();
+    expect(store.replays.some((item) => item.liveId === "demo-live")).toBe(false);
   });
 
   it("prevents kicked participants from rejoining the same live session", () => {

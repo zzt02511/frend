@@ -11,6 +11,7 @@ describe("TencentCloudLivePlayer", () => {
     delete (window as typeof window & { TCPlayer?: unknown }).TCPlayer;
     document.head.innerHTML = "";
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("loads TCPlayer CSS before initializing the player so controls are not rendered as raw text", async () => {
@@ -29,6 +30,29 @@ describe("TencentCloudLivePlayer", () => {
       expect.any(String),
       expect.objectContaining({
         controls: false,
+        sources: [{ src: "webrtc://play.fuguilong.cn/live/IHQDAT" }],
+      }),
+    );
+  });
+
+  it("keeps WebRTC playback on iPhone when forceWebRtc is enabled", async () => {
+    const tcPlayerMock = vi.fn(() => ({ dispose: vi.fn() }));
+    (window as typeof window & { TCPlayer?: unknown }).TCPlayer = tcPlayerMock;
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    });
+
+    render(
+      <TencentCloudLivePlayer
+        playUrl="webrtc://play.fuguilong.cn/live/IHQDAT"
+        forceWebRtc
+      />,
+    );
+
+    await waitFor(() => expect(tcPlayerMock).toHaveBeenCalled());
+    expect(tcPlayerMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
         sources: [{ src: "webrtc://play.fuguilong.cn/live/IHQDAT" }],
       }),
     );

@@ -160,6 +160,7 @@ const [editingLiveId, setEditingLiveId] = useState("");
 const [editTitle, setEditTitle] = useState("");
 const [editDescription, setEditDescription] = useState("");
 const [editEnableMicApply, setEditEnableMicApply] = useState(true);
+const [editEnableRecord, setEditEnableRecord] = useState(true);
 const [editAccessPassword, setEditAccessPassword] = useState("");
 const [originalEditAccessPassword, setOriginalEditAccessPassword] = useState("");
   const activeLive = sessions.find((item) => item.id === activeLiveId) ?? sessions[0];
@@ -313,6 +314,7 @@ async function startEditLive(session: LiveSession) {
     setEditTitle(session.title);
     setEditDescription(session.description);
     setEditEnableMicApply(session.enableMicApply);
+    setEditEnableRecord(session.enableRecord);
     setEditAccessPassword("");
     setOriginalEditAccessPassword("");
 
@@ -330,6 +332,7 @@ function cancelEditLive() {
     setEditTitle("");
     setEditDescription("");
     setEditEnableMicApply(true);
+    setEditEnableRecord(true);
     setEditAccessPassword("");
     setOriginalEditAccessPassword("");
   }
@@ -348,6 +351,7 @@ function cancelEditLive() {
         title: editTitle.trim(),
         description: editDescription.trim(),
         enableMicApply: editEnableMicApply,
+        enableRecord: editEnableRecord,
         ...passwordPatch,
       }),
     });
@@ -463,6 +467,18 @@ function cancelEditLive() {
                 <option value="disabled">关闭</option>
               </select>
             </label>
+            <label className="grid grid-cols-[88px_1fr] items-center gap-2 text-sm">
+              <span className="text-muted-foreground">录播</span>
+              <select
+                aria-label="录播状态"
+                value={editEnableRecord ? "enabled" : "disabled"}
+                onChange={(event) => setEditEnableRecord(event.target.value === "enabled")}
+                className="h-9 rounded-md border border-input bg-background px-3"
+              >
+                <option value="enabled">启用</option>
+                <option value="disabled">关闭</option>
+              </select>
+            </label>
             <Input
               type="password"
               value={editAccessPassword}
@@ -488,7 +504,7 @@ function cancelEditLive() {
                             打开 <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="min-w-[560px] whitespace-nowrap">
                           {editingLiveId === session.id ? (
                             <div className="flex flex-wrap gap-2">
                               <Button size="sm" onClick={() => void saveLiveSession(session.id)}>
@@ -499,13 +515,24 @@ function cancelEditLive() {
                               </Button>
                             </div>
                           ) : (
-                            <div className="flex flex-wrap gap-2">
+                            <div data-testid="live-room-actions" className="flex flex-nowrap items-center gap-2">
                               <Button asChild size="sm" variant="outline">
                                 <a href={`/host/${session.id}`} target="_blank" rel="noreferrer">主播端</a>
                               </Button>
                               <Button asChild size="sm" variant="outline">
                                 <a href={`/admin/${session.id}`} target="_blank" rel="noreferrer">管理端</a>
                               </Button>
+                              {session.replayUrl ? (
+                                <Button asChild size="sm" variant="outline">
+                                  <a href={session.replayUrl} download>
+                                    下载录播
+                                  </a>
+                                </Button>
+                              ) : session.enableRecord && session.status === "ended" ? (
+                                <Button size="sm" variant="outline" disabled>
+                                  录播处理中
+                                </Button>
+                              ) : null}
                               <Button size="sm" variant={selected ? "secondary" : "outline"} onClick={() => void selectLive(session.id)}>
                                 {selected ? "当前控制" : "切换控制"}
                               </Button>

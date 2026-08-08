@@ -140,15 +140,17 @@ export function endLiveSession(store: AppStore, liveId: string, actorId: string)
   const live = getLiveSession(store, liveId);
   live.status = "ended";
   live.actualEndTime = nowIso();
-  live.replayUrl = `/api/live-sessions/${liveId}/replay`;
-  store.replays.push({
-    id: createId("replay"),
-    liveId,
-    status: "ready",
-    url: live.replayUrl,
-    visible: true,
-    createdAt: nowIso(),
-  });
+  if (live.enableRecord) {
+    live.replayUrl = `/api/live-sessions/${liveId}/replay?download=1`;
+    store.replays.push({
+      id: createId("replay"),
+      liveId,
+      status: "ready",
+      url: live.replayUrl,
+      visible: true,
+      createdAt: nowIso(),
+    });
+  }
   addAuditLog(store, actorId, "live.end", liveId);
   persistStoreIfGlobal(store);
   return live;

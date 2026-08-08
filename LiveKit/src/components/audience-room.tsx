@@ -390,7 +390,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
 
   return (
     <>
-    <main className="mx-auto min-h-screen max-w-md bg-background">
+    <main className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden bg-background">
     {!passwordVerified && hasAccessPassword ? (
       <section className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
         <div className="grid w-full max-w-xs gap-3 rounded-md bg-background p-4 text-foreground shadow-xl">
@@ -483,12 +483,12 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
         ) : null}
       </section>
 
-      <section className="grid gap-3 p-4">
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <Button variant="secondary" onClick={focusCommentInput}>
+      <section className="grid min-w-0 gap-3 overflow-hidden p-4">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-2">
+          <Button className="min-w-0 px-2" variant="secondary" onClick={focusCommentInput}>
             <MessageCircle className="h-4 w-4" /> 留言互动
           </Button>
-          <Button onClick={applyMic} disabled={!live.enableMicApply || !viewerId || isApplyingMic || Boolean(micRequestId)}>
+          <Button className="min-w-0 px-2" onClick={applyMic} disabled={!live.enableMicApply || !viewerId || isApplyingMic || Boolean(micRequestId)}>
             <Mic className="h-4 w-4" /> {micButtonText}
           </Button>
           <Button

@@ -32,6 +32,7 @@ declare global {
 
 type Props = {
   playUrl: string;
+  forceWebRtc?: boolean;
 };
 
 function isAppleMobile(userAgent: string) {
@@ -90,7 +91,7 @@ function loadStylesheet(src: string) {
   document.head.appendChild(link);
 }
 
-export function TencentCloudLivePlayer({ playUrl }: Props) {
+export function TencentCloudLivePlayer({ playUrl, forceWebRtc = false }: Props) {
   const generatedId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const elementId = `tencent-live-player-${generatedId}`;
   const [playerState, setPlayerState] = useState("正在连接腾讯云直播...");
@@ -100,7 +101,7 @@ export function TencentCloudLivePlayer({ playUrl }: Props) {
     let player: TencentPlayerInstance | undefined;
     const sdkUrl = process.env.NEXT_PUBLIC_TENCENT_PLAYER_SDK_URL || DEFAULT_TENCENT_PLAYER_SDK_URL;
     const cssUrl = process.env.NEXT_PUBLIC_TENCENT_PLAYER_CSS_URL || DEFAULT_TENCENT_PLAYER_CSS_URL;
-    const selectedPlayUrl = selectPlaybackUrl(playUrl, window.navigator.userAgent);
+    const selectedPlayUrl = forceWebRtc ? playUrl : selectPlaybackUrl(playUrl, window.navigator.userAgent);
 
     async function startPlayer() {
       try {
@@ -130,7 +131,7 @@ export function TencentCloudLivePlayer({ playUrl }: Props) {
       disposed = true;
       player?.dispose?.();
     };
-  }, [elementId, playUrl]);
+  }, [elementId, forceWebRtc, playUrl]);
 
   return (
     <div
