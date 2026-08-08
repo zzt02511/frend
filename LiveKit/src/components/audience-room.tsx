@@ -34,6 +34,13 @@ function commentDisplayName(comment: LiveComment) {
   return comment.userName || comment.userId;
 }
 
+function commentDisplayContent(comment: LiveComment) {
+  const displayName = commentDisplayName(comment);
+  const systemMessages = ["进入直播间了", "点赞了主播"];
+  const matchedMessage = systemMessages.find((message) => comment.content === `${displayName}${message}`);
+  return matchedMessage || comment.content;
+}
+
 function mergeVisibleComments(current: LiveComment[], incoming: LiveComment[], viewerId: string) {
   const incomingIds = new Set(incoming.map((comment) => comment.id));
   const ownPendingComments = current.filter(
@@ -52,11 +59,12 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   const [authorizationError, setAuthorizationError] = useState("");
   const [comments, setComments] = useState(sortCommentsByTime(initialComments));
   const [content, setContent] = useState("");
-  const [micStatus, setMicStatus] = useState("未申请");
+  const [micStatus, setMicStatus] = useState(live.enableMicApply ? "未申请" : "已关闭");
   const [micRequestId, setMicRequestId] = useState("");
   const [micApproved, setMicApproved] = useState(false);
   const [isApplyingMic, setIsApplyingMic] = useState(false);
   const [isSendingLike, setIsSendingLike] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
   const [liveStats, setLiveStats] = useState(stats);
   const [accessPasswordValue, setAccessPasswordValue] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -294,7 +302,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   }
 
   async function applyMic() {
-    if (!viewerId || isApplyingMic || micRequestId) return;
+    if (!live.enableMicApply || !viewerId || isApplyingMic || micRequestId) return;
     setIsApplyingMic(true);
     setMicStatus("申请中");
 
@@ -348,7 +356,13 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   }
 
   const isMicConnected = micStatus === "连麦中";
-  const micButtonText = isApplyingMic || micStatus === "申请中" ? "申请中" : isMicConnected ? "连麦中" : "申请连麦";
+  const micButtonText = !live.enableMicApply
+    ? "连麦已关闭"
+    : isApplyingMic || micStatus === "申请中"
+      ? "申请中"
+      : isMicConnected
+        ? "连麦中"
+        : "申请连麦";
   async function submitAccessPassword() {
   if (!viewerId || !accessPasswordValue.trim() || isVerifyingPassword) return;
   setIsVerifyingPassword(true);
@@ -440,7 +454,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
                 className="grid grid-cols-[76px_1fr] items-start gap-2 py-1 leading-tight drop-shadow"
               >
                 <span className="truncate text-white/75">{commentDisplayName(comment)}</span>
-                <span className="line-clamp-1">{comment.content}</span>
+                <span className="line-clamp-1">{commentDisplayContent(comment)}</span>
               </div>
             ))}
           </div>
@@ -474,7 +488,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
           <Button variant="secondary" onClick={focusCommentInput}>
             <MessageCircle className="h-4 w-4" /> 留言互动
           </Button>
-          <Button onClick={applyMic} disabled={!viewerId || isApplyingMic || Boolean(micRequestId)}>
+          <Button onClick={applyMic} disabled={!live.enableMicApply || !viewerId || isApplyingMic || Boolean(micRequestId)}>
             <Mic className="h-4 w-4" /> {micButtonText}
           </Button>
           <Button
@@ -506,9 +520,34 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
             <Send className="h-4 w-4" /> 发送
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">连麦状态：{micStatus}</p>
+        <p className="flex items-center gap-3 text-xs text-muted-foreground">
+          <button
+            type="button"
+            className="text-inherit"
+            onClick={() => setIsAnnouncementOpen(true)}
+          >
+            查看公告
+          </button>
+          <span>连麦状态：{micStatus}</span>
+        </p>
       </section>
     </main>
+    {isAnnouncementOpen ? (
+      <section
+        className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="audience-announcement-title"
+      >
+        <div className="grid w-full max-w-xs gap-4 rounded-md bg-background p-4 text-foreground shadow-xl">
+          <h2 id="audience-announcement-title" className="text-base font-semibold">直播公告</h2>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+            {live.description?.trim() || "暂无公告"}
+          </p>
+          <Button type="button" onClick={() => setIsAnnouncementOpen(false)}>关闭</Button>
+        </div>
+      </section>
+    ) : null}
     </>
   );
 }

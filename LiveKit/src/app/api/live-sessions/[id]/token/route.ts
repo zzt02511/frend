@@ -26,6 +26,9 @@ export async function POST(request: Request, ctx: Ctx) {
       if (auth.userId !== input.userId || auth.role !== input.role) {
         throw new Error("AUTH_IDENTITY_MISMATCH");
       }
+      if (auth.role === "host" && live.hostUserId !== auth.userId) {
+        throw new Error("AUTH_INSUFFICIENT_ROLE");
+      }
     }
     return jsonOk(await createAccessToken(store, { liveId: id, ...input }));
   } catch (error) {

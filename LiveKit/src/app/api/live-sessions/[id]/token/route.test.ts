@@ -58,4 +58,22 @@ describe("live token room access", () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ ok: false, error: "AUTH_IDENTITY_MISMATCH" });
   });
+
+  it("rejects a host token for a room assigned to another host", async () => {
+    const store = createDemoStore();
+    store.liveSessions[0].hostUserId = "host-other";
+    useInMemoryStore(store);
+    requireAuthMock.mockResolvedValue({ userId: "host-1", role: "host", userName: "Host" });
+
+    const response = await POST(
+      new Request("http://local.test/api/live-sessions/demo-live/token", {
+        method: "POST",
+        body: JSON.stringify({ userId: "host-1", role: "host" }),
+      }),
+      { params: Promise.resolve({ id: "demo-live" }) },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ ok: false, error: "AUTH_INSUFFICIENT_ROLE" });
+  });
 });

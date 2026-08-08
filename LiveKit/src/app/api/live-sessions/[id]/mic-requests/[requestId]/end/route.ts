@@ -16,6 +16,9 @@ export async function POST(request: Request, ctx: Ctx) {
 
     const auth = await getOptionalAuth();
     const isStaff = auth && ["super_admin", "director", "host", "moderator"].includes(auth.role);
+    if (auth?.role === "host" && getLiveSession(store, id).hostUserId !== auth.userId) {
+      throw new Error("AUTH_INSUFFICIENT_ROLE");
+    }
     if (!isStaff) {
       requireRoomAccess(request, {
         live: getLiveSession(store, id),

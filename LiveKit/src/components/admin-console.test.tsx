@@ -305,12 +305,16 @@ describe("AdminConsole", () => {
       />,
     );
 
+    expect(screen.getByRole("link", { name: "主播端" })).toHaveAttribute("href", "/host/demo-live");
+    expect(screen.getByRole("link", { name: "管理端" })).toHaveAttribute("href", "/admin/demo-live");
+
     fireEvent.click(screen.getByRole("button", { name: "编辑" }));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("访问密码（留空则不设密码）")).toHaveValue("sale-2026"),
     );
     fireEvent.change(screen.getByPlaceholderText("直播标题"), { target: { value: "修改后的直播" } });
     fireEvent.change(screen.getByPlaceholderText("直播说明"), { target: { value: "修改后的说明" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "连麦申请状态" }), { target: { value: "disabled" } });
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -318,7 +322,11 @@ describe("AdminConsole", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live", {
       method: "PATCH",
-      body: JSON.stringify({ title: "修改后的直播", description: "修改后的说明" }),
+      body: JSON.stringify({
+        title: "修改后的直播",
+        description: "修改后的说明",
+        enableMicApply: false,
+      }),
     });
     expect(screen.getAllByText("修改后的直播").length).toBeGreaterThan(0);
 

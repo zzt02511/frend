@@ -254,4 +254,18 @@ describe("live service", () => {
 
     expect(selectHostConsoleLiveSession(store).id).toBe("demo-live");
   });
+
+  it("selects rooms only for the requested host", () => {
+    const store = createDemoStore();
+    store.liveSessions.unshift({
+      ...store.liveSessions[0],
+      id: "other-host-live",
+      roomName: "private-other-host-live",
+      hostUserId: "host-other",
+      status: "live",
+    });
+
+    expect(selectHostConsoleLiveSession(store, "host-1").id).toBe("demo-live");
+    expect(selectHostConsoleLiveSession(store, "host-other").id).toBe("other-host-live");
+  });
 });

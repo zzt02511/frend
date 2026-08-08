@@ -230,6 +230,60 @@ describe("AudienceRoom", () => {
     expect(screen.getByText(/5.*在线/)).toBeInTheDocument();
   });
 
+  it("does not repeat the WeChat nickname in join and like system messages", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: true, data: [] }) }));
+    const joinComment: LiveComment = {
+      ...approvedComment,
+      id: "join-system-comment",
+      userId: "viewer-water",
+      userName: "天上的水",
+      content: "天上的水进入直播间了",
+    };
+    const likeComment: LiveComment = {
+      ...joinComment,
+      id: "like-system-comment",
+      content: "天上的水点赞了主播",
+    };
+
+    render(<AudienceRoom live={live} comments={[joinComment, likeComment]} stats={stats} initialViewerId="viewer-water" />);
+
+    const rows = screen.getAllByTestId("audience-comment-row");
+    expect(rows[0]).toHaveTextContent("天上的水进入直播间了");
+    expect(rows[0]).not.toHaveTextContent("天上的水天上的水进入直播间了");
+    expect(rows[1]).toHaveTextContent("天上的水点赞了主播");
+    expect(rows[1]).not.toHaveTextContent("天上的水天上的水点赞了主播");
+  });
+
+  it("opens the live description from the announcement action beside mic status", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: true, data: [] }) }));
+    render(<AudienceRoom live={live} comments={[]} stats={stats} initialViewerId="viewer-announcement" />);
+
+    expect(screen.getByText(/连麦状态：未申请/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "直播公告" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看公告" }));
+
+    const dialog = screen.getByRole("dialog", { name: "直播公告" });
+    expect(within(dialog).getByText("测试直播")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "直播公告" })).not.toBeInTheDocument();
+  });
+
+  it("shows a closed mic status and disables applying when mic applications are disabled", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: true, data: [] }) }));
+    render(
+      <AudienceRoom
+        live={{ ...live, enableMicApply: false }}
+        comments={[]}
+        stats={stats}
+        initialViewerId="viewer-closed-mic"
+      />,
+    );
+
+    expect(screen.getByText("连麦状态：已关闭")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /连麦已关闭/ })).toBeDisabled();
+  });
+
   it("uses the bottom interaction button to focus a borderless inline comment input and hides the subtitle under the title", () => {
     vi.stubGlobal(
       "fetch",
@@ -336,7 +390,7 @@ describe("AudienceRoom", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: "viewer-like", type: "like" }),
     });
-    expect(screen.getByText("微信昵称小赵点赞了主播")).toBeInTheDocument();
+    expect(screen.getByText("点赞了主播")).toBeInTheDocument();
   });
 
   it("asks for WeChat nickname authorization before joining and records a join interaction", async () => {
@@ -385,7 +439,7 @@ describe("AudienceRoom", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: "viewer-auth", type: "join" }),
     });
-    expect(screen.getByText("微信昵称小周进入直播间了")).toBeInTheDocument();
+    expect(screen.getByText("进入直播间了")).toBeInTheDocument();
   });
 
   it("gets the WeChat nickname automatically instead of asking the viewer to type it", async () => {
@@ -433,7 +487,7 @@ describe("AudienceRoom", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: "viewer-auto", role: "audience", displayName: "微信昵称小周" }),
     });
-    expect(screen.getByText("微信昵称小周进入直播间了")).toBeInTheDocument();
+    expect(screen.getByText("进入直播间了")).toBeInTheDocument();
   });
 
   it("does not skip WeChat OAuth when the phone only has an old fallback nickname cached", async () => {

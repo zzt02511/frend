@@ -44,6 +44,7 @@ type Props = {
   initialShareRanking: { sharedBy: string; source: string; visits: number; uniqueViewers: number }[];
   initialCommentAnalytics: CommentAnalytics;
   initialCustomerLeads: CustomerLead[];
+  roomScoped?: boolean;
   initialTab?: "comments" | "commentStats" | "leads" | "mic" | "participants";
 };
 
@@ -137,6 +138,7 @@ export function AdminConsole({
   initialShareRanking,
   initialCommentAnalytics,
   initialCustomerLeads,
+  roomScoped = false,
   initialTab = "comments",
 }: Props) {
   const [sessions, setSessions] = useState(liveSessions);
@@ -157,6 +159,7 @@ const [newLivePassword, setNewLivePassword] = useState("");
 const [editingLiveId, setEditingLiveId] = useState("");
 const [editTitle, setEditTitle] = useState("");
 const [editDescription, setEditDescription] = useState("");
+const [editEnableMicApply, setEditEnableMicApply] = useState(true);
 const [editAccessPassword, setEditAccessPassword] = useState("");
 const [originalEditAccessPassword, setOriginalEditAccessPassword] = useState("");
   const activeLive = sessions.find((item) => item.id === activeLiveId) ?? sessions[0];
@@ -309,6 +312,7 @@ async function startEditLive(session: LiveSession) {
     setEditingLiveId(session.id);
     setEditTitle(session.title);
     setEditDescription(session.description);
+    setEditEnableMicApply(session.enableMicApply);
     setEditAccessPassword("");
     setOriginalEditAccessPassword("");
 
@@ -325,6 +329,7 @@ function cancelEditLive() {
     setEditingLiveId("");
     setEditTitle("");
     setEditDescription("");
+    setEditEnableMicApply(true);
     setEditAccessPassword("");
     setOriginalEditAccessPassword("");
   }
@@ -339,7 +344,12 @@ function cancelEditLive() {
           : { clearPassword: true };
     const response = await fetch(`/api/live-sessions/${liveId}`, {
       method: "PATCH",
-      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim(), ...passwordPatch }),
+      body: JSON.stringify({
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        enableMicApply: editEnableMicApply,
+        ...passwordPatch,
+      }),
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -391,11 +401,11 @@ function cancelEditLive() {
             <p className="text-sm text-muted-foreground">PC 场控后台</p>
             <h1 className="text-3xl font-semibold tracking-normal">直播列表、分享与互动审核</h1>
           </div>
-          <div className="flex gap-2">
+          {!roomScoped ? <div className="flex gap-2">
             <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="输入新直播标题" className="max-w-[200px]" />
             <Input type="password" value={newLivePassword} onChange={(event) => setNewLivePassword(event.target.value)} placeholder="访问密码(可选)" className="max-w-[140px]" />
             <Button onClick={createLive}>创建直播</Button>
-          </div>
+          </div> : null}
         </header>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -439,8 +449,20 @@ function cancelEditLive() {
                               <Input
                                 value={editDescription}
                                 onChange={(event) => setEditDescription(event.target.value)}
-              placeholder="直播说明"
-            />
+               placeholder="直播说明"
+             />
+            <label className="grid grid-cols-[88px_1fr] items-center gap-2 text-sm">
+              <span className="text-muted-foreground">连麦</span>
+              <select
+                aria-label="连麦申请状态"
+                value={editEnableMicApply ? "enabled" : "disabled"}
+                onChange={(event) => setEditEnableMicApply(event.target.value === "enabled")}
+                className="h-9 rounded-md border border-input bg-background px-3"
+              >
+                <option value="enabled">启用</option>
+                <option value="disabled">关闭</option>
+              </select>
+            </label>
             <Input
               type="password"
               value={editAccessPassword}
@@ -478,6 +500,12 @@ function cancelEditLive() {
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-2">
+                              <Button asChild size="sm" variant="outline">
+                                <a href={`/host/${session.id}`} target="_blank" rel="noreferrer">主播端</a>
+                              </Button>
+                              <Button asChild size="sm" variant="outline">
+                                <a href={`/admin/${session.id}`} target="_blank" rel="noreferrer">管理端</a>
+                              </Button>
                               <Button size="sm" variant={selected ? "secondary" : "outline"} onClick={() => void selectLive(session.id)}>
                                 {selected ? "当前控制" : "切换控制"}
                               </Button>

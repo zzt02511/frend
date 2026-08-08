@@ -11,12 +11,15 @@ export function getLiveSession(store: AppStore, liveId: string) {
   return live;
 }
 
-export function selectHostConsoleLiveSession(store: AppStore) {
+export function selectHostConsoleLiveSession(store: AppStore, hostUserId?: string) {
+  const sessions = hostUserId
+    ? store.liveSessions.filter((item) => item.hostUserId === hostUserId)
+    : store.liveSessions;
   const live =
-    store.liveSessions.find((item) => item.status === "live") ??
-    store.liveSessions.find((item) => item.status === "scheduled" || item.status === "draft") ??
-    store.liveSessions.find((item) => item.status !== "ended" && item.status !== "closed") ??
-    store.liveSessions[0];
+    sessions.find((item) => item.status === "live") ??
+    sessions.find((item) => item.status === "scheduled" || item.status === "draft") ??
+    sessions.find((item) => item.status !== "ended" && item.status !== "closed") ??
+    sessions[0];
 
   if (!live) throw new Error("LIVE_NOT_FOUND");
   return live;

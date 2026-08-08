@@ -90,6 +90,7 @@ describe("live session API", () => {
           moderatorIds: [],
           title: "Updated title",
           enableComment: false,
+          enableMicApply: false,
         }),
       }),
       { params: Promise.resolve({ id: "demo-live" }) },
@@ -100,6 +101,7 @@ describe("live session API", () => {
     expect(payload.ok).toBe(true);
     expect(live.title).toBe("Updated title");
     expect(live.enableComment).toBe(false);
+    expect(live.enableMicApply).toBe(false);
     expect(live.id).toBe(before.id);
     expect(live.roomName).toBe(before.roomName);
     expect(live.status).toBe(before.status);
