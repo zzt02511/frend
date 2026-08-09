@@ -320,6 +320,15 @@ export function MobileHostConsole({
     return payload.data;
   }
 
+  async function startTencentEgress() {
+    const response = await fetch(`/api/live-sessions/${live.id}/egress/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error ?? "TENCENT_EGRESS_START_FAILED");
+  }
+
   async function openCamera(nextFacing = facingMode) {
     if (!navigator.mediaDevices?.getUserMedia) {
       const secureContextMessage =
@@ -367,7 +376,17 @@ export function MobileHostConsole({
 
       roomRef.current = room;
       localTracksRef.current = tracks;
-      setCameraState("已连接 LiveKit，正在推流");
+      if (liveStatus === "live") {
+        try {
+          await startTencentEgress();
+          setCameraState("已连接 LiveKit，腾讯云转推已启动");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "未知错误";
+          setCameraState(`已连接 LiveKit，但腾讯云转推启动失败：${message}`);
+        }
+      } else {
+        setCameraState("已连接 LiveKit，正在推流");
+      }
     } catch (error) {
       stopCurrentStream();
       const message = error instanceof Error ? error.message : "设备权限或推流连接失败";
@@ -424,10 +443,21 @@ export function MobileHostConsole({
       }
 
       setLiveStatus(payload.data.status);
+      if (action === "start" && roomRef.current) {
+        try {
+          await startTencentEgress();
+          setActionMessage("已开播，腾讯云转推已启动");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "未知错误";
+          setActionMessage(`已开播，但腾讯云转推启动失败：${message}`);
+        }
+      }
       if (action === "end") {
         stopCurrentStream();
       }
-      setActionMessage(action === "start" ? "已开播" : "已结束直播");
+      if (action !== "start" || !roomRef.current) {
+        setActionMessage(action === "start" ? "已开播" : "已结束直播");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "网络请求失败";
       setActionMessage(`操作失败：${message}`);

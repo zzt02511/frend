@@ -26,12 +26,18 @@ services:
       LIVEKIT_URL: ${LIVEKIT_URL:-wss://live.fuguilong.cn}
       WECHAT_OAUTH_APP_ID: ${WECHAT_OAUTH_APP_ID:-}
       WECHAT_OAUTH_APP_SECRET: ${WECHAT_OAUTH_APP_SECRET:-}
+      LIVEKIT_EGRESS_URL: ${LIVEKIT_EGRESS_URL:-http://livekit:7880}
+      TENCENT_RTMP_PUSH_URL: ${TENCENT_RTMP_PUSH_URL:-}
+      REPLAY_DIRECTORY: /app/replays
     volumes:
       - app-data:/app/.data
+      - replay-data:/app/replays
     depends_on:
       postgres:
         condition: service_healthy
       livekit:
+        condition: service_started
+      redis:
         condition: service_started
 
   livekit:
@@ -48,9 +54,34 @@ services:
           use_external_ip: true
         keys:
           ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+        redis:
+          address: redis:6379
     ports:
       - "7881:7881"
       - "50000-50100:50000-50100/udp"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  egress:
+    image: livekit/egress:latest
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY:-devkey}
+        api_secret: ${LIVEKIT_API_SECRET:-secret}
+        ws_url: ws://livekit:7880
+        insecure: true
+        redis:
+          address: redis:6379
+    volumes:
+      - replay-data:/output
+    depends_on:
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:16-alpine
@@ -69,4 +100,5 @@ services:
 
 volumes:
   app-data:
+  replay-data:
   postgres-data:
