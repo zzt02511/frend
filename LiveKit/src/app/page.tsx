@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStore } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
-  const live = getStore().liveSessions[0];
+  const live = getStore().liveSessions.find((item) => item.status === "live" || item.status === "scheduled" || item.status === "draft")
+    ?? getStore().liveSessions[0];
   const highlights = [
     {
       title: "默认先审后发",
