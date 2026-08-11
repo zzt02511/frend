@@ -4,7 +4,7 @@ import { createAccessToken } from "@/lib/live-service";
 import { getStore } from "@/lib/store";
 import { getLiveSession } from "@/lib/live-service";
 import { requireRoomAccess } from "@/lib/room-access-request";
-import { requireAuth } from "@/lib/auth-helpers";
+import { assertLiveTenantAccess, requireAuth } from "@/lib/auth-helpers";
 
 const tokenSchema = z.object({
   userId: z.string().default("audience-1"),
@@ -29,6 +29,7 @@ export async function POST(request: Request, ctx: Ctx) {
       if (auth.role === "host" && live.hostUserId !== auth.userId) {
         throw new Error("AUTH_INSUFFICIENT_ROLE");
       }
+      assertLiveTenantAccess(auth, live);
     }
     return jsonOk(await createAccessToken(store, { liveId: id, ...input }));
   } catch (error) {

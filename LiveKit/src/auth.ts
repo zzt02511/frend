@@ -10,6 +10,7 @@ const credentialsSchema = z.object({
 });
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  pages: { signIn: "/login" },
   session: { strategy: "jwt" },
   providers: [
     Credentials({
@@ -23,7 +24,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!parsed.success) return null;
 
         const user = getStore().users.find((item) => item.id === parsed.data.userId);
-        if (!user || user.status !== "active") return null;
+        if (!user || user.status !== "active" || (user.expiresAt && new Date(user.expiresAt) <= new Date())) return null;
 
         if (!user.passwordHash) return null;
         if (!verifyPassword(parsed.data.password, user.passwordHash)) return null;

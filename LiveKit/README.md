@@ -98,4 +98,5 @@ npm run prisma:validate
 
 - `docs/superpowers/specs/2026-07-23-auth-room-password-postgres-closure-design.md`
 - `docs/superpowers/plans/2026-07-23-auth-room-password-postgres-closure.md`
+- `docs/SAAS-TENANT-ACCOUNT-MANAGEMENT.md`：SaaS 租户、账号层级、数据隔离与迁移说明。
 # 修改观众播放、苹果/安卓分流、腾讯云证书、LiveKit 连麦或部署流程前，必须先阅读 `docs/PLAYBACK-ROUTING-AND-DEPLOYMENT.md`。

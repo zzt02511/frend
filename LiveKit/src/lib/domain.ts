@@ -23,6 +23,9 @@ export type User = {
   mobile?: string;
   openid?: string;
   unionid?: string;
+  createdAt?: string;
+  expiresAt?: string;
+  tenantId?: string;
 };
 
 export type LiveSession = {
@@ -37,6 +40,7 @@ export type LiveSession = {
   actualStartTime?: string;
   actualEndTime?: string;
   hostUserId: string;
+  tenantId?: string;
   moderatorIds: string[];
   enableComment: boolean;
   commentMode: CommentMode;

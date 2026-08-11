@@ -21,6 +21,7 @@ function normalizeLiveSessions(store: Partial<AppStore>, demo: AppStore) {
   for (const session of sessions) {
     const demoSession = demo.liveSessions.find((item) => item.id === session.id);
     session.cdnPlayUrl ??= demoSession?.cdnPlayUrl;
+    session.tenantId ??= "default-tenant";
   }
   return sessions;
 }
@@ -36,6 +37,7 @@ function normalizeUsers(store: Partial<AppStore>, demo: AppStore) {
         user.passwordHash = hashPassword("changeme");
       }
     }
+    if (user.role !== "super_admin" && user.role !== "audience") user.tenantId ??= "default-tenant";
   }
   return users;
 }

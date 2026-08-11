@@ -11,7 +11,7 @@ const createLiveSchema = z.object({
   description: z.string().optional().default(""),
   startTime: z.string().optional(),
   accessPassword: z.string().optional(),
-  hostUserId: z.string().optional().default("host-1"),
+  hostUserId: z.string().min(1).optional(),
 });
 
 export async function GET() {
@@ -21,9 +21,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireAuth(["super_admin", "director", "moderator"]);
+    const actor = await requireAuth(["super_admin", "director", "moderator"]);
     const input = createLiveSchema.parse(await readJson(request));
     const store = getStore();
+    const host = store.users.find((user) => user.id === input.hostUserId && user.role === "host" && user.status === "active")
+      ?? store.users.find((user) => user.role === "host" && user.status === "active" && (actor.role === "super_admin" || user.tenantId === (actor.tenantId ?? "default-tenant")));
+    if (!host) throw new Error("HOST_USER_NOT_FOUND");
+    const tenantId = actor.role === "super_admin" ? host.tenantId : actor.tenantId ?? "default-tenant";
+    if (!tenantId || host.tenantId !== tenantId) throw new Error("AUTH_TENANT_ACCESS_DENIED");
     const id = createId("live");
     const live = {
       id,
@@ -33,8 +38,9 @@ export async function POST(request: Request) {
       roomName: `private-${id}`,
       status: "scheduled" as const,
       startTime: input.startTime ?? new Date().toISOString(),
-      hostUserId: input.hostUserId,
-      moderatorIds: ["moderator-1", "director-1"],
+      hostUserId: host.id,
+      tenantId,
+      moderatorIds: store.users.filter((user) => user.role === "moderator" && user.tenantId === tenantId && user.status === "active").map((user) => user.id),
       enableComment: true,
       commentMode: "review" as const,
       enableMicApply: true,

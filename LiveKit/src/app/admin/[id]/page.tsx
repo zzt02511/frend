@@ -1,5 +1,5 @@
 import { AdminConsole } from "@/components/admin-console";
-import { requireAuth } from "@/lib/auth-helpers";
+import { assertLiveTenantAccess, requireAuth } from "@/lib/auth-helpers";
 import { getCommentAnalytics, withCommentUserNames } from "@/lib/comment-service";
 import { getCustomerLeads } from "@/lib/lead-service";
 import { getLiveSession, getStats, listOnlineParticipants, withParticipantUserNames } from "@/lib/live-service";
@@ -16,6 +16,7 @@ export default async function AdminRoomPage({ params }: Props) {
   const { id } = await params;
   const store = getStore();
   const live = getLiveSession(store, id);
+  assertLiveTenantAccess(auth, live);
   if (auth.role === "moderator" && !live.moderatorIds.includes(auth.userId)) {
     throw new Error("AUTH_INSUFFICIENT_ROLE");
   }

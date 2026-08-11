@@ -94,6 +94,8 @@ model User {
   role      UserRole   @default(audience)
   status    UserStatus @default(active)
   passwordHash String?
+  expiresAt DateTime?
+  tenantId String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -110,6 +112,7 @@ model LiveSession {
   actualStartTime DateTime?
   actualEndTime   DateTime?
   hostUserId      String
+  tenantId        String @default("default-tenant")
   moderatorIds    String[]
   enableComment   Boolean     @default(true)
   commentMode     CommentMode @default(review)

@@ -56,6 +56,9 @@ export class PrismaStoreRepository implements StoreRepository {
           mobile: user.mobile ?? undefined,
           openid: user.openid ?? undefined,
           unionid: user.unionid ?? undefined,
+          createdAt: user.createdAt.toISOString(),
+          expiresAt: user.expiresAt?.toISOString(),
+          tenantId: user.tenantId ?? undefined,
         })),
         liveSessions: liveSessions.map((session) => ({
           id: session.id,
@@ -69,6 +72,7 @@ export class PrismaStoreRepository implements StoreRepository {
           actualStartTime: session.actualStartTime?.toISOString(),
           actualEndTime: session.actualEndTime?.toISOString(),
           hostUserId: session.hostUserId,
+          tenantId: session.tenantId,
           moderatorIds: session.moderatorIds,
           enableComment: session.enableComment,
           commentMode: session.commentMode as CommentMode,
@@ -228,6 +232,8 @@ export class PrismaStoreRepository implements StoreRepository {
               mobile: user.mobile ?? null,
               openid: user.openid ?? null,
               unionid: user.unionid ?? null,
+              expiresAt: user.expiresAt ? new Date(user.expiresAt) : null,
+              tenantId: user.tenantId ?? null,
             })),
           });
         }
@@ -246,6 +252,7 @@ export class PrismaStoreRepository implements StoreRepository {
               actualStartTime: session.actualStartTime ? new Date(session.actualStartTime) : null,
               actualEndTime: session.actualEndTime ? new Date(session.actualEndTime) : null,
               hostUserId: session.hostUserId,
+              tenantId: session.tenantId ?? "default-tenant",
               moderatorIds: session.moderatorIds,
               enableComment: session.enableComment,
               commentMode: session.commentMode,

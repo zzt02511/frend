@@ -18,6 +18,7 @@ export function createDemoStore(): AppStore {
         name: "营销总监",
         role: "director",
         status: "active",
+        tenantId: "default-tenant",
         passwordHash: hashPassword("director123"),
       },
       {
@@ -25,6 +26,7 @@ export function createDemoStore(): AppStore {
         name: "移动主播",
         role: "host",
         status: "active",
+        tenantId: "default-tenant",
         passwordHash: hashPassword("host123"),
       },
       {
@@ -32,6 +34,7 @@ export function createDemoStore(): AppStore {
         name: "直播场控",
         role: "moderator",
         status: "active",
+        tenantId: "default-tenant",
         passwordHash: hashPassword("mod123"),
       },
       {
@@ -57,6 +60,7 @@ export function createDemoStore(): AppStore {
         status: "scheduled",
         startTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
         hostUserId: "host-1",
+        tenantId: "default-tenant",
         moderatorIds: ["moderator-1", "director-1"],
         enableComment: true,
         commentMode: "review",

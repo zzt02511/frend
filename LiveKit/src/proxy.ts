@@ -29,7 +29,7 @@ export function proxy(request: NextRequest) {
       return Response.json({ ok: false, error: "AUTH_REQUIRED" }, { status: 401 });
     }
 
-    const signInUrl = new URL("/api/auth/signin", request.url);
+    const signInUrl = new URL("/login", request.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signInUrl);
   }

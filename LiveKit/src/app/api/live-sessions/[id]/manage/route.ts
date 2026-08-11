@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-helpers";
+import { assertLiveTenantAccess, requireAuth } from "@/lib/auth-helpers";
 import { jsonError, jsonOk } from "@/lib/http";
 import { toManagementLiveSession } from "@/lib/live-dto";
 import { getLiveSession } from "@/lib/live-service";
@@ -8,9 +8,11 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, ctx: Ctx) {
   try {
-    await requireAuth(["super_admin", "director", "moderator"]);
+    const auth = await requireAuth(["super_admin", "director", "moderator"]);
     const { id } = await ctx.params;
     const live = getLiveSession(getStore(), id);
+    assertLiveTenantAccess(auth, live);
+    if (auth.role === "moderator" && !live.moderatorIds.includes(auth.userId)) throw new Error("AUTH_INSUFFICIENT_ROLE");
     return jsonOk(
       toManagementLiveSession(live, process.env.ROOM_PASSWORD_ENCRYPTION_KEY ?? ""),
     );

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
-import { requireAuth } from "@/lib/auth-helpers";
+import { assertLiveTenantAccess, requireAuth } from "@/lib/auth-helpers";
 import { deleteLiveSession, getLiveSession, updateLiveSession } from "@/lib/live-service";
 import { getStore } from "@/lib/store";
 import { encryptRoomPassword } from "@/lib/room-password";
@@ -42,10 +42,12 @@ export async function GET(_request: Request, ctx: Ctx) {
 
 export async function PATCH(request: Request, ctx: Ctx) {
   try {
-    await requireAuth(["director", "super_admin", "moderator"]);
+    const auth = await requireAuth(["director", "super_admin", "moderator"]);
     const { id } = await ctx.params;
     const store = getStore();
     const live = getLiveSession(store, id);
+    assertLiveTenantAccess(auth, live);
+    if (auth.role === "moderator" && !live.moderatorIds.includes(auth.userId)) throw new Error("AUTH_INSUFFICIENT_ROLE");
     const { accessPassword, clearPassword, ...editablePatch } = livePatchSchema.parse(await readJson(request));
     const passwordPatch = clearPassword
       ? {
@@ -71,9 +73,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
 export async function DELETE(request: Request, ctx: Ctx) {
   try {
-    const { userId } = await requireAuth(["director", "super_admin", "moderator"]);
+    const auth = await requireAuth(["director", "super_admin", "moderator"]);
     const { id } = await ctx.params;
-    return jsonOk(deleteLiveSession(getStore(), id, userId));
+    const store = getStore();
+    const live = getLiveSession(store, id);
+    assertLiveTenantAccess(auth, live);
+    if (auth.role === "moderator" && !live.moderatorIds.includes(auth.userId)) throw new Error("AUTH_INSUFFICIENT_ROLE");
+    return jsonOk(deleteLiveSession(store, id, auth.userId));
   } catch (error) {
     return jsonError(error, routeErrorStatus(error));
   }

@@ -11,6 +11,7 @@ const { requireAuthMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth-helpers", () => ({
   requireAuth: requireAuthMock,
+  assertLiveTenantAccess: vi.fn(),
 }));
 
 function useInMemoryStore(store: AppStore) {

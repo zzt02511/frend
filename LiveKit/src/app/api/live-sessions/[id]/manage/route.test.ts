@@ -5,7 +5,7 @@ import { createDemoStore } from "@/lib/store";
 import { setStoreRepository, type StoreRepository } from "@/lib/store-repository";
 
 const { requireAuthMock } = vi.hoisted(() => ({ requireAuthMock: vi.fn() }));
-vi.mock("@/lib/auth-helpers", () => ({ requireAuth: requireAuthMock }));
+vi.mock("@/lib/auth-helpers", () => ({ requireAuth: requireAuthMock, assertLiveTenantAccess: vi.fn() }));
 
 import { GET } from "./route";
 
