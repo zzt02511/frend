@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-helpers";
-import { type User, type UserRole, type UserStatus } from "@/lib/domain";
+import { createId, type User, type UserRole, type UserStatus } from "@/lib/domain";
 import { hashPassword } from "@/lib/password";
 import { getStore, persistStore } from "@/lib/store";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -22,6 +22,30 @@ function userCanBeManaged(actor: { role: UserRole; tenantId?: string }, user: Us
   return actor.role === "super_admin"
     ? PLATFORM_MANAGED_ROLES.includes(user.role)
     : TENANT_STAFF_ROLES.includes(user.role) && user.tenantId === actor.tenantId;
+}
+
+function provisionDefaultTenantResources(store: ReturnType<typeof getStore>, input: {
+  directorId: string;
+  directorName: string;
+  tenantId: string;
+  password: string;
+  expiresAt?: string;
+}) {
+  const hostId = `${input.directorId}-host`;
+  const moderatorId = `${input.directorId}-moderator`;
+  const now = new Date().toISOString();
+  store.users.push(
+    { id: hostId, name: `${input.directorName} - 默认主播`, role: "host", status: "active", passwordHash: hashPassword(input.password), createdAt: now, expiresAt: input.expiresAt, tenantId: input.tenantId },
+    { id: moderatorId, name: `${input.directorName} - 默认场控`, role: "moderator", status: "active", passwordHash: hashPassword(input.password), createdAt: now, expiresAt: input.expiresAt, tenantId: input.tenantId },
+  );
+  const liveId = createId("live");
+  store.liveSessions.unshift({
+    id: liveId, title: `${input.directorName} 的直播间`, coverUrl: "/window.svg", description: "新租户默认直播间。",
+    roomName: `private-${liveId}`, status: "scheduled", startTime: now, hostUserId: hostId,
+    tenantId: input.tenantId, moderatorIds: [input.directorId, moderatorId], enableComment: true,
+    commentMode: "review", enableMicApply: true, enableRecord: true,
+  });
+  store.stats.push({ id: `stats-${liveId}`, liveId, pv: 0, uv: 0, peakOnline: 0, currentOnline: 0, avgWatchDuration: 0, commentCount: 0, likeCount: 0, micApplyCount: 0, successfulMicCount: 0, leadCount: 0, replayViewCount: 0 });
 }
 
 async function saveUser(formData: FormData) {
@@ -63,6 +87,7 @@ async function saveUser(formData: FormData) {
     if (password) existing.passwordHash = hashPassword(password);
   } else {
     if (store.users.some((item) => item.id === accountId)) throw new Error("ACCOUNT_ID_EXISTS");
+    const expiration = expiresAtFrom(formData);
     store.users.push({
       id: accountId,
       name,
@@ -70,9 +95,12 @@ async function saveUser(formData: FormData) {
       status,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
-      expiresAt: expiresAtFrom(formData),
+      expiresAt: expiration,
       tenantId,
     });
+    if (actor.role === "super_admin" && role === "director") {
+      provisionDefaultTenantResources(store, { directorId: accountId, directorName: name, tenantId, password, expiresAt: expiration });
+    }
   }
   persistStore(store);
   revalidatePath("/admin/users");
