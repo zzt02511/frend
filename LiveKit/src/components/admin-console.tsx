@@ -610,7 +610,7 @@ function cancelEditLive() {
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>当前直播</CardDescription>
-                <CardTitle className="text-base">{activeLive.title}</CardTitle>
+                <CardTitle className="text-base">{activeLive?.title ?? "新建直播间"}</CardTitle>
               </CardHeader>
             </Card>
             {[
