@@ -16,6 +16,7 @@ import { Camera, Mic, RefreshCw, RotateCcw } from "lucide-react";
 import type { LiveComment, LiveKitAccessToken, LiveSession, LiveStats, LiveStatus, MicRequest } from "@/lib/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 
 const liveStatusText: Record<LiveStatus, string> = {
   draft: "草稿",
@@ -497,8 +498,9 @@ export function MobileHostConsole({
   const statusMessages = [cameraState, actionMessage, micActionMessage].filter(Boolean);
 
   return (
-    <main className="mx-auto h-screen max-w-md overflow-hidden bg-background p-2">
+    <main className="relative mx-auto h-screen max-w-md overflow-hidden bg-background p-2">
       <section className="flex h-full min-h-0 flex-col gap-1.5">
+        <div className="absolute right-4 top-4 z-30"><SignOutButton compact /></div>
         <div
           data-testid="host-video-surface"
           className="video-grid relative min-h-[340px] flex-1 overflow-hidden rounded-lg bg-black"

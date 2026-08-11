@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers";
 import { type User, type UserRole, type UserStatus } from "@/lib/domain";
 import { hashPassword } from "@/lib/password";
 import { getStore, persistStore } from "@/lib/store";
+import { SignOutButton } from "@/components/sign-out-button";
 
 const TENANT_STAFF_ROLES: UserRole[] = ["moderator", "host"];
 const PLATFORM_MANAGED_ROLES: UserRole[] = ["director", ...TENANT_STAFF_ROLES];
@@ -89,7 +90,8 @@ export default async function UserAdminPage() {
   const title = actor.role === "super_admin" ? "平台账号管理" : "旗下账号管理";
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
+    <main className="relative min-h-screen bg-background p-6 text-foreground">
+      <div className="absolute right-6 top-6"><SignOutButton /></div>
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex items-center justify-between gap-4"><div><p className="text-sm text-primary">{actor.role === "super_admin" ? "超级管理员" : "客户管理员"}</p><h1 className="text-3xl font-bold">{title}</h1><p className="mt-1 text-sm text-muted-foreground">{actor.role === "super_admin" ? "维护客户管理员及全部客户旗下主播、场控账号。" : "只维护本客户旗下的主播和场控账号。"}</p></div><Link className="shrink-0 rounded-md border px-3 py-2 text-sm" href="/admin">返回直播后台</Link></div>
         <section className="rounded-xl border p-5"><h2 className="mb-4 text-lg font-semibold">新增账号</h2><form action={saveUser} className="grid gap-3 md:grid-cols-3"><input name="accountId" required placeholder="登录账号（字母、数字、-、_）" className="rounded-md border bg-transparent p-2" /><input name="name" required placeholder="姓名 / 显示名" className="rounded-md border bg-transparent p-2" /><select name="role" defaultValue={actor.role === "super_admin" ? "director" : "host"} className="rounded-md border bg-transparent p-2">{allowedRoles.map((role) => <option key={role} value={role}>{role === "director" ? "客户管理员" : role === "host" ? "主播" : "场控"}</option>)}</select>{actor.role === "super_admin" ? <select name="tenantId" className="rounded-md border bg-transparent p-2"><option value="">客户管理员自动创建独立客户空间</option>{directorTenants.map((director) => <option key={director.id} value={director.tenantId}>{director.name}（{director.id}）</option>)}</select> : <input type="hidden" name="tenantId" value={actor.tenantId} />}<input name="password" required minLength={8} type="password" placeholder="初始口令（至少 8 位）" className="rounded-md border bg-transparent p-2" /><input name="expiresAt" type="date" title="留空为永久有效" className="rounded-md border bg-transparent p-2" /><button className="rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground">新增</button></form></section>
