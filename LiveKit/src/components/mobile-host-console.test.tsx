@@ -144,9 +144,46 @@ describe("MobileHostConsole", () => {
       expect(fetch).toHaveBeenCalledWith("/api/live-sessions/demo-live/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: "host-1" }),
       }),
     );
+  });
+
+  it("opens the host device and starts Tencent egress when starting without an existing device connection", async () => {
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: vi.fn() } });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/token")) {
+        return {
+          json: async () => ({
+            ok: true,
+            data: {
+              token: "token",
+              serverUrl: "wss://live.fuguilong.cn",
+              grants: { canPublish: true },
+            },
+          }),
+        };
+      }
+      if (url.endsWith("/start")) {
+        return { json: async () => ({ ok: true, data: { ...live, status: "live" } }) };
+      }
+      if (url.endsWith("/egress/start")) {
+        return { json: async () => ({ ok: true, data: { egressId: "egress-1" } }) };
+      }
+      return { json: async () => ({ ok: true, data: [] }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<MobileHostConsole live={live} comments={[]} stats={stats} micRequests={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /开播/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/egress/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(screen.getByTestId("host-status-line")).toHaveTextContent("已开播，腾讯云转推已启动");
   });
 
   it("does not duplicate the live title above the mobile video area", () => {
@@ -170,7 +207,6 @@ describe("MobileHostConsole", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/mic-requests/mic-1/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actorId: "host-1" }),
     });
   });
 
@@ -263,7 +299,6 @@ describe("MobileHostConsole", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live/mic-requests/mic-connected-1/end", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actorId: "host-1" }),
     });
   });
 

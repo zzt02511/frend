@@ -6,6 +6,12 @@ services:
       args:
         RUNTIME_BASE: ${RUNTIME_BASE:-node:22-alpine}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/live-sessions').then(r => process.exit(r.ok?0:1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     ports:
       - "127.0.0.1:${APP_PORT:-3001}:3000"
     environment:
@@ -13,17 +19,28 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL:-https://live.fuguilong.cn}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/wechat_private_live}
+      DATABASE_STORAGE: ${DATABASE_STORAGE:-true}
+      ROOM_PASSWORD_ENCRYPTION_KEY: ${ROOM_PASSWORD_ENCRYPTION_KEY}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_URL: ${LIVEKIT_URL:-wss://live.fuguilong.cn}
       WECHAT_OAUTH_APP_ID: ${WECHAT_OAUTH_APP_ID:-}
       WECHAT_OAUTH_APP_SECRET: ${WECHAT_OAUTH_APP_SECRET:-}
+      LIVEKIT_EGRESS_URL: ${LIVEKIT_EGRESS_URL:-http://livekit:7880}
+      TENCENT_RTMP_PUSH_DOMAIN: ${TENCENT_RTMP_PUSH_DOMAIN:-push.fuguilong.cn}
+      TENCENT_RTMP_APP_NAME: ${TENCENT_RTMP_APP_NAME:-live}
+      TENCENT_RTMP_PUSH_KEY: ${TENCENT_RTMP_PUSH_KEY:-}
+      TENCENT_RTMP_URL_TTL_SECONDS: ${TENCENT_RTMP_URL_TTL_SECONDS:-43200}
+      REPLAY_DIRECTORY: /app/replays
     volumes:
       - app-data:/app/.data
+      - replay-data:/app/replays
     depends_on:
       postgres:
         condition: service_healthy
       livekit:
+        condition: service_started
+      redis:
         condition: service_started
 
   livekit:
@@ -40,9 +57,34 @@ services:
           use_external_ip: true
         keys:
           ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+        redis:
+          address: redis:6379
     ports:
       - "7881:7881"
       - "50000-50100:50000-50100/udp"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  egress:
+    image: livekit/egress:latest
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY:-devkey}
+        api_secret: ${LIVEKIT_API_SECRET:-secret}
+        ws_url: ws://livekit:7880
+        insecure: true
+        redis:
+          address: redis:6379
+    volumes:
+      - replay-data:/output
+    depends_on:
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:16-alpine
@@ -61,4 +103,5 @@ services:
 
 volumes:
   app-data:
+  replay-data:
   postgres-data:

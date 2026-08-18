@@ -26,13 +26,22 @@ export class JsonStoreRepository implements StoreRepository {
   }
 }
 
-let repository: StoreRepository | undefined;
+const repositoryGlobal = globalThis as typeof globalThis & {
+  __wechatLiveStoreRepository?: StoreRepository;
+};
 
 export function getStoreRepository() {
-  if (!repository) repository = new JsonStoreRepository();
-  return repository;
+  if (!repositoryGlobal.__wechatLiveStoreRepository) {
+    if (isPgStorageEnabled()) throw new Error("POSTGRES_REPOSITORY_NOT_INITIALIZED");
+    repositoryGlobal.__wechatLiveStoreRepository = new JsonStoreRepository();
+  }
+  return repositoryGlobal.__wechatLiveStoreRepository;
 }
 
 export function setStoreRepository(nextRepository: StoreRepository | undefined) {
-  repository = nextRepository;
+  repositoryGlobal.__wechatLiveStoreRepository = nextRepository;
+}
+
+export function isPgStorageEnabled() {
+  return ["true", "enabled"].includes(process.env.DATABASE_STORAGE?.trim().toLowerCase() ?? "");
 }

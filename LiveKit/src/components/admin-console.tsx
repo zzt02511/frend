@@ -44,6 +44,7 @@ type Props = {
   initialShareRanking: { sharedBy: string; source: string; visits: number; uniqueViewers: number }[];
   initialCommentAnalytics: CommentAnalytics;
   initialCustomerLeads: CustomerLead[];
+  roomScoped?: boolean;
   initialTab?: "comments" | "commentStats" | "leads" | "mic" | "participants";
 };
 
@@ -137,6 +138,7 @@ export function AdminConsole({
   initialShareRanking,
   initialCommentAnalytics,
   initialCustomerLeads,
+  roomScoped = false,
   initialTab = "comments",
 }: Props) {
   const [sessions, setSessions] = useState(liveSessions);
@@ -148,14 +150,19 @@ export function AdminConsole({
   const [shareRanking, setShareRanking] = useState(initialShareRanking);
   const [commentAnalytics, setCommentAnalytics] = useState(initialCommentAnalytics);
   const [customerLeads, setCustomerLeads] = useState(initialCustomerLeads);
-  const [title, setTitle] = useState("");
+const [title, setTitle] = useState("");
+const [newLivePassword, setNewLivePassword] = useState("");
   const [sharedBy, setSharedBy] = useState("moderator-1");
   const [commentQuery, setCommentQuery] = useState("");
   const [commentStatusFilter, setCommentStatusFilter] = useState<CommentStatus | "all">("all");
   const [origin, setOrigin] = useState("");
-  const [editingLiveId, setEditingLiveId] = useState("");
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
+const [editingLiveId, setEditingLiveId] = useState("");
+const [editTitle, setEditTitle] = useState("");
+const [editDescription, setEditDescription] = useState("");
+const [editEnableMicApply, setEditEnableMicApply] = useState(true);
+const [editEnableRecord, setEditEnableRecord] = useState(true);
+const [editAccessPassword, setEditAccessPassword] = useState("");
+const [originalEditAccessPassword, setOriginalEditAccessPassword] = useState("");
   const activeLive = sessions.find((item) => item.id === activeLiveId) ?? sessions[0];
   const reviewComments = useMemo(
     () =>
@@ -256,7 +263,7 @@ export function AdminConsole({
     const suffix = action === "delete" ? "" : `/${action}`;
     const response = await fetch(`/api/live-sessions/${activeLive.id}/comments/${commentId}${suffix}`, {
       method,
-      body: JSON.stringify({ actorId: "moderator-1" }),
+      headers: { "Content-Type": "application/json" },
     });
     const payload = (await response.json()) as ApiPayload<LiveComment>;
     if (payload.ok) await loadLiveData(activeLive.id);
@@ -266,7 +273,7 @@ export function AdminConsole({
     if (!activeLive) return;
     const response = await fetch(`/api/live-sessions/${activeLive.id}/participants/${participantId}/kick`, {
       method: "POST",
-      body: JSON.stringify({ actorId: "moderator-1" }),
+      headers: { "Content-Type": "application/json" },
     });
     const payload = (await response.json()) as ApiPayload<LiveParticipant>;
     if (payload.ok) await loadLiveData(activeLive.id);
@@ -288,7 +295,7 @@ export function AdminConsole({
     if (!title.trim()) return;
     const response = await fetch("/api/live-sessions", {
       method: "POST",
-      body: JSON.stringify({ title, description: "新建私域直播，可分享给微信好友进入观看。" }),
+      body: JSON.stringify({ title, description: "新建私域直播，可分享给微信好友进入观看。", accessPassword: newLivePassword || undefined }),
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -298,26 +305,55 @@ export function AdminConsole({
       setCommentStatusFilter("all");
       await loadLiveData(payload.data.id);
       setTitle("");
+      setNewLivePassword("");
     }
   }
 
-  function startEditLive(session: LiveSession) {
+async function startEditLive(session: LiveSession) {
     setEditingLiveId(session.id);
     setEditTitle(session.title);
     setEditDescription(session.description);
+    setEditEnableMicApply(session.enableMicApply);
+    setEditEnableRecord(session.enableRecord);
+    setEditAccessPassword("");
+    setOriginalEditAccessPassword("");
+
+    const response = await fetch(`/api/live-sessions/${session.id}/manage`);
+    const payload = (await response.json()) as ApiPayload<LiveSession & { accessPassword?: string }>;
+    if (payload.ok) {
+      const password = payload.data.accessPassword ?? "";
+      setEditAccessPassword(password);
+      setOriginalEditAccessPassword(password);
+    }
   }
 
-  function cancelEditLive() {
+function cancelEditLive() {
     setEditingLiveId("");
     setEditTitle("");
     setEditDescription("");
+    setEditEnableMicApply(true);
+    setEditEnableRecord(true);
+    setEditAccessPassword("");
+    setOriginalEditAccessPassword("");
   }
 
   async function saveLiveSession(liveId: string) {
     if (!editTitle.trim()) return;
+    const passwordPatch =
+      editAccessPassword === originalEditAccessPassword
+        ? {}
+        : editAccessPassword
+          ? { accessPassword: editAccessPassword }
+          : { clearPassword: true };
     const response = await fetch(`/api/live-sessions/${liveId}`, {
       method: "PATCH",
-      body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim() }),
+      body: JSON.stringify({
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        enableMicApply: editEnableMicApply,
+        enableRecord: editEnableRecord,
+        ...passwordPatch,
+      }),
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -351,10 +387,9 @@ export function AdminConsole({
 
   async function changeLiveStatus(action: "start" | "end") {
     if (!activeLive) return;
-    const actorId = action === "start" ? "host-1" : "moderator-1";
     const response = await fetch(`/api/live-sessions/${activeLive.id}/${action}`, {
       method: "POST",
-      body: JSON.stringify({ actorId }),
+      headers: { "Content-Type": "application/json" },
     });
     const payload = (await response.json()) as ApiPayload<LiveSession>;
     if (payload.ok) {
@@ -370,10 +405,11 @@ export function AdminConsole({
             <p className="text-sm text-muted-foreground">PC 场控后台</p>
             <h1 className="text-3xl font-semibold tracking-normal">直播列表、分享与互动审核</h1>
           </div>
-          <div className="flex gap-2">
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="输入新直播标题" />
+          {!roomScoped ? <div className="flex gap-2">
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="输入新直播标题" className="max-w-[200px]" />
+            <Input type="password" value={newLivePassword} onChange={(event) => setNewLivePassword(event.target.value)} placeholder="访问密码(可选)" className="max-w-[140px]" />
             <Button onClick={createLive}>创建直播</Button>
-          </div>
+          </div> : null}
         </header>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -417,9 +453,39 @@ export function AdminConsole({
                               <Input
                                 value={editDescription}
                                 onChange={(event) => setEditDescription(event.target.value)}
-                                placeholder="直播说明"
-                              />
-                            </div>
+               placeholder="直播说明"
+             />
+            <label className="grid grid-cols-[88px_1fr] items-center gap-2 text-sm">
+              <span className="text-muted-foreground">连麦</span>
+              <select
+                aria-label="连麦申请状态"
+                value={editEnableMicApply ? "enabled" : "disabled"}
+                onChange={(event) => setEditEnableMicApply(event.target.value === "enabled")}
+                className="h-9 rounded-md border border-input bg-background px-3"
+              >
+                <option value="enabled">启用</option>
+                <option value="disabled">关闭</option>
+              </select>
+            </label>
+            <label className="grid grid-cols-[88px_1fr] items-center gap-2 text-sm">
+              <span className="text-muted-foreground">录播</span>
+              <select
+                aria-label="录播状态"
+                value={editEnableRecord ? "enabled" : "disabled"}
+                onChange={(event) => setEditEnableRecord(event.target.value === "enabled")}
+                className="h-9 rounded-md border border-input bg-background px-3"
+              >
+                <option value="enabled">启用</option>
+                <option value="disabled">关闭</option>
+              </select>
+            </label>
+            <Input
+              type="password"
+              value={editAccessPassword}
+              onChange={(event) => setEditAccessPassword(event.target.value)}
+              placeholder="访问密码（留空则不设密码）"
+            />
+          </div>
                           ) : (
                             <>
                               <button className="text-left font-medium hover:text-primary" onClick={() => void selectLive(session.id)}>
@@ -438,7 +504,7 @@ export function AdminConsole({
                             打开 <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="min-w-[560px] whitespace-nowrap">
                           {editingLiveId === session.id ? (
                             <div className="flex flex-wrap gap-2">
                               <Button size="sm" onClick={() => void saveLiveSession(session.id)}>
@@ -449,11 +515,28 @@ export function AdminConsole({
                               </Button>
                             </div>
                           ) : (
-                            <div className="flex flex-wrap gap-2">
+                            <div data-testid="live-room-actions" className="flex flex-nowrap items-center gap-2">
+                              <Button asChild size="sm" variant="outline">
+                                <a href={`/host/${session.id}`} target="_blank" rel="noreferrer">主播端</a>
+                              </Button>
+                              <Button asChild size="sm" variant="outline">
+                                <a href={`/admin/${session.id}`} target="_blank" rel="noreferrer">管理端</a>
+                              </Button>
+                              {session.replayUrl ? (
+                                <Button asChild size="sm" variant="outline">
+                                  <a href={session.replayUrl} download>
+                                    下载录播
+                                  </a>
+                                </Button>
+                              ) : session.enableRecord && session.status === "ended" ? (
+                                <Button size="sm" variant="outline" disabled>
+                                  录播处理中
+                                </Button>
+                              ) : null}
                               <Button size="sm" variant={selected ? "secondary" : "outline"} onClick={() => void selectLive(session.id)}>
                                 {selected ? "当前控制" : "切换控制"}
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => startEditLive(session)}>
+                              <Button size="sm" variant="outline" onClick={() => void startEditLive(session)}>
                                 编辑
                               </Button>
                               <Button
@@ -527,7 +610,7 @@ export function AdminConsole({
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>当前直播</CardDescription>
-                <CardTitle className="text-base">{activeLive.title}</CardTitle>
+                <CardTitle className="text-base">{activeLive?.title ?? "新建直播间"}</CardTitle>
               </CardHeader>
             </Card>
             {[

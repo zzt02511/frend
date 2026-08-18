@@ -29,10 +29,6 @@ function isAppleMobile(userAgent: string) {
   return /iPhone|iPad|iPod/i.test(userAgent);
 }
 
-function isAudienceCdnEnabled() {
-  return process.env.NEXT_PUBLIC_AUDIENCE_CDN_ENABLED === "true";
-}
-
 function prepareInlineVideo(videoElement: HTMLVideoElement, muted: boolean) {
   videoElement.autoplay = true;
   videoElement.muted = muted;
@@ -95,16 +91,10 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
   const localPreviewRef = useRef<HTMLVideoElement>(null);
   const [micVideoTracks, setMicVideoTracks] = useState<MicVideoTrack[]>([]);
   const [showMicPreview, setShowMicPreview] = useState(false);
-  const [playbackMode] = useState<"cdn" | "livekit">(() => {
-    if (typeof window === "undefined") return "livekit";
-    return isAudienceCdnEnabled() && Boolean(cdnPlayUrl?.trim()) && !isAppleMobile(window.navigator.userAgent)
-      ? "cdn"
-      : "livekit";
-  });
   const [playerState, setPlayerState] = useState(
     liveStatus === "live" ? "正在准备进入直播间..." : "主播未开播，稍后刷新即可观看。",
   );
-  const useCdnPlayback = playbackMode === "cdn";
+  const useCdnPlayback = Boolean(cdnPlayUrl?.trim());
 
   function playHostVideo() {
     const videoElement = videoRef.current;
@@ -211,7 +201,7 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
         }
 
         const token = payload.data as LiveKitAccessToken;
-        room = new Room({ adaptiveStream: true, dynacast: true });
+        room = new Room({ adaptiveStream: !isAppleMobile(window.navigator.userAgent), dynacast: true });
         room.on(RoomEvent.TrackSubscribed, attachTrack);
         room.on(RoomEvent.TrackUnsubscribed, detachTrack);
         room.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
@@ -271,7 +261,7 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
       setShowMicPreview(false);
       setMicVideoTracks([]);
     };
-  }, [liveId, liveStatus, viewerId, micApproved, hostIdentity, useCdnPlayback, playbackMode]);
+  }, [liveId, liveStatus, viewerId, micApproved, hostIdentity, useCdnPlayback]);
 
   return (
     <>
@@ -294,20 +284,21 @@ export function LiveKitAudiencePlayer({ liveId, liveStatus, viewerId, micApprove
         />
       )}
       <div className="absolute bottom-5 right-5 z-20 flex max-w-[76%] gap-2 overflow-x-auto">
+        <video
+          ref={localPreviewRef}
+          data-testid="audience-local-mic-tile"
+          autoPlay
+          muted
+          preload="auto"
+          playsInline
+          className={`h-36 w-24 shrink-0 rounded-lg border border-primary bg-black object-cover shadow-2xl ${
+            showMicPreview ? "block" : "hidden"
+          }`}
+        />
         {micVideoTracks.map((item) => (
           <MicVideoTile key={item.identity} track={item.track} />
         ))}
       </div>
-      <video
-        ref={localPreviewRef}
-        autoPlay
-        muted
-        preload="auto"
-        playsInline
-        className={`absolute bottom-5 right-5 z-30 h-36 w-24 rounded-lg border border-primary bg-black object-cover shadow-2xl ${
-          showMicPreview && micVideoTracks.length === 0 ? "block" : "hidden"
-        }`}
-      />
       <div ref={audioContainerRef} className="hidden" />
       {!useCdnPlayback ? (
         <div className="absolute inset-x-5 top-16 rounded-md bg-black/45 p-3 text-sm text-white backdrop-blur">

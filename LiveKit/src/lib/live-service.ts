@@ -11,12 +11,15 @@ export function getLiveSession(store: AppStore, liveId: string) {
   return live;
 }
 
-export function selectHostConsoleLiveSession(store: AppStore) {
+export function selectHostConsoleLiveSession(store: AppStore, hostUserId?: string) {
+  const sessions = hostUserId
+    ? store.liveSessions.filter((item) => item.hostUserId === hostUserId)
+    : store.liveSessions;
   const live =
-    store.liveSessions.find((item) => item.status === "live") ??
-    store.liveSessions.find((item) => item.status === "scheduled" || item.status === "draft") ??
-    store.liveSessions.find((item) => item.status !== "ended" && item.status !== "closed") ??
-    store.liveSessions[0];
+    sessions.find((item) => item.status === "live") ??
+    sessions.find((item) => item.status === "scheduled" || item.status === "draft") ??
+    sessions.find((item) => item.status !== "ended" && item.status !== "closed") ??
+    sessions[0];
 
   if (!live) throw new Error("LIVE_NOT_FOUND");
   return live;
@@ -137,15 +140,17 @@ export function endLiveSession(store: AppStore, liveId: string, actorId: string)
   const live = getLiveSession(store, liveId);
   live.status = "ended";
   live.actualEndTime = nowIso();
-  live.replayUrl = `/replays/${liveId}.mp4`;
-  store.replays.push({
-    id: createId("replay"),
-    liveId,
-    status: "ready",
-    url: live.replayUrl,
-    visible: true,
-    createdAt: nowIso(),
-  });
+  if (live.enableRecord) {
+    live.replayUrl = `/api/live-sessions/${liveId}/replay?download=1`;
+    store.replays.push({
+      id: createId("replay"),
+      liveId,
+      status: "ready",
+      url: live.replayUrl,
+      visible: true,
+      createdAt: nowIso(),
+    });
+  }
   addAuditLog(store, actorId, "live.end", liveId);
   persistStoreIfGlobal(store);
   return live;
@@ -187,6 +192,9 @@ export function updateLiveSession(
       | "commentMode"
       | "enableMicApply"
       | "enableRecord"
+      | "accessPassword"
+      | "accessPasswordCiphertext"
+      | "accessPasswordVersion"
     >
   >,
 ) {

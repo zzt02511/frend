@@ -1,16 +1,44 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { JsonStoreRepository } from "./store-repository";
 
 const tempDirs: string[] = [];
 
 describe("store repository", () => {
   afterEach(() => {
+    vi.unstubAllEnvs();
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("shares an initialized repository across isolated server module instances", async () => {
+    const firstModule = await import("./store-repository");
+    const store = {
+      users: [], liveSessions: [], participants: [], comments: [], micRequests: [],
+      replays: [], stats: [], auditLogs: [], shareVisits: [], customerFollowUps: [],
+    };
+    const repository = {
+      load: () => store,
+      save: vi.fn(),
+      mutate: <T>(mutator: (value: typeof store) => T) => mutator(store),
+    };
+    firstModule.setStoreRepository(repository);
+
+    vi.resetModules();
+    const secondModule = await import("./store-repository");
+
+    expect(secondModule.getStoreRepository()).toBe(repository);
+    secondModule.setStoreRepository(undefined);
+    firstModule.setStoreRepository(undefined);
+  });
+
+  it.each(["true", "enabled"])("enables PostgreSQL storage for DATABASE_STORAGE=%s", async (value) => {
+    vi.stubEnv("DATABASE_STORAGE", value);
+    const { isPgStorageEnabled } = await import("./store-repository");
+    expect(isPgStorageEnabled()).toBe(true);
   });
 
   it("persists mutations through a repository transaction", () => {

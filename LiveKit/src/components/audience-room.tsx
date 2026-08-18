@@ -13,6 +13,7 @@ type Props = {
   comments: LiveComment[];
   stats: LiveStats;
   initialViewerId?: string;
+  hasAccessPassword?: boolean;
 };
 
 const VIEWER_NAME_KEY = "wechat-live-viewer-name";
@@ -33,6 +34,13 @@ function commentDisplayName(comment: LiveComment) {
   return comment.userName || comment.userId;
 }
 
+function commentDisplayContent(comment: LiveComment) {
+  const displayName = commentDisplayName(comment);
+  const systemMessages = ["进入直播间了", "点赞了主播"];
+  const matchedMessage = systemMessages.find((message) => comment.content === `${displayName}${message}`);
+  return matchedMessage || comment.content;
+}
+
 function mergeVisibleComments(current: LiveComment[], incoming: LiveComment[], viewerId: string) {
   const incomingIds = new Set(incoming.map((comment) => comment.id));
   const ownPendingComments = current.filter(
@@ -41,7 +49,8 @@ function mergeVisibleComments(current: LiveComment[], incoming: LiveComment[], v
   return sortCommentsByTime([...ownPendingComments, ...incoming]);
 }
 
-export function AudienceRoom({ live, comments: initialComments, stats, initialViewerId }: Props) {
+
+export function AudienceRoom({ live, comments: initialComments, stats, initialViewerId, hasAccessPassword }: Props) {
   const commentInputRef = useRef<HTMLInputElement>(null);
   const commentsPanelRef = useRef<HTMLDivElement>(null);
   const [viewerId, setViewerId] = useState(initialViewerId && initialViewerId !== "audience-1" ? initialViewerId : "");
@@ -50,12 +59,17 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   const [authorizationError, setAuthorizationError] = useState("");
   const [comments, setComments] = useState(sortCommentsByTime(initialComments));
   const [content, setContent] = useState("");
-  const [micStatus, setMicStatus] = useState("未申请");
+  const [micStatus, setMicStatus] = useState(live.enableMicApply ? "未申请" : "已关闭");
   const [micRequestId, setMicRequestId] = useState("");
   const [micApproved, setMicApproved] = useState(false);
   const [isApplyingMic, setIsApplyingMic] = useState(false);
   const [isSendingLike, setIsSendingLike] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
   const [liveStats, setLiveStats] = useState(stats);
+  const [accessPasswordValue, setAccessPasswordValue] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordVerified, setPasswordVerified] = useState(!hasAccessPassword);
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
 
   useEffect(() => {
     if (!commentsPanelRef.current) return;
@@ -65,7 +79,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   const statusText = live.status === "live" ? "直播中" : live.status === "ended" ? "已结束" : "未开播";
 
   useEffect(() => {
-    if (!viewerId) return;
+    if (!viewerId || !passwordVerified) return;
 
     const sendHeartbeat = () => {
       void Promise.resolve(
@@ -90,7 +104,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [live.id, viewerId]);
+  }, [live.id, passwordVerified, viewerId]);
 
   useEffect(() => {
     if (!viewerId) return;
@@ -239,7 +253,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
       const storedName = window.localStorage.getItem(VIEWER_NAME_KEY)?.trim();
       const storedNameSource = window.localStorage.getItem(VIEWER_NAME_SOURCE_KEY)?.trim();
       setViewerId(nextViewerId);
-      if (storedName && storedNameSource === "wechat") {
+      if (storedName && (storedNameSource === "wechat" || storedNameSource === "fallback")) {
         setIsAuthorized(true);
         return;
       }
@@ -288,7 +302,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   }
 
   async function applyMic() {
-    if (!viewerId || isApplyingMic || micRequestId) return;
+    if (!live.enableMicApply || !viewerId || isApplyingMic || micRequestId) return;
     setIsApplyingMic(true);
     setMicStatus("申请中");
 
@@ -342,10 +356,64 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
   }
 
   const isMicConnected = micStatus === "连麦中";
-  const micButtonText = isApplyingMic || micStatus === "申请中" ? "申请中" : isMicConnected ? "连麦中" : "申请连麦";
+  const micButtonText = !live.enableMicApply
+    ? "连麦已关闭"
+    : isApplyingMic || micStatus === "申请中"
+      ? "申请中"
+      : isMicConnected
+        ? "连麦中"
+        : "申请连麦";
+  async function submitAccessPassword() {
+  if (!viewerId || !accessPasswordValue.trim() || isVerifyingPassword) return;
+  setIsVerifyingPassword(true);
+  setPasswordError("");
+  try {
+    const response = await fetch(`/api/live-sessions/${live.id}/room-access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewerId, password: accessPasswordValue }),
+    });
+    const payload = await response.json();
+    if (payload.ok) {
+      setPasswordVerified(true);
+    } else if (payload.error === "ACCESS_PASSWORD_INCORRECT") {
+      setPasswordError("访问密码错误，请重试");
+    } else {
+      setPasswordError("验证失败，请稍后重试");
+    }
+  } catch {
+    setPasswordError("网络异常，请稍后重试");
+  } finally {
+    setIsVerifyingPassword(false);
+  }
+}
 
   return (
-    <main className="mx-auto min-h-screen max-w-md bg-background">
+    <>
+    <main className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden bg-background">
+    {!passwordVerified && hasAccessPassword ? (
+      <section className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6">
+        <div className="grid w-full max-w-xs gap-3 rounded-md bg-background p-4 text-foreground shadow-xl">
+      <h2 className="text-base font-semibold">请输入访问密码</h2>
+      <p className="text-sm leading-6 text-muted-foreground">该直播房间需要密码才能进入</p>
+      <input
+        type="password"
+        value={accessPasswordValue}
+        onChange={(event) => { setAccessPasswordValue(event.target.value); setPasswordError(""); }}
+        placeholder="输入密码"
+        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        autoFocus
+        disabled={isVerifyingPassword}
+        onKeyDown={(event) => { if (event.key === "Enter") void submitAccessPassword(); }}
+      />
+      {passwordError ? <p className="text-xs text-destructive">{passwordError}</p> : null}
+      <Button onClick={() => void submitAccessPassword()}
+              disabled={isVerifyingPassword || !accessPasswordValue.trim()}>
+        {isVerifyingPassword ? "验证中…" : "确认"}
+      </Button>
+        </div>
+      </section>
+    ) : null}
       <section className="video-grid relative aspect-[9/16] min-h-[520px] overflow-hidden bg-black text-white">
         <LiveKitAudiencePlayer
           liveId={live.id}
@@ -386,7 +454,7 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
                 className="grid grid-cols-[76px_1fr] items-start gap-2 py-1 leading-tight drop-shadow"
               >
                 <span className="truncate text-white/75">{commentDisplayName(comment)}</span>
-                <span className="line-clamp-1">{comment.content}</span>
+                <span className="line-clamp-1">{commentDisplayContent(comment)}</span>
               </div>
             ))}
           </div>
@@ -415,12 +483,12 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
         ) : null}
       </section>
 
-      <section className="grid gap-3 p-4">
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-          <Button variant="secondary" onClick={focusCommentInput}>
+      <section className="grid min-w-0 gap-3 overflow-hidden p-4">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] gap-2">
+          <Button className="min-w-0 px-2" variant="secondary" onClick={focusCommentInput}>
             <MessageCircle className="h-4 w-4" /> 留言互动
           </Button>
-          <Button onClick={applyMic} disabled={!viewerId || isApplyingMic || Boolean(micRequestId)}>
+          <Button className="min-w-0 px-2" onClick={applyMic} disabled={!live.enableMicApply || !viewerId || isApplyingMic || Boolean(micRequestId)}>
             <Mic className="h-4 w-4" /> {micButtonText}
           </Button>
           <Button
@@ -452,8 +520,34 @@ export function AudienceRoom({ live, comments: initialComments, stats, initialVi
             <Send className="h-4 w-4" /> 发送
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">连麦状态：{micStatus}</p>
+        <p className="flex items-center gap-3 text-xs text-muted-foreground">
+          <button
+            type="button"
+            className="text-inherit"
+            onClick={() => setIsAnnouncementOpen(true)}
+          >
+            查看公告
+          </button>
+          <span>连麦状态：{micStatus}</span>
+        </p>
       </section>
     </main>
+    {isAnnouncementOpen ? (
+      <section
+        className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="audience-announcement-title"
+      >
+        <div className="grid w-full max-w-xs gap-4 rounded-md bg-background p-4 text-foreground shadow-xl">
+          <h2 id="audience-announcement-title" className="text-base font-semibold">直播公告</h2>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+            {live.description?.trim() || "暂无公告"}
+          </p>
+          <Button type="button" onClick={() => setIsAnnouncementOpen(false)}>关闭</Button>
+        </div>
+      </section>
+    ) : null}
+    </>
   );
 }

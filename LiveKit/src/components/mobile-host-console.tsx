@@ -16,6 +16,7 @@ import { Camera, Mic, RefreshCw, RotateCcw } from "lucide-react";
 import type { LiveComment, LiveKitAccessToken, LiveSession, LiveStats, LiveStatus, MicRequest } from "@/lib/domain";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 
 const liveStatusText: Record<LiveStatus, string> = {
   draft: "草稿",
@@ -320,6 +321,15 @@ export function MobileHostConsole({
     return payload.data;
   }
 
+  async function startTencentEgress() {
+    const response = await fetch(`/api/live-sessions/${live.id}/egress/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const payload = await response.json();
+    if (!payload.ok) throw new Error(payload.error ?? "TENCENT_EGRESS_START_FAILED");
+  }
+
   async function openCamera(nextFacing = facingMode) {
     if (!navigator.mediaDevices?.getUserMedia) {
       const secureContextMessage =
@@ -367,7 +377,17 @@ export function MobileHostConsole({
 
       roomRef.current = room;
       localTracksRef.current = tracks;
-      setCameraState("已连接 LiveKit，正在推流");
+      if (liveStatus === "live") {
+        try {
+          await startTencentEgress();
+          setCameraState("已连接 LiveKit，腾讯云转推已启动");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "未知错误";
+          setCameraState(`已连接 LiveKit，但腾讯云转推启动失败：${message}`);
+        }
+      } else {
+        setCameraState("已连接 LiveKit，正在推流");
+      }
     } catch (error) {
       stopCurrentStream();
       const message = error instanceof Error ? error.message : "设备权限或推流连接失败";
@@ -415,7 +435,6 @@ export function MobileHostConsole({
       const response = await fetch(`/api/live-sessions/${live.id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: live.hostUserId }),
       });
       const payload = await response.json();
 
@@ -425,10 +444,30 @@ export function MobileHostConsole({
       }
 
       setLiveStatus(payload.data.status);
+      if (action === "start") {
+        if (!roomRef.current) {
+          await openCamera();
+        }
+
+        if (!roomRef.current) {
+          setActionMessage("已开播，但设备连接失败；请允许摄像头和麦克风权限后重试");
+          return;
+        }
+
+        try {
+          await startTencentEgress();
+          setActionMessage("已开播，腾讯云转推已启动");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "未知错误";
+          setActionMessage(`已开播，但腾讯云转推启动失败：${message}`);
+        }
+      }
       if (action === "end") {
         stopCurrentStream();
       }
-      setActionMessage(action === "start" ? "已开播" : "已结束直播");
+      if (action !== "start") {
+        setActionMessage("已结束直播");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "网络请求失败";
       setActionMessage(`操作失败：${message}`);
@@ -446,7 +485,6 @@ export function MobileHostConsole({
       const response = await fetch(`/api/live-sessions/${live.id}/mic-requests/${requestId}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: live.hostUserId }),
       });
       const payload = await response.json();
 
@@ -469,8 +507,9 @@ export function MobileHostConsole({
   const statusMessages = [cameraState, actionMessage, micActionMessage].filter(Boolean);
 
   return (
-    <main className="mx-auto h-screen max-w-md overflow-hidden bg-background p-2">
+    <main className="relative mx-auto h-screen max-w-md overflow-hidden bg-background p-2">
       <section className="flex h-full min-h-0 flex-col gap-1.5">
+        <div className="absolute right-4 top-4 z-30"><SignOutButton compact /></div>
         <div
           data-testid="host-video-surface"
           className="video-grid relative min-h-[340px] flex-1 overflow-hidden rounded-lg bg-black"

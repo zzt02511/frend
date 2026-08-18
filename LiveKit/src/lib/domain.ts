@@ -17,11 +17,17 @@ export type User = {
   id: string;
   name: string;
   role: UserRole;
+  passwordHash?: string;
   status: UserStatus;
   avatarUrl?: string;
   mobile?: string;
   openid?: string;
   unionid?: string;
+  createdAt?: string;
+  expiresAt?: string;
+  tenantId?: string;
+  /** Incremented whenever the account's existing browser sessions must be revoked. */
+  authVersion?: number;
 };
 
 export type LiveSession = {
@@ -36,13 +42,20 @@ export type LiveSession = {
   actualStartTime?: string;
   actualEndTime?: string;
   hostUserId: string;
+  tenantId?: string;
   moderatorIds: string[];
   enableComment: boolean;
   commentMode: CommentMode;
   enableMicApply: boolean;
   enableRecord: boolean;
+  /** Unique Tencent Cloud StreamName for this room. Never reuse across rooms. */
+  tencentStreamName?: string;
   cdnPlayUrl?: string;
   replayUrl?: string;
+  accessPasswordCiphertext?: string;
+  accessPasswordVersion?: number;
+  /** Legacy JSON-only plaintext, migrated before PostgreSQL cutover. */
+  accessPassword?: string;
 };
 
 export type LiveParticipant = {

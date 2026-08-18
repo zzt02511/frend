@@ -3,6 +3,7 @@ import { listAudienceComments, withCommentUserNames } from "@/lib/comment-servic
 import { getLiveSession, getStats } from "@/lib/live-service";
 import { recordShareVisit } from "@/lib/share-service";
 import { getStore } from "@/lib/store";
+import { toPublicLiveSession } from "@/lib/live-dto";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function LivePage({
   const query = await searchParams;
   const store = getStore();
   const live = getLiveSession(store, id);
+  const publicLive = toPublicLiveSession(live);
   const viewerId = firstParam(query.viewerId);
   recordShareVisit(store, {
     liveId: id,
@@ -31,10 +33,11 @@ export default async function LivePage({
 
   return (
     <AudienceRoom
-      live={live}
+      live={publicLive}
       comments={withCommentUserNames(store, listAudienceComments(store, id, viewerId))}
       stats={getStats(store, id)}
       initialViewerId={viewerId}
+      hasAccessPassword={publicLive.hasAccessPassword}
     />
   );
 }

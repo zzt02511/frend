@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { AppStore } from "./domain";
 import { createDemoStore } from "./store";
+import { hashPassword } from "./password";
 
 export const defaultStorePath = join(process.cwd(), ".data", "app-store.json");
 let demoStoreTemplate: AppStore | undefined;
@@ -19,9 +20,27 @@ function normalizeLiveSessions(store: Partial<AppStore>, demo: AppStore) {
   const sessions = store.liveSessions ?? cloneDefault(demo.liveSessions);
   for (const session of sessions) {
     const demoSession = demo.liveSessions.find((item) => item.id === session.id);
-    session.cdnPlayUrl ??= demoSession?.cdnPlayUrl;
+    session.tencentStreamName ??= demoSession?.tencentStreamName ?? session.id;
+    session.cdnPlayUrl ??= demoSession?.cdnPlayUrl ?? `webrtc://play.fuguilong.cn/live/${session.tencentStreamName}`;
+    session.tenantId ??= "default-tenant";
   }
   return sessions;
+}
+
+function normalizeUsers(store: Partial<AppStore>, demo: AppStore) {
+  const users = store.users ?? cloneDefault(demo.users);
+  for (const user of users) {
+    if (!user.passwordHash) {
+      const demoUser = demo.users.find((item) => item.id === user.id);
+      if (demoUser?.passwordHash) {
+        user.passwordHash = demoUser.passwordHash;
+      } else {
+        user.passwordHash = hashPassword("changeme");
+      }
+    }
+    if (user.role !== "super_admin" && user.role !== "audience") user.tenantId ??= "default-tenant";
+  }
+  return users;
 }
 
 export function loadStoreFromFile(filePath = defaultStorePath): AppStore {
@@ -39,7 +58,7 @@ export function saveStoreToFile(store: AppStore, filePath = defaultStorePath) {
 export function normalizeStore(store: Partial<AppStore>): AppStore {
   const demo = getDemoStoreTemplate();
   return {
-    users: store.users ?? cloneDefault(demo.users),
+    users: normalizeUsers(store, demo),
     liveSessions: normalizeLiveSessions(store, demo),
     participants: store.participants ?? [],
     comments: store.comments ?? [],

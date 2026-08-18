@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -92,6 +93,10 @@ model User {
   mobile    String?
   role      UserRole   @default(audience)
   status    UserStatus @default(active)
+  passwordHash String?
+  expiresAt DateTime?
+  tenantId String?
+  authVersion Int @default(0)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -108,12 +113,17 @@ model LiveSession {
   actualStartTime DateTime?
   actualEndTime   DateTime?
   hostUserId      String
+  tenantId        String @default("default-tenant")
   moderatorIds    String[]
   enableComment   Boolean     @default(true)
   commentMode     CommentMode @default(review)
   enableMicApply  Boolean     @default(true)
   enableRecord    Boolean     @default(true)
+  tencentStreamName String?    @unique
   replayUrl       String?
+  cdnPlayUrl      String?
+  accessPasswordCiphertext String?
+  accessPasswordVersion    Int         @default(0)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
@@ -122,9 +132,11 @@ model LiveParticipant {
   id              String   @id @default(cuid())
   liveId          String
   userId          String
+  userName        String?
   livekitIdentity String
   role            UserRole
   joinTime        DateTime @default(now())
+  lastActiveAt    DateTime?
   leaveTime       DateTime?
   watchDuration   Int      @default(0)
   isMuted         Boolean  @default(false)
@@ -140,6 +152,7 @@ model LiveComment {
   id                  String        @id @default(cuid())
   liveId              String
   userId              String
+  userName            String?
   content             String
   status              CommentStatus @default(pending)
   isPinned            Boolean       @default(false)
@@ -157,6 +170,7 @@ model MicRequest {
   id          String           @id @default(cuid())
   liveId      String
   userId      String
+  userName    String?
   status      MicRequestStatus @default(applied)
   reason      String?
   approvedBy  String?

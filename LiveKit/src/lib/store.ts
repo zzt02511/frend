@@ -1,6 +1,7 @@
 import type { AppStore } from "./domain";
 import { getStoreRepository } from "./store-repository";
 import { normalizeStore } from "./store-persistence";
+import { hashPassword } from "./password";
 
 export function createDemoStore(): AppStore {
   return {
@@ -10,24 +11,31 @@ export function createDemoStore(): AppStore {
         name: "超级管理员",
         role: "super_admin",
         status: "active",
+        passwordHash: hashPassword("admin123"),
       },
       {
         id: "director-1",
         name: "营销总监",
         role: "director",
         status: "active",
+        tenantId: "default-tenant",
+        passwordHash: hashPassword("director123"),
       },
       {
         id: "host-1",
         name: "移动主播",
         role: "host",
         status: "active",
+        tenantId: "default-tenant",
+        passwordHash: hashPassword("host123"),
       },
       {
         id: "moderator-1",
         name: "直播场控",
         role: "moderator",
         status: "active",
+        tenantId: "default-tenant",
+        passwordHash: hashPassword("mod123"),
       },
       {
         id: "audience-1",
@@ -52,11 +60,13 @@ export function createDemoStore(): AppStore {
         status: "scheduled",
         startTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
         hostUserId: "host-1",
+        tenantId: "default-tenant",
         moderatorIds: ["moderator-1", "director-1"],
         enableComment: true,
         commentMode: "review",
         enableMicApply: true,
         enableRecord: true,
+        tencentStreamName: "IHQDAT",
         cdnPlayUrl: "webrtc://play.fuguilong.cn/live/IHQDAT",
       },
     ],

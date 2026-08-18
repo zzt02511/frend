@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminConsole } from "./admin-console";
@@ -272,9 +272,20 @@ describe("AdminConsole", () => {
   });
 
   it("edits and deletes live sessions from the live list", async () => {
-    const scheduledLive: LiveSession = { ...live, status: "scheduled" };
+    vi.useRealTimers();
+    const scheduledLive: LiveSession = {
+      ...live,
+      status: "scheduled",
+      replayUrl: "/api/live-sessions/demo-live/replay?download=1",
+    };
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/live-sessions/demo-live/manage") && !init?.method) {
+        return payload<LiveSession & { accessPassword: string }>({
+          ...scheduledLive,
+          accessPassword: "sale-2026",
+        });
+      }
       if (url.endsWith("/api/live-sessions/demo-live") && init?.method === "PATCH") {
         return payload<LiveSession>({ ...scheduledLive, title: "修改后的直播", description: "修改后的说明" });
       }
@@ -298,9 +309,22 @@ describe("AdminConsole", () => {
       />,
     );
 
+    expect(screen.getByRole("link", { name: "主播端" })).toHaveAttribute("href", "/host/demo-live");
+    expect(screen.getByRole("link", { name: "管理端" })).toHaveAttribute("href", "/admin/demo-live");
+    expect(screen.getByRole("link", { name: "下载录播" })).toHaveAttribute(
+      "href",
+      "/api/live-sessions/demo-live/replay?download=1",
+    );
+    expect(screen.getByTestId("live-room-actions")).toHaveClass("flex-nowrap");
+
     fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("访问密码（留空则不设密码）")).toHaveValue("sale-2026"),
+    );
     fireEvent.change(screen.getByPlaceholderText("直播标题"), { target: { value: "修改后的直播" } });
     fireEvent.change(screen.getByPlaceholderText("直播说明"), { target: { value: "修改后的说明" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "连麦申请状态" }), { target: { value: "disabled" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "录播状态" }), { target: { value: "disabled" } });
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -308,7 +332,12 @@ describe("AdminConsole", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/live-sessions/demo-live", {
       method: "PATCH",
-      body: JSON.stringify({ title: "修改后的直播", description: "修改后的说明" }),
+      body: JSON.stringify({
+        title: "修改后的直播",
+        description: "修改后的说明",
+        enableMicApply: false,
+        enableRecord: false,
+      }),
     });
     expect(screen.getAllByText("修改后的直播").length).toBeGreaterThan(0);
 

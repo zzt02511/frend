@@ -2,23 +2,35 @@ import { z } from "zod";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
 import { createId } from "@/lib/domain";
 import { getStore, persistStore } from "@/lib/store";
+import { requireAuth } from "@/lib/auth-helpers";
+import { encryptRoomPassword } from "@/lib/room-password";
+import { toPublicLiveSession } from "@/lib/live-dto";
 
 const createLiveSchema = z.object({
   title: z.string().min(2),
   description: z.string().optional().default(""),
   startTime: z.string().optional(),
-  hostUserId: z.string().optional().default("host-1"),
+  accessPassword: z.string().optional(),
+  hostUserId: z.string().min(1).optional(),
 });
 
 export async function GET() {
-  return jsonOk(getStore().liveSessions);
+  const sessions = getStore().liveSessions.map(toPublicLiveSession);
+  return jsonOk(sessions);
 }
 
 export async function POST(request: Request) {
   try {
+    const actor = await requireAuth(["super_admin", "director"]);
     const input = createLiveSchema.parse(await readJson(request));
     const store = getStore();
+    const host = store.users.find((user) => user.id === input.hostUserId && user.role === "host" && user.status === "active")
+      ?? store.users.find((user) => user.role === "host" && user.status === "active" && (actor.role === "super_admin" || user.tenantId === (actor.tenantId ?? "default-tenant")));
+    if (!host) throw new Error("HOST_USER_NOT_FOUND");
+    const tenantId = actor.role === "super_admin" ? host.tenantId : actor.tenantId ?? "default-tenant";
+    if (!tenantId || host.tenantId !== tenantId) throw new Error("AUTH_TENANT_ACCESS_DENIED");
     const id = createId("live");
+    const tencentStreamName = id;
     const live = {
       id,
       title: input.title,
@@ -27,12 +39,24 @@ export async function POST(request: Request) {
       roomName: `private-${id}`,
       status: "scheduled" as const,
       startTime: input.startTime ?? new Date().toISOString(),
-      hostUserId: input.hostUserId,
-      moderatorIds: ["moderator-1", "director-1"],
+      hostUserId: host.id,
+      tenantId,
+      moderatorIds: store.users.filter((user) => user.role === "moderator" && user.tenantId === tenantId && user.status === "active").map((user) => user.id),
       enableComment: true,
       commentMode: "review" as const,
       enableMicApply: true,
       enableRecord: true,
+      tencentStreamName,
+      cdnPlayUrl: `webrtc://play.fuguilong.cn/live/${tencentStreamName}`,
+      ...(input.accessPassword
+        ? {
+            accessPasswordCiphertext: encryptRoomPassword(
+              input.accessPassword,
+              process.env.ROOM_PASSWORD_ENCRYPTION_KEY ?? "",
+            ),
+            accessPasswordVersion: 1,
+          }
+        : {}),
     };
     store.liveSessions.unshift(live);
     store.stats.push({
@@ -51,8 +75,9 @@ export async function POST(request: Request) {
       replayViewCount: 0,
     });
     persistStore(store);
-    return jsonOk(live, { status: 201 });
+    return jsonOk(toPublicLiveSession(live), { status: 201 });
   } catch (error) {
-    return jsonError(error);
+    const code = error instanceof Error ? error.message : String(error);
+    return jsonError(error, code === "AUTH_REQUIRED" ? 401 : code === "AUTH_INSUFFICIENT_ROLE" ? 403 : 400);
   }
 }

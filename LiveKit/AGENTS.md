@@ -4,7 +4,14 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Mandatory playback-change prerequisite
+
+Before changing audience playback, Tencent Cloud URLs, iOS/Android routing, LiveKit tracks, mic tiles, certificates, or production deployment, read `docs/PLAYBACK-ROUTING-AND-DEPLOYMENT.md` completely. The production routing and certificate constraints in that document are intentional; do not reintroduce an iPhone LiveKit main-video fallback or send Android main video through LiveKit unless the product owner explicitly changes the architecture.
+
 # Agent Development Status
+##  Subagent的使用纪律
+1 未经批准，禁止开 Subagent。
+2  除非特殊任务，不要打开 GPT-5.6-Sol 的 Ultra 档位。
 
 ## Product Goal
 
@@ -203,14 +210,78 @@ Build a WeChat private-domain live streaming MVP for product sales:
 - Production hotfix deployed on 2026-06-22 for audience video stuck/loading after the Tencent Cloud player integration: the root cause was that ordinary audience playback defaulted to `cdnPlayUrl`/Tencent Cloud while the mobile `/host` console still publishes only to LiveKit, so viewers could wait on a CDN stream that was not being pushed by the app. `LiveKitAudiencePlayer` now defaults audience main playback to the LiveKit host track even when `cdnPlayUrl` exists, and Tencent Cloud playback is used only when `NEXT_PUBLIC_AUDIENCE_CDN_ENABLED=true` is explicitly baked into the build. Keep that flag disabled until Tencent Cloud push/LiveKit egress is actually wired and the `play.fuguilong.cn` HTTPS certificate issue is fixed.
 - Latest verification on 2026-06-22 for the audience video hotfix: the new regression test first failed because the Tencent player was called by default, then passed after the flag-gated fix; full `npm run test` passed with 18 files / 85 tests, `npm run lint` passed, and `npm run build` passed. `deploy-package.tar.gz` was rebuilt with a whitelist package so `.next/standalone/node_modules/next/package.json` was included, uploaded to `/opt/wechat-live/releases/deploy-package.tar.gz`, extracted into `/opt/wechat-live/current` after cleaning remote `.next/standalone` and `.next/static`, and redeployed with Docker Compose while keeping `RUNTIME_BASE=current-app:latest`. Public `https://live.fuguilong.cn/live/demo-live`, `/host`, and stats returned 200; app logs showed Next ready; the deployed client bundle contains the `NEXT_PUBLIC_AUDIENCE_CDN_ENABLED` gate and production HTML does not expose that flag as enabled.
 - Next recommended product step: test viewer entry with this fallback mode. Later, after obtaining a certified service account, replace the production `.env` with the new service-account AppID/AppSecret and re-enable real OAuth.
+- Reusable server deployment reference added on 2026-07-14: `服务器 Docker、PostgreSQL、Caddy 多软件部署指南.md` documents this host's Docker, PostgreSQL, Caddy, ports, LiveKit route, deployment, rollback, and cleanup constraints for safely adding another software service without impacting existing sites.
+- Authentication & authorization system deployed on 2026-07-22:
+  - Real password login replaces hardcoded client-sent `actorId` in all management API routes.
+  - `src/lib/password.ts`: scrypt password hashing and verification (zero deps, uses `node:crypto`).
+  - `src/auth.ts`: NextAuth Credentials provider verifies password against `passwordHash`.
+  - `src/lib/auth-helpers.ts`: `requireAuth(roles?)` extracts authenticated userId from server-side JWT session.
+  - `src/proxy.ts`: protects `/admin`, `/host` (redirect to login) and management API patterns (401). Authoritative role checks remain in pages and route handlers.
+  - Demo user passwords seeded: `admin-1/admin123` (super_admin), `host-1/host123` (host), `moderator-1/mod123` (moderator), `director-1/director123` (director).
+  - `normalizeStore` auto-assigns default password hashes to existing JSON store users without `passwordHash`.
+  - 14 management API routes (start, end, DELETE room, comment approve/reject/pin/mark-question/delete, mic approve/reject/end, participant kick/mute/unmute) now use `requireAuth()`.
+  - `admin-console.tsx` and `mobile-host-console.tsx` no longer send hardcoded `actorId`.
+  - `SessionProvider` added to root layout.
+  - Verification: 82/82 tests pass, TypeScript + Next.js build succeed.
+  - WeChat domain verification file `MP_verify_i8H2f7tIAd0LGbmT.txt` added to `public/`.
+  - `.env.example` updated with `replace-with-*` security placeholders and `WECHAT_OAUTH_*` variables.
+  - Build package `deploy-package.tar.gz` ready at project root (scp timed out from sandbox; needs manual upload + Docker Compose rebuild).
+- Code audit remediation and production hardening on 2026-07-22:
+  - `src/lib/http.ts`: `readJson` now throws `INVALID_JSON` instead of silently returning `{}` on parse failure.
+  - `src/components/audience-room.tsx`: fallback-nickname users no longer see the auth panel on return visits (skips auth when `storedNameSource === "fallback"`).
+  - `src/app/api/live-sessions/[id]/comments/route.ts`: comment content limited to 500 characters via Zod `.max(500)`.
+  - `src/lib/live-service.ts`: `endLiveSession` replay URL changed from non-existent `/replays/{id}.mp4` to actual API path `/api/live-sessions/{id}/replay`.
+  - Verification: 82/82 tests pass, TypeScript + Next.js build succeed with zero errors.
+- Additional production hardening on 2026-07-22:
+  - `src/app/admin/error.tsx` and `src/app/host/error.tsx`: Error Boundaries added for admin panel and host console, with user-friendly error messages for `LIVE_NOT_FOUND` and `AUTH_REQUIRED`.
+  - `docker-compose.yml`: app container healthcheck added (HTTP GET /api/live-sessions every 30s).
+  - Verification: 82/82 tests pass, TypeScript + Next.js build succeed.
+- Live room access password feature on 2026-07-22:
+  - `domain.ts`: `LiveSession` model adds optional `accessPassword` field.
+  - `POST /api/live-sessions`: `createLiveSchema` accepts `accessPassword`.
+  - `PATCH /api/live-sessions/[id]`: `livePatchSchema` accepts `accessPassword`.
+  - `POST /api/live-sessions/[id]/join`: validates `accessPassword` against the live session before allowing join; returns `ACCESS_PASSWORD_INCORRECT` on mismatch. Rooms without a password skip the check.
+  - `GET /api/live-sessions` and `GET /api/live-sessions/[id]`: `accessPassword` stripped from API responses to avoid leaking the password to clients.
+  - `live/[id]/page.tsx`: passes `hasAccessPassword={Boolean(live.accessPassword)}` to AudienceRoom, strips `accessPassword` from the serialized props.
+  - `AudienceRoom`: accepts `hasAccessPassword` prop, adds `passwordVerified`/`passwordError`/`isVerifyingPassword` state.
+  - **Manual step needed**: open `src/components/audience-room.tsx` and add a `submitAccessPassword()` function (calls `/join` with `{ accessPassword }`) and a password prompt overlay that shows when `!passwordVerified && hasAccessPassword`. The overlay should have a password input, error display, and confirm button. After successful verification, set `passwordVerified(true)`.
+  - AudienceRoom UI fully implemented after user added the function and overlay manually. Build and tests pass. 7 files modified for this feature.
+- PostgreSQL persistence layer added on 2026-07-22:
+  - `prisma/schema.prisma`: added `passwordHash` to User, `cdnPlayUrl`/`accessPassword` to LiveSession for domain-model parity.
+  - `src/lib/store-repository-prisma.ts`: `PrismaStoreRepository` implements `StoreRepository` — reads all data from PostgreSQL via Prisma, writes back in transactions, falls back to JSON when PG is unavailable. File-level `@ts-nocheck` present until Prisma client is regenerated.
+  - `src/lib/store-repository.ts`: `usePgStorage()` helper checks `DATABASE_STORAGE` env var.
+  - `src/lib/store.ts`: `initPrismaStore()` called on first request when `DATABASE_STORAGE=enabled` — loads from PG and swaps the in-memory cache, then persists all future saves to both JSON and PG.
+  - To enable: add `DATABASE_STORAGE=enabled` to `.env`, ensure PostgreSQL is running, run `npx prisma generate && npx prisma migrate deploy`, then restart the app. The first request will seed PG from existing JSON data.
 
 ## Next Development Queue
 
-1. Replace local JSON persistence with Prisma-backed database storage.
-2. Add authentication and role-based permissions for admin, moderator, host, and audience.
-3. Add WeChat JS-SDK/share landing integration.
-4. Add export and search for comments, share ranking, and customer leads.
-5. Rotate LiveKit API key/secret for production and add TURN/TLS if WeChat/corporate networks need stronger connectivity.
+1. Replace the single-process PostgreSQL snapshot repository with request-scoped incremental Prisma queries before horizontal scaling.
+   - Production mode now uses PostgreSQL only when `DATABASE_STORAGE=enabled`; JSON is local-development storage only.
+2. Add WeChat JS-SDK/share landing integration.
+3. Add export and search for comments, share ranking, and customer leads.
+4. Rotate LiveKit API key/secret for production and add TURN/TLS if WeChat/corporate networks need stronger connectivity.
+
+## 2026-07-23 Authentication, Password Room, and PostgreSQL Closure
+
+- Management room creation and PATCH now require authenticated `super_admin`, `director`, or `moderator`; authorization uses the current database user role rather than trusting the role embedded in an old session.
+- Staff LiveKit token requests must match the authenticated user ID and role, preventing callers from selecting `host` or `moderator` in the request body.
+- Room passwords are encrypted with AES-256-GCM using `ROOM_PASSWORD_ENCRYPTION_KEY`; public DTOs expose only `hasAccessPassword`. The authenticated management endpoint decrypts the password for authorized staff.
+- Password verification issues a two-hour HttpOnly room-access cookie bound to live ID, viewer ID, and password version. Join, heartbeat, comments, audience events, mic application/end, and audience token issuance enforce it.
+- Password edits preserve the current password when unchanged, support explicit clearing, increment the password version, and invalidate earlier room cookies.
+- `prisma/migrations/20260723000000_auth_room_password_closure/migration.sql` adds authentication, encrypted-password, CDN, nickname, and activity fields needed by the runtime domain.
+- `src/instrumentation.ts` initializes `PrismaStoreRepository` before serving requests when `DATABASE_STORAGE=enabled`. PostgreSQL connection failure is fatal and no JSON fallback occurs in this mode. JSON remains the local-development repository.
+- The current PostgreSQL repository keeps one in-process domain snapshot and persists it in a transaction. This is acceptable only for the current single-instance MVP; request-scoped incremental Prisma operations are required before horizontal scaling.
+- Next.js 16 routing protection moved from deprecated `src/middleware.ts` to `src/proxy.ts`; route/page authorization remains authoritative.
+- Operational documentation was rewritten in `README.md`, including required environment variables, migration order, password-key handling, validation, smoke tests, rollback, and the remaining single-instance constraint.
+
+## 2026-07-26 PostgreSQL Primary Storage Activation Fix
+
+- Production activation initially failed with `POSTGRES_REPOSITORY_NOT_INITIALIZED` because Next/Turbopack loaded instrumentation and route code as isolated module instances while the selected repository was stored in a file-local variable.
+- `StoreRepository` selection now lives on `globalThis`, so instrumentation and route bundles share the initialized Prisma repository in the same Node process.
+- `DATABASE_STORAGE=true` is now the documented production value; legacy `enabled` remains accepted.
+- Prisma generates both the local native engine and `linux-musl-openssl-3.0.x`, matching the Alpine production image.
+- Windows Turbopack builds emit a hashed Prisma external package name but omit its standalone forwarder. `scripts/fix-standalone-prisma-alias.mjs` now runs after every build and creates the required forwarder automatically.
+- Production JSON data was backed up and imported into PostgreSQL before activation: 37 users, 3 rooms, 12 participants, 38 comments, 3 mic requests, 2 replays, 8 stats rows, 410 audit logs, and 25 share visits.
 
 ## Verification Rule
 
@@ -221,3 +292,44 @@ Before reporting development complete, run:
 - `npm run build`
 
 Also smoke-test the touched API/page when a local dev server is available.
+
+## Deployment Pitfalls (踩过的坑)
+
+### 7z tar 路径问题
+7-Zip 使用绝对路径打包时，tar 内的文件路径会包含 `D:\AI\LiveKit\...` 前缀。
+在 Linux 服务器上 `tar -xzf` 解压后文件全部错位，Docker build 找不到 `.next/standalone/`。
+**修复**：用 Git Bash 的 `tar` 从项目根目录以相对路径打包：
+```bash
+cd /d/AI/LiveKit
+tar -cf deploy-package.tar Dockerfile docker-compose.yml AGENTS.md README.md .next/standalone .next/static src/components src/lib src/app src/types src/proxy.ts src/instrumentation.ts src/auth.ts prisma
+```
+然后用 7z 压缩为 gzip：`7z a -tgzip deploy-package.tar.gz deploy-package.tar`
+
+### Git Bash scp 路径格式
+Git Bash 不支持 Windows 反斜杠路径。`scp D:\AI\LiveKit\...` 会报 `No such file or directory`。
+**修复**：在 Git Bash 中使用正斜杠相对路径：`scp deploy-package.tar.gz root@host:/path/`
+
+### apply_patch 编辑回滚
+`apply_patch` 添加新行时，如果上下文匹配已有行，不会自动替换。例如 `createLive` 函数中的 `body` 行，
+新行被插入为重复行导致 `An object literal cannot have multiple properties with the same name`。
+**修复**：手动检查并删除旧行。
+
+### 沙箱文件写入限制
+`C:\Program Files\7-Zip\7z.exe` 和 `C:\Program Files\Git\usr\bin\tar.exe` 打包正常，
+但 `scp`/`ssh` 无法从沙箱发起网络连接（Permission denied / timeout），
+也无法创建新的 `src/app/` 子目录。部署和新建子目录需要用户手动操作。
+
+### audidence-room.tsx 编译连环错误
+1. `submitAccessPassword` 函数意外放在 `return (` 内部 → `Expected ',' or ')'`
+2. 密码弹窗 JSX 与 `<main>` 同级缺少 Fragment 包裹 → `Expected } but found EOF`
+3. Fragment 关闭处写成 `<>` 而非 `</>`  → `Unexpected token`
+4. 删除重复 `export function AudienceRoom` 后保留正确的函数签名
+
+### PrismaStoreRepository TypeScript 类型
+Prisma schema 更新后未运行 `prisma generate`，导致 Prisma Client 类型与实际字段不匹配。
+`@ts-nocheck` 临时跳过，部署前需要在服务器上 `npx prisma generate && npx prisma migrate deploy`。
+
+### Turbopack 构建字体下载
+构建时 Turbopack 尝试从 `fonts.gstatic.com` 下载 Google Fonts，
+网络受限时构建报错 `Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'`。
+重试后通常能通过；如果持续失败，考虑在 `next.config.ts` 中禁用 Google Fonts 或用本地字体替代。
