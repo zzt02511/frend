@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import {
+  AudioCodec,
   EgressClient,
   EncodedFileOutput,
   EncodedFileType,
-  EncodingOptionsPreset,
+  EncodingOptions,
   StreamOutput,
   StreamProtocol,
+  VideoCodec,
 } from "livekit-server-sdk";
 import type { LiveSession } from "./domain";
 
@@ -37,6 +39,21 @@ export function buildTencentRtmpPushUrl(live: LiveSession, now = new Date()) {
   return `rtmp://${domain}/${appName}/${streamName}?txSecret=${txSecret}&txTime=${txTime}`;
 }
 
+export function buildTencentEgressEncodingOptions() {
+  return new EncodingOptions({
+    width: 1280,
+    height: 720,
+    depth: 24,
+    framerate: 30,
+    audioCodec: AudioCodec.OPUS,
+    audioBitrate: 128,
+    audioFrequency: 44100,
+    videoCodec: VideoCodec.H264_MAIN,
+    videoBitrate: 3000,
+    keyFrameInterval: 2,
+  });
+}
+
 export async function startTencentHostEgress(live: LiveSession) {
   const client = getEgressClient();
   const active = await client.listEgress({ roomName: live.roomName, active: true });
@@ -52,11 +69,12 @@ export async function startTencentHostEgress(live: LiveSession) {
         fileType: EncodedFileType.MP4,
       })
     : undefined;
+  const encodingOptions = buildTencentEgressEncodingOptions();
   return client.startParticipantEgress(
     live.roomName,
     `${live.roomName}-${live.hostUserId}`,
     { stream: output, file },
-    { encodingOptions: EncodingOptionsPreset.H264_720P_30 },
+    { encodingOptions },
   );
 }
 

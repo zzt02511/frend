@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDemoStore } from "./store";
-import { buildTencentRtmpPushUrl } from "./tencent-egress";
+import { buildTencentEgressEncodingOptions, buildTencentRtmpPushUrl } from "./tencent-egress";
 
 describe("Tencent RTMP URL generation", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -29,5 +29,17 @@ describe("Tencent RTMP URL generation", () => {
   it("refuses to start without the server-side push key", () => {
     vi.stubEnv("TENCENT_RTMP_PUSH_KEY", "");
     expect(() => buildTencentRtmpPushUrl(createDemoStore().liveSessions[0])).toThrow("TENCENT_RTMP_PUSH_KEY_REQUIRED");
+  });
+
+  it("uses a two-second GOP so Tencent HLS can produce shorter initial segments", () => {
+    const options = buildTencentEgressEncodingOptions();
+
+    expect(options).toMatchObject({
+      width: 1280,
+      height: 720,
+      framerate: 30,
+      videoBitrate: 3000,
+      keyFrameInterval: 2,
+    });
   });
 });

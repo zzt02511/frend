@@ -62,3 +62,22 @@ button, input, textarea, select {
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 72px),
     #0b111d;
 }
+
+/* TCPlayer turns the source <video> into a Video.js wrapper and generates a
+   100px dimension rule when given responsive percentage options. Keep every
+   generated layer pinned to the audience video viewport. */
+.tencent-player-shell > .video-js,
+.tencent-player-shell > video,
+.tencent-player-shell .vjs-tech {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.tencent-player-shell > .video-js {
+  max-width: none !important;
+}
+
+.tencent-player-shell .vjs-tech {
+  inset: 0;
+  object-fit: cover !important;
+}

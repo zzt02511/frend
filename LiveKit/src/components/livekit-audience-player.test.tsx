@@ -297,8 +297,10 @@ describe("LiveKitAudiencePlayer", () => {
   });
 
   it("uses Tencent HLS playback for older iPhone WeChat", async () => {
-    const tcPlayerMock = vi.fn(() => ({ dispose: vi.fn() }));
+    const tcPlayerMock = vi.fn();
     (window as typeof window & { TCPlayer?: unknown }).TCPlayer = tcPlayerMock;
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => Promise.resolve());
     vi.stubGlobal("navigator", {
       userAgent:
         "Mozilla/5.0 (iPhone; CPU iPhone OS 15_8 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.48",
@@ -328,13 +330,9 @@ describe("LiveKitAudiencePlayer", () => {
       />,
     );
 
-    await waitFor(() => expect(tcPlayerMock).toHaveBeenCalled());
-    expect(tcPlayerMock).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        sources: [{ src: "https://play.fuguilong.cn/live/IHQDAT.m3u8" }],
-      }),
-    );
+    const mainVideo = await screen.findByTestId("tencent-cloud-live-player-container");
+    expect(mainVideo).toHaveAttribute("src", "https://play.fuguilong.cn/live/IHQDAT.m3u8");
+    expect(tcPlayerMock).not.toHaveBeenCalled();
 
     const attach = vi.fn();
     act(() => {
@@ -352,8 +350,10 @@ describe("LiveKitAudiencePlayer", () => {
   });
 
   it("uses Tencent HLS playback on modern iPhone", async () => {
-    const tcPlayerMock = vi.fn(() => ({ dispose: vi.fn() }));
+    const tcPlayerMock = vi.fn();
     (window as typeof window & { TCPlayer?: unknown }).TCPlayer = tcPlayerMock;
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => Promise.resolve());
     vi.stubGlobal("navigator", {
       userAgent:
         "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.60",
@@ -383,13 +383,9 @@ describe("LiveKitAudiencePlayer", () => {
       />,
     );
 
-    await waitFor(() => expect(tcPlayerMock).toHaveBeenCalled());
-    expect(tcPlayerMock).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        sources: [{ src: "https://play.fuguilong.cn/live/IHQDAT.m3u8" }],
-      }),
-    );
+    const mainVideo = await screen.findByTestId("tencent-cloud-live-player-container");
+    expect(mainVideo).toHaveAttribute("src", "https://play.fuguilong.cn/live/IHQDAT.m3u8");
+    expect(tcPlayerMock).not.toHaveBeenCalled();
   });
 
   it("does not read window during the server render path", async () => {
