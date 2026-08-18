@@ -1,5 +1,12 @@
 # 直播播放、连麦、证书与部署基线（V1.02）
 
+## 多直播间独立腾讯流（2026-08-18）
+
+- 每个直播间必须持久化唯一 `tencentStreamName`；新建房间默认使用房间 ID（例如 `live-abcd1234`）。
+- 播放地址固定由该流名称组成：`webrtc://play.fuguilong.cn/live/<tencentStreamName>`；Apple 客户端仍派生为同流名称的 HTTPS HLS 地址。
+- 服务器仅保存推流域名的鉴权 Key `TENCENT_RTMP_PUSH_KEY`。开播时按腾讯官方规则 `MD5(Key + StreamName + txTime)` 动态签发短期 RTMP 地址。
+- 禁止再配置或复用全局 `TENCENT_RTMP_PUSH_URL`；多个房间共用完整推流地址会互相覆盖。
+
 本文是修改直播播放链路前的必读文档，用于避免把观众主画面误切到自建 LiveKit、误用苹果兼容性较差的 WebRTC 播放，或因证书问题造成 iPhone 黑屏。
 
 ## 1. V1.02 最终架构

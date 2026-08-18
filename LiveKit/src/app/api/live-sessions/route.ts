@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const tenantId = actor.role === "super_admin" ? host.tenantId : actor.tenantId ?? "default-tenant";
     if (!tenantId || host.tenantId !== tenantId) throw new Error("AUTH_TENANT_ACCESS_DENIED");
     const id = createId("live");
+    const tencentStreamName = id;
     const live = {
       id,
       title: input.title,
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
       commentMode: "review" as const,
       enableMicApply: true,
       enableRecord: true,
+      tencentStreamName,
+      cdnPlayUrl: `webrtc://play.fuguilong.cn/live/${tencentStreamName}`,
       ...(input.accessPassword
         ? {
             accessPasswordCiphertext: encryptRoomPassword(

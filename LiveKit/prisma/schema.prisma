@@ -119,6 +119,7 @@ model LiveSession {
   commentMode     CommentMode @default(review)
   enableMicApply  Boolean     @default(true)
   enableRecord    Boolean     @default(true)
+  tencentStreamName String?    @unique
   replayUrl       String?
   cdnPlayUrl      String?
   accessPasswordCiphertext String?

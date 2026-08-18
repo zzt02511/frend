@@ -66,6 +66,7 @@ export function createDemoStore(): AppStore {
         commentMode: "review",
         enableMicApply: true,
         enableRecord: true,
+        tencentStreamName: "IHQDAT",
         cdnPlayUrl: "webrtc://play.fuguilong.cn/live/IHQDAT",
       },
     ],

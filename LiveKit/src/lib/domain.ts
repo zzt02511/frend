@@ -48,6 +48,8 @@ export type LiveSession = {
   commentMode: CommentMode;
   enableMicApply: boolean;
   enableRecord: boolean;
+  /** Unique Tencent Cloud StreamName for this room. Never reuse across rooms. */
+  tencentStreamName?: string;
   cdnPlayUrl?: string;
   replayUrl?: string;
   accessPasswordCiphertext?: string;

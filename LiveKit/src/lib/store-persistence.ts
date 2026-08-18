@@ -20,7 +20,8 @@ function normalizeLiveSessions(store: Partial<AppStore>, demo: AppStore) {
   const sessions = store.liveSessions ?? cloneDefault(demo.liveSessions);
   for (const session of sessions) {
     const demoSession = demo.liveSessions.find((item) => item.id === session.id);
-    session.cdnPlayUrl ??= demoSession?.cdnPlayUrl;
+    session.tencentStreamName ??= demoSession?.tencentStreamName ?? session.id;
+    session.cdnPlayUrl ??= demoSession?.cdnPlayUrl ?? `webrtc://play.fuguilong.cn/live/${session.tencentStreamName}`;
     session.tenantId ??= "default-tenant";
   }
   return sessions;
