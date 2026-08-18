@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
@@ -17,11 +17,14 @@ function LoginForm() {
     setLoading(true);
     setMessage("");
     try {
+    // WeChat's WebView can retain an earlier role cookie. Always replace it before issuing new credentials.
+    await signOut({ redirect: false });
     const result = await signIn("credentials", { userId, password, redirect: false, callbackUrl });
     if (result?.error) { setMessage("账号或口令错误，或账号已禁用/到期。"); setLoading(false); return; }
     setLoading(false);
     if (!result?.ok) { setMessage("账号、口令无效，或账号已禁用/到期。"); return; }
-    window.location.assign(callbackUrl.startsWith("/") ? callbackUrl : "/admin");
+    const destination = callbackUrl.startsWith("/") ? callbackUrl : "/admin";
+    window.location.replace(`${destination}${destination.includes("?") ? "&" : "?"}login=${Date.now()}`);
     } catch {
       setMessage("账号或口令错误，或账号已禁用/到期。");
       setLoading(false);
