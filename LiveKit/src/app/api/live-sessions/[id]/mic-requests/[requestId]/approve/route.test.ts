@@ -3,9 +3,9 @@ import type { AppStore } from "@/lib/domain";
 import { createDemoStore } from "@/lib/store";
 import { setStoreRepository, type StoreRepository } from "@/lib/store-repository";
 
-const { requireAuthMock } = vi.hoisted(() => ({ requireAuthMock: vi.fn() }));
+const { requireLiveManagementAccessMock } = vi.hoisted(() => ({ requireLiveManagementAccessMock: vi.fn() }));
 
-vi.mock("@/lib/auth-helpers", () => ({ requireAuth: requireAuthMock }));
+vi.mock("@/lib/auth-helpers", () => ({ requireLiveManagementAccess: requireLiveManagementAccessMock }));
 
 import { POST } from "./route";
 
@@ -46,14 +46,14 @@ describe("host mic approval API", () => {
   afterEach(() => {
     delete (globalThis as typeof globalThis & { __wechatLiveStore?: AppStore }).__wechatLiveStore;
     setStoreRepository(undefined);
-    requireAuthMock.mockReset();
+    requireLiveManagementAccessMock.mockReset();
   });
 
   it("allows the assigned host to approve a mic request", async () => {
     const store = createDemoStore();
     addMicRequest(store);
     useInMemoryStore(store);
-    requireAuthMock.mockResolvedValue({ userId: "host-1", role: "host", userName: "主播" });
+    requireLiveManagementAccessMock.mockResolvedValue({ auth: { userId: "host-1", role: "host", userName: "主播" } });
 
     const response = await POST(new Request("http://local.test"), {
       params: Promise.resolve({ id: "demo-live", requestId: "mic-host-approval" }),
@@ -68,7 +68,7 @@ describe("host mic approval API", () => {
     const store = createDemoStore();
     addMicRequest(store);
     useInMemoryStore(store);
-    requireAuthMock.mockResolvedValue({ userId: "host-other", role: "host", userName: "其他主播" });
+    requireLiveManagementAccessMock.mockRejectedValue(new Error("AUTH_INSUFFICIENT_ROLE"));
 
     const response = await POST(new Request("http://local.test"), {
       params: Promise.resolve({ id: "demo-live", requestId: "mic-host-approval" }),

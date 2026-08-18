@@ -60,10 +60,16 @@ async function saveTenant(formData: FormData) {
   if (id && !existing) throw new Error("TENANT_NOT_FOUND");
   const expiresAt = expiresAtFrom(formData);
   if (existing) {
+    const accessChanged = existing.status !== status || existing.expiresAt !== expiresAt || Boolean(password);
     existing.name = name;
     existing.status = status;
     existing.expiresAt = expiresAt;
     if (password) existing.passwordHash = hashPassword(password);
+    if (accessChanged) {
+      store.users.filter((user) => user.tenantId === existing.tenantId).forEach((user) => {
+        user.authVersion = (user.authVersion ?? 0) + 1;
+      });
+    }
   } else {
     if (store.users.some((item) => item.id === accountId)) throw new Error("ACCOUNT_ID_EXISTS");
     const tenantId = tenantForDirector(accountId);
@@ -91,11 +97,14 @@ async function saveTenantStaff(formData: FormData) {
   const existing = id ? store.users.find((item) => item.id === id) : undefined;
   if (id && (!existing || !TENANT_STAFF_ROLES.includes(existing.role) || existing.tenantId !== actor.tenantId)) throw new Error("AUTH_TENANT_ACCESS_DENIED");
   if (existing) {
+    const expiresAt = expiresAtFrom(formData);
+    const accessChanged = existing.role !== role || existing.status !== status || existing.expiresAt !== expiresAt || Boolean(password);
     existing.name = name;
     existing.role = role;
     existing.status = status;
-    existing.expiresAt = expiresAtFrom(formData);
+    existing.expiresAt = expiresAt;
     if (password) existing.passwordHash = hashPassword(password);
+    if (accessChanged) existing.authVersion = (existing.authVersion ?? 0) + 1;
   } else {
     if (store.users.some((item) => item.id === accountId)) throw new Error("ACCOUNT_ID_EXISTS");
     store.users.push({ id: accountId, name, role, status, passwordHash: hashPassword(password), createdAt: new Date().toISOString(), expiresAt: expiresAtFrom(formData), tenantId: actor.tenantId });

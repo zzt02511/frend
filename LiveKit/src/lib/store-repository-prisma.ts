@@ -17,6 +17,7 @@ export class PrismaStoreRepository implements StoreRepository {
   private prisma?: PrismaClient;
   private pgReady = false;
   private cache?: AppStore;
+  private syncQueue: Promise<void> = Promise.resolve();
 
   private getPrisma() {
     if (!this.prisma) {
@@ -59,6 +60,7 @@ export class PrismaStoreRepository implements StoreRepository {
           createdAt: user.createdAt.toISOString(),
           expiresAt: user.expiresAt?.toISOString(),
           tenantId: user.tenantId ?? undefined,
+          authVersion: user.authVersion,
         })),
         liveSessions: liveSessions.map((session) => ({
           id: session.id,
@@ -192,7 +194,13 @@ export class PrismaStoreRepository implements StoreRepository {
   save(store: AppStore): void {
     if (!this.pgReady) throw new Error("POSTGRES_REPOSITORY_NOT_INITIALIZED");
     this.cache = normalizeStore(store);
-    void this.syncToPostgres(this.cache);
+    const snapshot = structuredClone(this.cache);
+    this.syncQueue = this.syncQueue
+      .catch(() => undefined)
+      .then(() => this.syncToPostgres(snapshot))
+      .catch((error) => {
+        console.error("[PrismaStoreRepository] PostgreSQL transaction failed:", (error as Error).message);
+      });
   }
 
   mutate<T>(mutator: (store: AppStore) => T): T {
@@ -234,6 +242,7 @@ export class PrismaStoreRepository implements StoreRepository {
               unionid: user.unionid ?? null,
               expiresAt: user.expiresAt ? new Date(user.expiresAt) : null,
               tenantId: user.tenantId ?? null,
+              authVersion: user.authVersion ?? 0,
             })),
           });
         }
@@ -399,7 +408,7 @@ export class PrismaStoreRepository implements StoreRepository {
         }
       });
     } catch (error) {
-      console.error("[PrismaStoreRepository] PostgreSQL transaction failed:", (error as Error).message);
+      throw error;
     }
   }
 }

@@ -96,6 +96,7 @@ model User {
   passwordHash String?
   expiresAt DateTime?
   tenantId String?
+  authVersion Int @default(0)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }

@@ -21,13 +21,20 @@ async function saveTenantDetails(formData: FormData) {
   const store = getStore();
   const director = store.users.find((user) => user.id === directorId && user.role === "director" && user.tenantId);
   if (!director) throw new Error("TENANT_NOT_FOUND");
+  const expiresAt = expiresAtValue ? new Date(`${expiresAtValue}T23:59:59`).toISOString() : undefined;
+  const accessChanged = director.status !== status || director.expiresAt !== expiresAt || Boolean(password);
   director.name = name;
   director.status = status as "active" | "disabled";
-  director.expiresAt = expiresAtValue ? new Date(`${expiresAtValue}T23:59:59`).toISOString() : undefined;
+  director.expiresAt = expiresAt;
   if (password) {
     if (password.length < 8) throw new Error("PASSWORD_TOO_SHORT");
     const { hashPassword } = await import("@/lib/password");
     director.passwordHash = hashPassword(password);
+  }
+  if (accessChanged) {
+    store.users.filter((user) => user.tenantId === director.tenantId).forEach((user) => {
+      user.authVersion = (user.authVersion ?? 0) + 1;
+    });
   }
   persistStore(store);
   revalidatePath("/admin/users");
@@ -43,7 +50,10 @@ async function archiveTenant(formData: FormData) {
   if (!director) throw new Error("TENANT_NOT_FOUND");
   if (store.liveSessions.some((live) => live.tenantId === director.tenantId && live.status === "live")) throw new Error("TENANT_HAS_LIVE_SESSION");
   director.status = "disabled";
-  store.users.filter((user) => user.tenantId === director.tenantId).forEach((user) => { user.status = "disabled"; });
+  store.users.filter((user) => user.tenantId === director.tenantId).forEach((user) => {
+    user.status = "disabled";
+    user.authVersion = (user.authVersion ?? 0) + 1;
+  });
   store.liveSessions.filter((live) => live.tenantId === director.tenantId && live.status !== "closed").forEach((live) => { live.status = "closed"; });
   persistStore(store);
   revalidatePath("/admin/users");

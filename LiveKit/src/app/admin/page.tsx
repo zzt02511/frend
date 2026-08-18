@@ -27,7 +27,9 @@ export default async function AdminPage() {
   const store = getStore();
   const scopedSessions = currentUser.role === "super_admin"
     ? store.liveSessions
-    : store.liveSessions.filter((item) => item.tenantId === currentUser.tenantId);
+    : currentUser.role === "moderator"
+      ? store.liveSessions.filter((item) => item.tenantId === currentUser.tenantId && item.moderatorIds.includes(currentUser.userId))
+      : store.liveSessions.filter((item) => item.tenantId === currentUser.tenantId);
   const live = scopedSessions[0];
 
   return <>

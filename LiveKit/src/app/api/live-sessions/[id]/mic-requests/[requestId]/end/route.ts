@@ -1,4 +1,4 @@
-import { getOptionalAuth } from "@/lib/auth-helpers";
+import { getOptionalAuth, requireLiveManagementAccess } from "@/lib/auth-helpers";
 import { jsonError, jsonOk } from "@/lib/http";
 import { endMicRequest } from "@/lib/mic-service";
 import { getLiveSession } from "@/lib/live-service";
@@ -15,11 +15,12 @@ export async function POST(request: Request, ctx: Ctx) {
     if (!micRequest) throw new Error("MIC_REQUEST_NOT_FOUND");
 
     const auth = await getOptionalAuth();
-    const isStaff = auth && ["super_admin", "director", "host", "moderator"].includes(auth.role);
-    if (auth?.role === "host" && getLiveSession(store, id).hostUserId !== auth.userId) {
-      throw new Error("AUTH_INSUFFICIENT_ROLE");
+    if (auth) {
+      const { auth: verifiedAuth } = await requireLiveManagementAccess(id, ["host", "moderator", "director", "super_admin"]);
+      return jsonOk(endMicRequest(store, id, requestId, verifiedAuth.userId));
     }
-    if (!isStaff) {
+
+    {
       requireRoomAccess(request, {
         live: getLiveSession(store, id),
         liveId: id,
@@ -27,7 +28,7 @@ export async function POST(request: Request, ctx: Ctx) {
       });
     }
 
-    return jsonOk(endMicRequest(store, id, requestId, isStaff ? auth.userId : micRequest.userId));
+    return jsonOk(endMicRequest(store, id, requestId, micRequest.userId));
   } catch (error) {
     const code = error instanceof Error ? error.message : String(error);
     return jsonError(error, code.startsWith("ROOM_ACCESS_") ? 403 : 400);

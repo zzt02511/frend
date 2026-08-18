@@ -42,12 +42,11 @@ export async function GET(_request: Request, ctx: Ctx) {
 
 export async function PATCH(request: Request, ctx: Ctx) {
   try {
-    const auth = await requireAuth(["director", "super_admin", "moderator"]);
+    const auth = await requireAuth(["director", "super_admin"]);
     const { id } = await ctx.params;
     const store = getStore();
     const live = getLiveSession(store, id);
     assertLiveTenantAccess(auth, live);
-    if (auth.role === "moderator" && !live.moderatorIds.includes(auth.userId)) throw new Error("AUTH_INSUFFICIENT_ROLE");
     const { accessPassword, clearPassword, ...editablePatch } = livePatchSchema.parse(await readJson(request));
     const passwordPatch = clearPassword
       ? {
@@ -73,12 +72,11 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
 export async function DELETE(request: Request, ctx: Ctx) {
   try {
-    const auth = await requireAuth(["director", "super_admin", "moderator"]);
+    const auth = await requireAuth(["director", "super_admin"]);
     const { id } = await ctx.params;
     const store = getStore();
     const live = getLiveSession(store, id);
     assertLiveTenantAccess(auth, live);
-    if (auth.role === "moderator" && !live.moderatorIds.includes(auth.userId)) throw new Error("AUTH_INSUFFICIENT_ROLE");
     return jsonOk(deleteLiveSession(store, id, auth.userId));
   } catch (error) {
     return jsonError(error, routeErrorStatus(error));

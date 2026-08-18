@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppStore } from "@/lib/domain";
 import { createDemoStore } from "@/lib/store";
 import { setStoreRepository, type StoreRepository } from "@/lib/store-repository";
+
+vi.mock("@/lib/auth-helpers", () => ({
+  getOptionalAuth: vi.fn().mockResolvedValue(null),
+  requireLiveManagementAccess: vi.fn(),
+}));
 import { POST as join } from "./join/route";
 import { POST as heartbeat } from "./heartbeat/route";
 import { POST as comment } from "./comments/route";

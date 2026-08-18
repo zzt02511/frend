@@ -38,6 +38,8 @@ describe("live session collection API", () => {
     useInMemoryStore(store);
     requireAuthMock.mockResolvedValue({ userId: "moderator-1", role: "moderator", userName: "直播场控" });
 
+    requireAuthMock.mockResolvedValue({ userId: "director-1", role: "director", userName: "Tenant director" });
+
     const response = await POST(
       new Request("http://local.test/api/live-sessions", {
         method: "POST",

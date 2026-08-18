@@ -4,12 +4,14 @@ import { join } from "node:path";
 import { jsonError } from "@/lib/http";
 import { getLiveSession } from "@/lib/live-service";
 import { getStore } from "@/lib/store";
+import { requireLiveManagementAccess } from "@/lib/auth-helpers";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
+    await requireLiveManagementAccess(id, ["moderator", "director", "super_admin"]);
     const live = getLiveSession(getStore(), id);
     if (!live.enableRecord || live.status !== "ended") {
       return new Response("暂无可下载录像", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });

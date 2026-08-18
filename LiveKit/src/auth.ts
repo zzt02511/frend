@@ -33,6 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           name: user.name,
           role: user.role,
+          authVersion: user.authVersion ?? 0,
         };
       },
     }),
@@ -42,6 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.role = (user as typeof user & { role?: string }).role;
         token.sub = user.id;
+        token.authVersion = (user as typeof user & { authVersion?: number }).authVersion ?? 0;
       }
       return token;
     },
@@ -49,6 +51,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = String(token.sub ?? token.id ?? "");
         session.user.role = String(token.role ?? "audience");
+        session.user.authVersion = Number(token.authVersion ?? 0);
       }
       return session;
     },

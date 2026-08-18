@@ -14,8 +14,17 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<AuthContex
   if (!session?.user?.id) throw new Error("AUTH_REQUIRED");
 
   const user = getStore().users.find((item) => item.id === session.user.id);
-  if (!user || user.status !== "active" || (user.expiresAt && new Date(user.expiresAt) <= new Date())) {
+  const now = new Date();
+  if (!user || user.status !== "active" || (user.expiresAt && new Date(user.expiresAt) <= now)) {
     throw new Error("USER_NOT_FOUND_OR_DISABLED");
+  }
+  if ((session.user.authVersion ?? 0) !== (user.authVersion ?? 0)) throw new Error("AUTH_SESSION_REVOKED");
+
+  if (["director", "host", "moderator"].includes(user.role)) {
+    const tenantAdmin = getStore().users.find((item) => item.role === "director" && item.tenantId === user.tenantId);
+    if (!tenantAdmin || tenantAdmin.status !== "active" || (tenantAdmin.expiresAt && new Date(tenantAdmin.expiresAt) <= now)) {
+      throw new Error("TENANT_NOT_ACTIVE");
+    }
   }
 
   const role = user.role;

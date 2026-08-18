@@ -26,6 +26,8 @@ export type User = {
   createdAt?: string;
   expiresAt?: string;
   tenantId?: string;
+  /** Incremented whenever the account's existing browser sessions must be revoked. */
+  authVersion?: number;
 };
 
 export type LiveSession = {

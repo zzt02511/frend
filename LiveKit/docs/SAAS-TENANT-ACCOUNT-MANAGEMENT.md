@@ -125,3 +125,11 @@ LiveSession
 2. 客户管理员登录后，通过同一入口新建自己的主播或场控账号。
 3. 使用期限留空表示永久有效；禁用或到期后无法登录，续期后恢复。
 4. 创建直播时会自动选用当前客户的可用主播；没有主播账号时先在账号管理中新建主播。
+## Security hardening record (2026-08-18)
+
+- Every management-data endpoint verifies the signed-in user's role and the target live room's tenant. A moderator must additionally be assigned in `live.moderatorIds`; a host must be the room's `hostUserId`.
+- Only `super_admin` and `director` can create, edit, or delete rooms. Moderators can operate assigned-room comments, mic requests, replay access, and operational data only.
+- An inactive or expired tenant administrator invalidates all director, host, and moderator access in that tenant, including already signed-in browser sessions.
+- Password, role, status, or expiry changes advance `User.authVersion`. Existing signed-in sessions are rejected on their next protected request and must sign in again.
+- PostgreSQL store synchronization is serialized with immutable snapshots to avoid concurrent full-store rewrite conflicts.
+- A host assigned to more than one active/draft/scheduled room sees a room chooser instead of being silently sent to the first room.

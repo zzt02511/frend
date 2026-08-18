@@ -21,7 +21,7 @@ function messageFor(error: Error, defaultMessage: string, liveSurface: boolean) 
 }
 
 export function PageRecoveryError({ error, reset, title, defaultMessage, liveSurface = false }: Props) {
-  const sessionIssue = ["AUTH_REQUIRED", "USER_NOT_FOUND_OR_DISABLED", "AUTH_INSUFFICIENT_ROLE", "AUTH_TENANT_ACCESS_DENIED"].includes(error.message);
+  const sessionIssue = ["AUTH_REQUIRED", "USER_NOT_FOUND_OR_DISABLED", "TENANT_NOT_ACTIVE", "AUTH_SESSION_REVOKED", "AUTH_INSUFFICIENT_ROLE", "AUTH_TENANT_ACCESS_DENIED"].includes(error.message);
   const stalePage = error.message.includes("Failed to find Server Action");
   const retry = () => {
     if (stalePage) {

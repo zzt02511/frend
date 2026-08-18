@@ -21,7 +21,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requireAuth(["super_admin", "director", "moderator"]);
+    const actor = await requireAuth(["super_admin", "director"]);
     const input = createLiveSchema.parse(await readJson(request));
     const store = getStore();
     const host = store.users.find((user) => user.id === input.hostUserId && user.role === "host" && user.status === "active")
