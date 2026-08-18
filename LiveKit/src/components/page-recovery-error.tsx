@@ -31,5 +31,5 @@ export function PageRecoveryError({ error, reset, title, defaultMessage, liveSur
     reset();
   };
 
-  return <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 p-4 text-center"><h1 className="text-xl font-bold">{title}</h1><p className="text-sm text-muted-foreground">{messageFor(error, defaultMessage, liveSurface)}</p>{sessionIssue ? <SignOutButton /> : null}<Button onClick={retry}>{stalePage ? "刷新页面" : "重新加载"}</Button></main>;
+  return <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 p-4 text-center"><h1 className="text-xl font-bold">{sessionIssue ? title : "登录状态需要更新"}</h1><p className="text-sm text-muted-foreground">{sessionIssue ? messageFor(error, defaultMessage, liveSurface) : "请重新登录后继续使用主播端或管理后台。"}</p><SignOutButton label="重新登录" />{stalePage ? <Button variant="outline" onClick={retry}>刷新页面</Button> : null}</main>;
 }
