@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 const DEFAULT_TENCENT_PLAYER_SDK_URL =
   "https://tcsdk.com/player/tcplayer/release/v5.3.4/tcplayer.v5.3.4.min.js";
@@ -8,6 +8,10 @@ const DEFAULT_TENCENT_PLAYER_CSS_URL = "https://tcsdk.com/player/tcplayer/releas
 
 type TencentPlayerInstance = {
   dispose?: () => void;
+  off?: (eventName: string, handler: () => void) => void;
+  on?: (eventName: string, handler: () => void) => void;
+  play?: () => Promise<void> | void;
+  src?: (source: string) => void;
 };
 
 type TencentPlayerConstructor = new (
@@ -94,14 +98,51 @@ function loadStylesheet(src: string) {
 export function TencentCloudLivePlayer({ playUrl, forceWebRtc = false }: Props) {
   const generatedId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const elementId = `tencent-live-player-${generatedId}`;
-  const [playerState, setPlayerState] = useState("正在连接腾讯云直播...");
+  const playerRef = useRef<TencentPlayerInstance | undefined>(undefined);
+  const [playerState, setPlayerState] = useState("正在连接腾讯云直播…");
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     let disposed = false;
     let player: TencentPlayerInstance | undefined;
+    let retryTimer: number | undefined;
+    let hasStartedPlaying = false;
     const sdkUrl = process.env.NEXT_PUBLIC_TENCENT_PLAYER_SDK_URL || DEFAULT_TENCENT_PLAYER_SDK_URL;
     const cssUrl = process.env.NEXT_PUBLIC_TENCENT_PLAYER_CSS_URL || DEFAULT_TENCENT_PLAYER_CSS_URL;
     const selectedPlayUrl = forceWebRtc ? playUrl : selectPlaybackUrl(playUrl, window.navigator.userAgent);
+
+    const clearRetryTimer = () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      retryTimer = undefined;
+    };
+
+    const requestPlayback = () => {
+      if (disposed || !player) return;
+      try {
+        player.src?.(selectedPlayUrl);
+        const playResult = player.play?.();
+        if (playResult instanceof Promise) void playResult.catch(() => undefined);
+      } catch {
+        setRetryNonce((value) => value + 1);
+      }
+    };
+
+    const scheduleReconnect = (delay = 4_000) => {
+      if (disposed) return;
+      clearRetryTimer();
+      setPlayerState("直播画面连接中，正在自动重试…");
+      retryTimer = window.setTimeout(requestPlayback, delay);
+    };
+
+    const handlePlaying = () => {
+      hasStartedPlaying = true;
+      clearRetryTimer();
+      setPlayerState("");
+    };
+
+    const handleError = () => {
+      scheduleReconnect();
+    };
 
     async function startPlayer() {
       try {
@@ -119,9 +160,18 @@ export function TencentCloudLivePlayer({ playUrl, forceWebRtc = false }: Props) 
           width: "100%",
           height: "100%",
         });
-        setPlayerState("正在播放腾讯云直播画面");
+        playerRef.current = player;
+        player.on?.("playing", handlePlaying);
+        player.on?.("error", handleError);
+        setPlayerState("正在连接腾讯云直播…");
+        retryTimer = window.setTimeout(() => {
+          if (!hasStartedPlaying) scheduleReconnect(0);
+        }, 5_000);
       } catch {
-        if (!disposed) setPlayerState("腾讯云直播连接失败，请稍后重试");
+        if (!disposed) {
+          setPlayerState("直播画面连接中，正在自动重试…");
+          retryTimer = window.setTimeout(() => setRetryNonce((value) => value + 1), 4_000);
+        }
       }
     }
 
@@ -129,9 +179,23 @@ export function TencentCloudLivePlayer({ playUrl, forceWebRtc = false }: Props) 
 
     return () => {
       disposed = true;
+      clearRetryTimer();
+      player?.off?.("playing", handlePlaying);
+      player?.off?.("error", handleError);
       player?.dispose?.();
+      if (playerRef.current === player) playerRef.current = undefined;
     };
-  }, [elementId, forceWebRtc, playUrl]);
+  }, [elementId, forceWebRtc, playUrl, retryNonce]);
+
+  const recoverPlayback = () => {
+    setPlayerState("正在重新连接腾讯云直播…");
+    const playResult = playerRef.current?.play?.();
+    if (playResult instanceof Promise) {
+      void playResult.catch(() => setRetryNonce((value) => value + 1));
+      return;
+    }
+    setRetryNonce((value) => value + 1);
+  };
 
   return (
     <div
@@ -147,9 +211,18 @@ export function TencentCloudLivePlayer({ playUrl, forceWebRtc = false }: Props) 
         webkit-playsinline="true"
         x5-playsinline="true"
       />
-      <div className="pointer-events-none absolute inset-x-5 top-16 rounded-md bg-black/35 p-3 text-sm text-white backdrop-blur">
-        {playerState}
-      </div>
+      {playerState ? (
+        <div className="absolute inset-x-5 top-16 flex items-center justify-between gap-3 rounded-md bg-black/55 p-3 text-sm text-white backdrop-blur">
+          <span>{playerState}</span>
+          <button
+            type="button"
+            className="shrink-0 rounded-md border border-white/50 px-3 py-1.5 text-white"
+            onClick={recoverPlayback}
+          >
+            点击恢复
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

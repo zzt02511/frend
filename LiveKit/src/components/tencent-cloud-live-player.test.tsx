@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TencentCloudLivePlayer } from "./tencent-cloud-live-player";
@@ -12,6 +12,7 @@ describe("TencentCloudLivePlayer", () => {
     document.head.innerHTML = "";
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("loads TCPlayer CSS before initializing the player so controls are not rendered as raw text", async () => {
@@ -56,5 +57,32 @@ describe("TencentCloudLivePlayer", () => {
         sources: [{ src: "webrtc://play.fuguilong.cn/live/IHQDAT" }],
       }),
     );
+  });
+
+  it("automatically reconnects when TCPlayer reports a playback error", async () => {
+    vi.useFakeTimers();
+    const handlers = new Map<string, () => void>();
+    const src = vi.fn();
+    const play = vi.fn();
+    const tcPlayerMock = vi.fn(function MockTencentPlayer() {
+      return {
+        dispose: vi.fn(),
+        on: vi.fn((eventName: string, handler: () => void) => handlers.set(eventName, handler)),
+        off: vi.fn(),
+        play,
+        src,
+      };
+    });
+    (window as typeof window & { TCPlayer?: unknown }).TCPlayer = tcPlayerMock;
+
+    render(<TencentCloudLivePlayer playUrl="webrtc://play.fuguilong.cn/live/room-1" />);
+    await act(async () => undefined);
+
+    act(() => handlers.get("error")?.());
+    expect(screen.getByText("直播画面连接中，正在自动重试…")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(4_000));
+    expect(src).toHaveBeenCalledWith("webrtc://play.fuguilong.cn/live/room-1");
+    expect(play).toHaveBeenCalled();
   });
 });
