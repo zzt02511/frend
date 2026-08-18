@@ -35,6 +35,8 @@
 - 首次初始化后 5 秒仍未收到 `playing` 时触发一次恢复，播放错误后按 4 秒间隔自动恢复；页面同时保留“点击恢复”入口处理微信 WebView 自动播放受限。
 - “主播端有画面、腾讯云控制台有画面、HLS 清单持续产生新分片”同时成立时，应优先排查观众端播放器初始化/自动播放，不要改动 LiveKit 或切换播放架构。
 - 直播结束会调用 StopEgress，此后 HLS 可能为空响应；必须先确认直播间仍为 `live`，再用 HLS 响应判断黑屏原因。
+- 从 `ended` 再次开播时，主播端必须先确保设备已连接并发布 LiveKit 轨道，再调用 `/egress/start`；不能只把数据库状态改成 `live`。开播按钮在设备未连接时应自动完成设备连接，然后等待 Egress 真正成功。
+- “已开播，腾讯云转推已启动”只能在 `/egress/start` 返回成功后显示。服务端用 `[egress/start] requested|active|failed` 日志记录结果，但不得记录完整 RTMP 地址或鉴权 Key。
 
 - Apple UA：把 `webrtc://play.fuguilong.cn/live/IHQDAT` 转换为 `https://play.fuguilong.cn/live/IHQDAT.m3u8`。
 - 非 Apple UA：保留原始 `webrtc://` 地址。

@@ -444,7 +444,16 @@ export function MobileHostConsole({
       }
 
       setLiveStatus(payload.data.status);
-      if (action === "start" && roomRef.current) {
+      if (action === "start") {
+        if (!roomRef.current) {
+          await openCamera();
+        }
+
+        if (!roomRef.current) {
+          setActionMessage("已开播，但设备连接失败；请允许摄像头和麦克风权限后重试");
+          return;
+        }
+
         try {
           await startTencentEgress();
           setActionMessage("已开播，腾讯云转推已启动");
@@ -456,8 +465,8 @@ export function MobileHostConsole({
       if (action === "end") {
         stopCurrentStream();
       }
-      if (action !== "start" || !roomRef.current) {
-        setActionMessage(action === "start" ? "已开播" : "已结束直播");
+      if (action !== "start") {
+        setActionMessage("已结束直播");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "网络请求失败";
